@@ -20,6 +20,7 @@ from recorder.boss_loop import (  # noqa: E402
     VK_O,
     VK_P,
     VK_RETURN,
+    continue_into_restored_save,
     next_episode_tag,
     reset_boss_attempt,
     send_key_chord,
@@ -99,6 +100,27 @@ class BossLoopTests(unittest.TestCase):
             )
 
         self.assertEqual(tag, "soldier-0003")
+
+    def test_continue_repeats_enter_until_gameplay_is_stable(self) -> None:
+        reader = FakeReader([False] * 9 + [True, True, True])
+        clock = FakeClock()
+        focused: list[str] = []
+        chords: list[tuple[int, ...]] = []
+
+        count = continue_into_restored_save(
+            reader,
+            process_name="eldenring.exe",
+            timeout_seconds=10.0,
+            focus_game=focused.append,
+            send_chord=lambda *keys: chords.append(keys),
+            enter_interval_seconds=0.5,
+            monotonic=clock.monotonic,
+            sleep=clock.sleep,
+        )
+
+        self.assertEqual(count, 3)
+        self.assertEqual(chords, [(VK_RETURN,)] * 3)
+        self.assertEqual(focused, ["eldenring.exe"] * 3)
 
     def test_boss_loop_options_are_opt_in(self) -> None:
         required = [

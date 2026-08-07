@@ -242,6 +242,51 @@ def wait_for_state(
     raise TimeoutError(f"Timed out waiting for {description}.{details}")
 
 
+def continue_into_restored_save(
+    reader: StateReader,
+    *,
+    process_name: str,
+    timeout_seconds: float,
+    focus_game: Callable[[str], None],
+    send_chord: Callable[..., None],
+    enter_interval_seconds: float = 1.5,
+    poll_seconds: float = 0.2,
+    monotonic: Callable[[], float] = time.monotonic,
+    sleep: Callable[[float], None] = time.sleep,
+) -> int:
+    if enter_interval_seconds <= 0:
+        raise ValueError("Enter interval must be greater than zero")
+
+    deadline = monotonic() + timeout_seconds
+    focus_game(process_name)
+    send_chord(VK_RETURN)
+    enter_count = 1
+    next_enter_at = monotonic() + enter_interval_seconds
+    matching_reads = 0
+    last_errors: tuple[str, ...] = ()
+    while monotonic() < deadline:
+        snapshot = reader.read()
+        last_errors = snapshot.read_errors
+        if snapshot.valid:
+            matching_reads += 1
+            if matching_reads >= 3:
+                return enter_count
+        else:
+            matching_reads = 0
+            if monotonic() >= next_enter_at:
+                focus_game(process_name)
+                send_chord(VK_RETURN)
+                enter_count += 1
+                next_enter_at = monotonic() + enter_interval_seconds
+        sleep(poll_seconds)
+
+    details = f" Last read: {'; '.join(last_errors[:2])}" if last_errors else ""
+    raise TimeoutError(
+        "Timed out waiting for the restored save to enter gameplay after "
+        f"{enter_count} Enter presses.{details}"
+    )
+
+
 def reset_boss_attempt(
     profile_path: Path,
     *,
@@ -288,18 +333,17 @@ def reset_boss_attempt(
         send_chord(VK_CONTROL, VK_O)
         sleep(snapshot_delay_seconds)
 
-        print("Reset: continuing into the restored save (Enter)...")
-        focus(profile.process_name)
-        send_chord(VK_RETURN)
-        wait_for_state(
+        print("Reset: continuing into the restored save (repeating Enter)...")
+        enter_count = continue_into_restored_save(
             reader,
-            valid=True,
+            process_name=profile.process_name,
             timeout_seconds=timeout_seconds,
-            consecutive_reads=3,
-            description="the restored save to enter gameplay",
+            focus_game=focus,
+            send_chord=send_chord,
             monotonic=monotonic,
             sleep=sleep,
         )
+        print(f"Reset: gameplay loaded after {enter_count} Enter press(es).")
         sleep(gameplay_settle_seconds)
     finally:
         reader.close()
