@@ -1139,7 +1139,48 @@ def finalize_session(
 
     metadata["validation_warnings"] = report.warnings
     write_metadata(staging_directory, metadata)
-    staging_directory.rename(final_directory)
+    promote_session_directory(staging_directory, final_directory)
+
+
+def promote_session_directory(
+    staging_directory: Path,
+    final_directory: Path,
+    *,
+    attempts: int = 10,
+    initial_delay_seconds: float = 0.1,
+    rename_operation: Callable[[Path, Path], object] | None = None,
+    sleep: Callable[[float], None] = time.sleep,
+) -> None:
+    if attempts <= 0:
+        raise ValueError("Rename attempts must be greater than zero")
+    if initial_delay_seconds <= 0:
+        raise ValueError("Initial rename delay must be greater than zero")
+
+    rename = rename_operation or (lambda source, target: source.rename(target))
+    delay_seconds = initial_delay_seconds
+    for attempt in range(1, attempts + 1):
+        try:
+            rename(staging_directory, final_directory)
+            return
+        except PermissionError as error:
+            if final_directory.exists():
+                raise FileExistsError(
+                    f"Recording destination appeared during finalization: "
+                    f"{final_directory}"
+                ) from error
+            if attempt == attempts:
+                raise PermissionError(
+                    f"Windows kept the completed recording directory locked "
+                    f"after {attempts} rename attempts. The validated recording "
+                    f"is safe at: {staging_directory}"
+                ) from error
+            if attempt == 1:
+                print(
+                    "Windows temporarily locked the completed recording; "
+                    "retrying finalization..."
+                )
+            sleep(delay_seconds)
+            delay_seconds = min(delay_seconds * 2.0, 2.0)
 
 
 def open_replay(session_directory: Path) -> None:

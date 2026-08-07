@@ -28,7 +28,7 @@ from recorder.boss_loop import (  # noqa: E402
     reset_boss_attempt,
     send_key_chord,
 )
-from recorder.record import parse_args  # noqa: E402
+from recorder.record import parse_args, promote_session_directory  # noqa: E402
 
 
 class FakeClock:
@@ -62,6 +62,33 @@ class FakeReader:
 
 
 class BossLoopTests(unittest.TestCase):
+    def test_session_promotion_retries_transient_windows_lock(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            root = Path(temporary_directory)
+            staging = root / ".episode.inprogress"
+            final = root / "episode"
+            staging.mkdir()
+            attempts = 0
+            sleeps: list[float] = []
+
+            def flaky_rename(source: Path, target: Path) -> None:
+                nonlocal attempts
+                attempts += 1
+                if attempts < 3:
+                    raise PermissionError(5, "temporarily locked", str(source))
+                source.rename(target)
+
+            promote_session_directory(
+                staging,
+                final,
+                rename_operation=flaky_rename,
+                sleep=sleeps.append,
+            )
+            self.assertTrue(final.exists())
+
+        self.assertEqual(attempts, 3)
+        self.assertEqual(sleeps, [0.1, 0.2])
+
     def test_windows_input_structure_has_the_required_native_size(self) -> None:
         expected_size = 40 if ctypes.sizeof(ctypes.c_void_p) == 8 else 28
         self.assertEqual(ctypes.sizeof(INPUT), expected_size)
