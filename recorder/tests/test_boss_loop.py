@@ -22,6 +22,7 @@ from recorder.boss_loop import (  # noqa: E402
     VK_RETURN,
     next_episode_tag,
     reset_boss_attempt,
+    send_key_chord,
 )
 from recorder.record import parse_args  # noqa: E402
 
@@ -60,6 +61,28 @@ class BossLoopTests(unittest.TestCase):
     def test_windows_input_structure_has_the_required_native_size(self) -> None:
         expected_size = 40 if ctypes.sizeof(ctypes.c_void_p) == 8 else 28
         self.assertEqual(ctypes.sizeof(INPUT), expected_size)
+
+    def test_key_chord_holds_modifier_while_tapping_key(self) -> None:
+        with (
+            patch("recorder.boss_loop._send_keyboard_event") as send_event,
+            patch("recorder.boss_loop.time.sleep") as sleep,
+        ):
+            send_key_chord(VK_CONTROL, VK_O, hold_seconds=0.075)
+
+        self.assertEqual(
+            [call.args for call in send_event.call_args_list],
+            [(VK_CONTROL,), (VK_O,), (VK_O,), (VK_CONTROL,)],
+        )
+        self.assertEqual(
+            [call.kwargs for call in send_event.call_args_list],
+            [
+                {"key_up": False},
+                {"key_up": False},
+                {"key_up": True},
+                {"key_up": True},
+            ],
+        )
+        self.assertEqual([call.args for call in sleep.call_args_list], [(0.075,)] * 4)
 
     def test_next_episode_tag_skips_existing_recordings(self) -> None:
         with tempfile.TemporaryDirectory() as temporary_directory:

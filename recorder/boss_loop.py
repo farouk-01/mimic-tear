@@ -106,17 +106,8 @@ def _keyboard_input(virtual_key: int, *, key_up: bool) -> INPUT:
     )
 
 
-def send_key_chord(*virtual_keys: int) -> None:
-    if os.name != "nt":
-        raise RuntimeError("Boss reset keyboard automation requires Windows")
-    if not virtual_keys:
-        raise ValueError("At least one key is required")
-
-    events = [
-        *(_keyboard_input(key, key_up=False) for key in virtual_keys),
-        *(_keyboard_input(key, key_up=True) for key in reversed(virtual_keys)),
-    ]
-    inputs = (INPUT * len(events))(*events)
+def _send_keyboard_event(virtual_key: int, *, key_up: bool) -> None:
+    event = _keyboard_input(virtual_key, key_up=key_up)
     user32 = ctypes.WinDLL("user32", use_last_error=True)
     user32.SendInput.argtypes = [
         wintypes.UINT,
@@ -124,13 +115,33 @@ def send_key_chord(*virtual_keys: int) -> None:
         ctypes.c_int,
     ]
     user32.SendInput.restype = wintypes.UINT
-    sent = int(user32.SendInput(len(inputs), inputs, ctypes.sizeof(INPUT)))
-    if sent != len(inputs):
+    sent = int(user32.SendInput(1, ctypes.byref(event), ctypes.sizeof(INPUT)))
+    if sent != 1:
         error_code = ctypes.get_last_error()
         raise RuntimeError(
-            f"SendInput sent {sent}/{len(inputs)} keyboard events "
+            f"SendInput sent {sent}/1 keyboard events "
             f"(Windows error {error_code}: {ctypes.FormatError(error_code).strip()})"
         )
+
+
+def send_key_chord(*virtual_keys: int, hold_seconds: float = 0.075) -> None:
+    if os.name != "nt":
+        raise RuntimeError("Boss reset keyboard automation requires Windows")
+    if not virtual_keys:
+        raise ValueError("At least one key is required")
+    if hold_seconds <= 0:
+        raise ValueError("Key hold duration must be greater than zero")
+
+    pressed: list[int] = []
+    try:
+        for virtual_key in virtual_keys:
+            _send_keyboard_event(virtual_key, key_up=False)
+            pressed.append(virtual_key)
+            time.sleep(hold_seconds)
+    finally:
+        for virtual_key in reversed(pressed):
+            _send_keyboard_event(virtual_key, key_up=True)
+            time.sleep(hold_seconds)
 
 
 def focus_process_window(process_name: str, *, timeout_seconds: float = 2.0) -> None:
