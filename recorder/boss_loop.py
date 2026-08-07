@@ -21,7 +21,7 @@ from recorder.record import RecorderConfig, RecordingCancelled
 
 
 VK_CONTROL = 0x11
-VK_RETURN = 0x0D
+VK_E = 0x45
 VK_O = 0x4F
 VK_P = 0x50
 INPUT_KEYBOARD = 1
@@ -255,12 +255,12 @@ def continue_into_restored_save(
     sleep: Callable[[float], None] = time.sleep,
 ) -> int:
     if enter_interval_seconds <= 0:
-        raise ValueError("Enter interval must be greater than zero")
+        raise ValueError("Confirm-key interval must be greater than zero")
 
     enter_count = 3
     for index in range(enter_count):
         focus_game(process_name)
-        send_chord(VK_RETURN)
+        send_chord(VK_E)
         if index < enter_count - 1:
             sleep(enter_interval_seconds)
 
@@ -269,7 +269,7 @@ def continue_into_restored_save(
         valid=True,
         timeout_seconds=timeout_seconds,
         consecutive_reads=3,
-        description="the restored save to enter gameplay after three Enter presses",
+        description="the restored save to enter gameplay after three E presses",
         poll_seconds=poll_seconds,
         monotonic=monotonic,
         sleep=sleep,
@@ -323,7 +323,7 @@ def reset_boss_attempt(
         send_chord(VK_CONTROL, VK_O)
         sleep(snapshot_delay_seconds)
 
-        print("Reset: continuing into the restored save (three Enter presses)...")
+        print("Reset: continuing into the restored save (three E presses)...")
         enter_count = continue_into_restored_save(
             reader,
             process_name=profile.process_name,
@@ -333,7 +333,7 @@ def reset_boss_attempt(
             monotonic=monotonic,
             sleep=sleep,
         )
-        print(f"Reset: gameplay loaded after {enter_count} Enter press(es).")
+        print(f"Reset: gameplay loaded after {enter_count} E press(es).")
         sleep(gameplay_settle_seconds)
     finally:
         reader.close()

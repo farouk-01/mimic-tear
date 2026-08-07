@@ -17,9 +17,9 @@ from ai_player.game_state import GameStateSnapshot  # noqa: E402
 from recorder.boss_loop import (  # noqa: E402
     INPUT,
     VK_CONTROL,
+    VK_E,
     VK_O,
     VK_P,
-    VK_RETURN,
     continue_into_restored_save,
     next_episode_tag,
     reset_boss_attempt,
@@ -101,7 +101,7 @@ class BossLoopTests(unittest.TestCase):
 
         self.assertEqual(tag, "soldier-0003")
 
-    def test_continue_presses_enter_exactly_three_times_then_waits(self) -> None:
+    def test_continue_presses_confirm_exactly_three_times_then_waits(self) -> None:
         reader = FakeReader([False, False, True, True, True])
         clock = FakeClock()
         focused: list[str] = []
@@ -118,7 +118,7 @@ class BossLoopTests(unittest.TestCase):
         )
 
         self.assertEqual(count, 3)
-        self.assertEqual(chords, [(VK_RETURN,)] * 3)
+        self.assertEqual(chords, [(VK_E,)] * 3)
         self.assertEqual(focused, ["eldenring.exe"] * 3)
         self.assertEqual(clock.sleeps.count(1.5), 2)
 
@@ -167,9 +167,9 @@ class BossLoopTests(unittest.TestCase):
             [
                 (VK_P,),
                 (VK_CONTROL, VK_O),
-                (VK_RETURN,),
-                (VK_RETURN,),
-                (VK_RETURN,),
+                (VK_E,),
+                (VK_E,),
+                (VK_E,),
             ],
         )
         self.assertEqual(focused, ["eldenring.exe"] * 5)

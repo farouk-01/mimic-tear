@@ -67,7 +67,7 @@ disk-space controls.
 
 The opt-in boss loop automates the practice-tool sequence after every attempt:
 it finalizes the recording, sends `P`, waits for gameplay to unload, sends
-`Ctrl+O` to load the currently selected savefile, sends `Enter` to Continue,
+`Ctrl+O` to load the currently selected savefile, sends `E` to Continue,
 waits for gameplay to become readable again, and starts the next recording.
 Each episode gets a unique suffix such as `soldier-of-godrick-0001`. Replays do
 not open between episodes.
