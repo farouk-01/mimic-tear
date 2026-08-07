@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import ctypes
 import sys
 import tempfile
 import unittest
@@ -14,6 +15,7 @@ sys.path.insert(0, str(PROJECT_ROOT))
 
 from ai_player.game_state import GameStateSnapshot  # noqa: E402
 from recorder.boss_loop import (  # noqa: E402
+    INPUT,
     VK_CONTROL,
     VK_O,
     VK_P,
@@ -55,6 +57,10 @@ class FakeReader:
 
 
 class BossLoopTests(unittest.TestCase):
+    def test_windows_input_structure_has_the_required_native_size(self) -> None:
+        expected_size = 40 if ctypes.sizeof(ctypes.c_void_p) == 8 else 28
+        self.assertEqual(ctypes.sizeof(INPUT), expected_size)
+
     def test_next_episode_tag_skips_existing_recordings(self) -> None:
         with tempfile.TemporaryDirectory() as temporary_directory:
             output = Path(temporary_directory)
