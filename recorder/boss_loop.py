@@ -26,6 +26,8 @@ VK_O = 0x4F
 VK_P = 0x50
 INPUT_KEYBOARD = 1
 KEYEVENTF_KEYUP = 0x0002
+KEYEVENTF_SCANCODE = 0x0008
+SCAN_E = 0x12
 SW_RESTORE = 9
 
 
@@ -93,21 +95,34 @@ def next_episode_tag(
     return f"{base_tag}-{episode:04d}"
 
 
-def _keyboard_input(virtual_key: int, *, key_up: bool) -> INPUT:
+def _keyboard_input(
+    virtual_key: int,
+    *,
+    key_up: bool,
+    scan_code: int | None = None,
+) -> INPUT:
+    flags = KEYEVENTF_KEYUP if key_up else 0
+    if scan_code is not None:
+        flags |= KEYEVENTF_SCANCODE
     return INPUT(
         type=INPUT_KEYBOARD,
         ki=KEYBDINPUT(
-            wVk=virtual_key,
-            wScan=0,
-            dwFlags=KEYEVENTF_KEYUP if key_up else 0,
+            wVk=0 if scan_code is not None else virtual_key,
+            wScan=scan_code or 0,
+            dwFlags=flags,
             time=0,
             dwExtraInfo=0,
         ),
     )
 
 
-def _send_keyboard_event(virtual_key: int, *, key_up: bool) -> None:
-    event = _keyboard_input(virtual_key, key_up=key_up)
+def _send_keyboard_event(
+    virtual_key: int,
+    *,
+    key_up: bool,
+    scan_code: int | None = None,
+) -> None:
+    event = _keyboard_input(virtual_key, key_up=key_up, scan_code=scan_code)
     user32 = ctypes.WinDLL("user32", use_last_error=True)
     user32.SendInput.argtypes = [
         wintypes.UINT,
@@ -124,7 +139,11 @@ def _send_keyboard_event(virtual_key: int, *, key_up: bool) -> None:
         )
 
 
-def send_key_chord(*virtual_keys: int, hold_seconds: float = 0.075) -> None:
+def send_key_chord(
+    *virtual_keys: int,
+    hold_seconds: float = 0.075,
+    scan_code: int | None = None,
+) -> None:
     if os.name != "nt":
         raise RuntimeError("Boss reset keyboard automation requires Windows")
     if not virtual_keys:
@@ -135,12 +154,20 @@ def send_key_chord(*virtual_keys: int, hold_seconds: float = 0.075) -> None:
     pressed: list[int] = []
     try:
         for virtual_key in virtual_keys:
-            _send_keyboard_event(virtual_key, key_up=False)
+            _send_keyboard_event(
+                virtual_key,
+                key_up=False,
+                scan_code=scan_code,
+            )
             pressed.append(virtual_key)
             time.sleep(hold_seconds)
     finally:
         for virtual_key in reversed(pressed):
-            _send_keyboard_event(virtual_key, key_up=True)
+            _send_keyboard_event(
+                virtual_key,
+                key_up=True,
+                scan_code=scan_code,
+            )
             time.sleep(hold_seconds)
 
 
@@ -260,7 +287,7 @@ def continue_into_restored_save(
     enter_count = 3
     for index in range(enter_count):
         focus_game(process_name)
-        send_chord(VK_E)
+        send_chord(VK_E, scan_code=SCAN_E)
         if index < enter_count - 1:
             sleep(enter_interval_seconds)
 

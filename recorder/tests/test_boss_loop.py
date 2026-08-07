@@ -16,10 +16,13 @@ sys.path.insert(0, str(PROJECT_ROOT))
 from ai_player.game_state import GameStateSnapshot  # noqa: E402
 from recorder.boss_loop import (  # noqa: E402
     INPUT,
+    KEYEVENTF_SCANCODE,
+    SCAN_E,
     VK_CONTROL,
     VK_E,
     VK_O,
     VK_P,
+    _keyboard_input,
     continue_into_restored_save,
     next_episode_tag,
     reset_boss_attempt,
@@ -77,13 +80,20 @@ class BossLoopTests(unittest.TestCase):
         self.assertEqual(
             [call.kwargs for call in send_event.call_args_list],
             [
-                {"key_up": False},
-                {"key_up": False},
-                {"key_up": True},
-                {"key_up": True},
+                {"key_up": False, "scan_code": None},
+                {"key_up": False, "scan_code": None},
+                {"key_up": True, "scan_code": None},
+                {"key_up": True, "scan_code": None},
             ],
         )
         self.assertEqual([call.args for call in sleep.call_args_list], [(0.075,)] * 4)
+
+    def test_scan_code_input_uses_physical_key_events(self) -> None:
+        event = _keyboard_input(VK_E, key_up=False, scan_code=SCAN_E)
+
+        self.assertEqual(event.ki.wVk, 0)
+        self.assertEqual(event.ki.wScan, SCAN_E)
+        self.assertEqual(event.ki.dwFlags, KEYEVENTF_SCANCODE)
 
     def test_next_episode_tag_skips_existing_recordings(self) -> None:
         with tempfile.TemporaryDirectory() as temporary_directory:
@@ -112,7 +122,7 @@ class BossLoopTests(unittest.TestCase):
             process_name="eldenring.exe",
             timeout_seconds=10.0,
             focus_game=focused.append,
-            send_chord=lambda *keys: chords.append(keys),
+            send_chord=lambda *keys, **_: chords.append(keys),
             monotonic=clock.monotonic,
             sleep=clock.sleep,
         )
@@ -157,7 +167,7 @@ class BossLoopTests(unittest.TestCase):
                 gameplay_settle_seconds=3.0,
                 reader_factory=lambda _: reader,
                 focus_game=focused.append,
-                send_chord=lambda *keys: chords.append(keys),
+                send_chord=lambda *keys, **_: chords.append(keys),
                 monotonic=clock.monotonic,
                 sleep=clock.sleep,
             )
