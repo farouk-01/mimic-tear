@@ -119,7 +119,7 @@ class RecorderConfig:
     boss_reset_profile: Path = PROJECT_ROOT / "recorder" / "profiles" / "elden_ring.json"
     boss_reset_timeout_seconds: float = 45.0
     boss_title_settle_seconds: float = 2.0
-    boss_snapshot_delay_seconds: float = 1.0
+    boss_snapshot_delay_seconds: float = 3.0
     boss_gameplay_settle_seconds: float = 2.0
     boss_episodes: int | None = None
 
@@ -1504,7 +1504,7 @@ def parse_args(argv: list[str] | None = None) -> RecorderConfig:
     )
     parser.add_argument("--boss-reset-timeout", type=float, default=45.0)
     parser.add_argument("--boss-title-settle", type=float, default=2.0)
-    parser.add_argument("--boss-snapshot-delay", type=float, default=1.0)
+    parser.add_argument("--boss-snapshot-delay", type=float, default=3.0)
     parser.add_argument("--boss-gameplay-settle", type=float, default=2.0)
     parser.add_argument(
         "--boss-episodes",

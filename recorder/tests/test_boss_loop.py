@@ -113,7 +113,6 @@ class BossLoopTests(unittest.TestCase):
             timeout_seconds=10.0,
             focus_game=focused.append,
             send_chord=lambda *keys: chords.append(keys),
-            enter_interval_seconds=0.5,
             monotonic=clock.monotonic,
             sleep=clock.sleep,
         )
@@ -121,7 +120,7 @@ class BossLoopTests(unittest.TestCase):
         self.assertEqual(count, 3)
         self.assertEqual(chords, [(VK_RETURN,)] * 3)
         self.assertEqual(focused, ["eldenring.exe"] * 3)
-        self.assertEqual(clock.sleeps.count(0.5), 2)
+        self.assertEqual(clock.sleeps.count(1.5), 2)
 
     def test_boss_loop_options_are_opt_in(self) -> None:
         required = [
@@ -140,6 +139,7 @@ class BossLoopTests(unittest.TestCase):
         self.assertTrue(loop.boss_loop)
         self.assertEqual(loop.boss_episodes, 3)
         self.assertEqual(loop.boss_reset_hotkey, "F10")
+        self.assertEqual(loop.boss_snapshot_delay_seconds, 3.0)
 
     def test_reset_waits_for_title_then_restored_gameplay(self) -> None:
         reader = FakeReader([True, False, False, True, True, True])
