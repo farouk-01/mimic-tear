@@ -101,8 +101,8 @@ class BossLoopTests(unittest.TestCase):
 
         self.assertEqual(tag, "soldier-0003")
 
-    def test_continue_repeats_enter_until_gameplay_is_stable(self) -> None:
-        reader = FakeReader([False] * 9 + [True, True, True])
+    def test_continue_presses_enter_exactly_three_times_then_waits(self) -> None:
+        reader = FakeReader([False, False, True, True, True])
         clock = FakeClock()
         focused: list[str] = []
         chords: list[tuple[int, ...]] = []
@@ -121,6 +121,7 @@ class BossLoopTests(unittest.TestCase):
         self.assertEqual(count, 3)
         self.assertEqual(chords, [(VK_RETURN,)] * 3)
         self.assertEqual(focused, ["eldenring.exe"] * 3)
+        self.assertEqual(clock.sleeps.count(0.5), 2)
 
     def test_boss_loop_options_are_opt_in(self) -> None:
         required = [
@@ -163,9 +164,15 @@ class BossLoopTests(unittest.TestCase):
 
         self.assertEqual(
             chords,
-            [(VK_P,), (VK_CONTROL, VK_O), (VK_RETURN,)],
+            [
+                (VK_P,),
+                (VK_CONTROL, VK_O),
+                (VK_RETURN,),
+                (VK_RETURN,),
+                (VK_RETURN,),
+            ],
         )
-        self.assertEqual(focused, ["eldenring.exe"] * 3)
+        self.assertEqual(focused, ["eldenring.exe"] * 5)
         self.assertTrue(reader.closed)
         self.assertIn(2.0, clock.sleeps)
         self.assertIn(1.0, clock.sleeps)

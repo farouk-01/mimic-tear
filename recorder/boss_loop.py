@@ -257,34 +257,24 @@ def continue_into_restored_save(
     if enter_interval_seconds <= 0:
         raise ValueError("Enter interval must be greater than zero")
 
-    deadline = monotonic() + timeout_seconds
-    focus_game(process_name)
-    send_chord(VK_RETURN)
-    enter_count = 1
-    next_enter_at = monotonic() + enter_interval_seconds
-    matching_reads = 0
-    last_errors: tuple[str, ...] = ()
-    while monotonic() < deadline:
-        snapshot = reader.read()
-        last_errors = snapshot.read_errors
-        if snapshot.valid:
-            matching_reads += 1
-            if matching_reads >= 3:
-                return enter_count
-        else:
-            matching_reads = 0
-            if monotonic() >= next_enter_at:
-                focus_game(process_name)
-                send_chord(VK_RETURN)
-                enter_count += 1
-                next_enter_at = monotonic() + enter_interval_seconds
-        sleep(poll_seconds)
+    enter_count = 3
+    for index in range(enter_count):
+        focus_game(process_name)
+        send_chord(VK_RETURN)
+        if index < enter_count - 1:
+            sleep(enter_interval_seconds)
 
-    details = f" Last read: {'; '.join(last_errors[:2])}" if last_errors else ""
-    raise TimeoutError(
-        "Timed out waiting for the restored save to enter gameplay after "
-        f"{enter_count} Enter presses.{details}"
+    wait_for_state(
+        reader,
+        valid=True,
+        timeout_seconds=timeout_seconds,
+        consecutive_reads=3,
+        description="the restored save to enter gameplay after three Enter presses",
+        poll_seconds=poll_seconds,
+        monotonic=monotonic,
+        sleep=sleep,
     )
+    return enter_count
 
 
 def reset_boss_attempt(
@@ -333,7 +323,7 @@ def reset_boss_attempt(
         send_chord(VK_CONTROL, VK_O)
         sleep(snapshot_delay_seconds)
 
-        print("Reset: continuing into the restored save (repeating Enter)...")
+        print("Reset: continuing into the restored save (three Enter presses)...")
         enter_count = continue_into_restored_save(
             reader,
             process_name=profile.process_name,
