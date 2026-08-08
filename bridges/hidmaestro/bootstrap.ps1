@@ -25,7 +25,7 @@ if (-not (Test-Path -LiteralPath $sdkDll)) {
     Expand-Archive -LiteralPath $archivePath -DestinationPath $sdkPath -Force
 }
 
-dotnet publish (Join-Path $bridgeRoot "AiPlayer.ControllerBridge.csproj") `
+dotnet publish (Join-Path $bridgeRoot "MimicTear.ControllerBridge.csproj") `
     --configuration Release `
     --runtime win-x64 `
     --self-contained false `

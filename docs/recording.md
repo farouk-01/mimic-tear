@@ -9,7 +9,7 @@ atomically finalized session directory. New recordings default to 640x360 at
 From the project root:
 
 ```powershell
-.\.venv\Scripts\python.exe -m ai_player.cli.record `
+.\.venv\Scripts\python.exe -m mimic_tear.cli.record `
   --theme exploration `
   --tag basic-movement `
   --split train `
@@ -45,19 +45,19 @@ Useful options:
 
 ```powershell
 # Capture a specific monitor at the defaults.
-.\.venv\Scripts\python.exe -m ai_player.cli.record --theme combat --tag boss-practice --split train --monitor 1
+.\.venv\Scripts\python.exe -m mimic_tear.cli.record --theme combat --tag boss-practice --split train --monitor 1
 
 # Capture a desktop region expressed as left,top,right,bottom.
-.\.venv\Scripts\python.exe -m ai_player.cli.record --theme exploration --tag interior-01 --split train --region 100,80,1820,1040
+.\.venv\Scripts\python.exe -m mimic_tear.cli.record --theme exploration --tag interior-01 --split train --region 100,80,1820,1040
 
 # Limit a headless collection run to ten minutes.
-.\.venv\Scripts\python.exe -m ai_player.cli.record --theme combat --tag group-01 --split train --no-preview --max-duration 600
+.\.venv\Scripts\python.exe -m mimic_tear.cli.record --theme combat --tag group-01 --split train --no-preview --max-duration 600
 
 # Cancel and discard an in-progress recording with CTRL+F9.
-.\.venv\Scripts\python.exe -m ai_player.cli.record --theme movement --tag basic-movement --split train --cancel-hotkey CTRL+F9
+.\.venv\Scripts\python.exe -m mimic_tear.cli.record --theme movement --tag basic-movement --split train --cancel-hotkey CTRL+F9
 
 # Also write a human-readable CSV mirror.
-.\.venv\Scripts\python.exe -m ai_player.cli.record --theme items --tag healing-01 --split validation --csv
+.\.venv\Scripts\python.exe -m mimic_tear.cli.record --theme items --tag healing-01 --split validation --csv
 ```
 
 Run `record.py --help` for resolution, FPS, codec, deadzone, countdown, and
@@ -97,7 +97,7 @@ episodes or capture monitor 1:
 .\record-soldier-loop.cmd --boss-episodes 10 --monitor 1
 ```
 
-To use the loop for another encounter, invoke `python -m ai_player.cli.record`
+To use the loop for another encounter, invoke `python -m mimic_tear.cli.record`
 with your own `--theme`, base `--tag`, and `--split`, plus `--boss-loop` and
 `--no-preview`. Timing can be adjusted with `--boss-title-settle`,
 `--boss-snapshot-delay`, `--boss-gameplay-settle`, and
@@ -180,13 +180,13 @@ kept in the profile so they remain visible and testable.
 Load a character into the game world, then test discovery by itself:
 
 ```powershell
-.\.venv\Scripts\python.exe -m ai_player.cli.discover_game_state
+.\.venv\Scripts\python.exe -m mimic_tear.cli.discover_game_state
 ```
 
 Test a filled profile with a single read before recording:
 
 ```powershell
-.\.venv\Scripts\python.exe -m ai_player.cli.probe_game_state `
+.\.venv\Scripts\python.exe -m mimic_tear.cli.probe_game_state `
   configs\game-state\elden-ring.json
 ```
 
@@ -207,7 +207,7 @@ The currently resolved state schema includes:
 - Player lock-on state.
 - Location ID.
 
-Unresolved fields are documented in `src/ai_player/game_state/stubs.py` and are
+Unresolved fields are documented in `mimic_tear/game_state/stubs.py` and are
 not written to Parquet or passed to the model. They currently include enemy
 identity/health/position, camera orientation, flasks, quick items and counts,
 current hand/weapon/two-hand state, spells, level, attributes, weapon upgrade
@@ -230,7 +230,7 @@ with the CNN image representation before producing controller outputs.
 ## Validate
 
 ```powershell
-.\.venv\Scripts\python.exe -m ai_player.cli.validate recordings\train\exploration\basic-movement
+.\.venv\Scripts\python.exe -m mimic_tear.cli.validate recordings\train\exploration\basic-movement
 ```
 
 Add `--json` for machine-readable output. The recorder supports one strict,
@@ -239,7 +239,7 @@ typed Parquet format; recordings with different columns or types are rejected.
 ## Replay and exclude bad frames
 
 ```powershell
-.\.venv\Scripts\python.exe -m ai_player.cli.replay recordings\train\exploration\basic-movement
+.\.venv\Scripts\python.exe -m mimic_tear.cli.replay recordings\train\exploration\basic-movement
 ```
 
 The replay window shows the exact Parquet controller row paired with each video
@@ -248,7 +248,7 @@ synchronization offset. To overlay the AI's HiResCAM evidence on a recording,
 supply the policy checkpoint that you want to inspect:
 
 ```powershell
-.\.venv\Scripts\python.exe -m ai_player.cli.replay recordings\train\exploration\basic-movement --cam-checkpoint artifacts\cnn-soldier-godrick-1\best.pt
+.\.venv\Scripts\python.exe -m mimic_tear.cli.replay recordings\train\exploration\basic-movement --cam-checkpoint artifacts\cnn-soldier-godrick-1\best.pt
 ```
 
 Press `H` to toggle HiResCAM during replay. `--cam-fps` controls how often the

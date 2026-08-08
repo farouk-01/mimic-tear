@@ -6,7 +6,7 @@
 
 #include <string>
 
-namespace ai_player::controller {
+namespace mimic_tear::controller {
 
 class Controller {
 public:
@@ -38,4 +38,4 @@ private:
     float stick_deadzone_ = 0.12f;
 };
 
-}  // namespace ai_player::controller
+}  // namespace mimic_tear::controller

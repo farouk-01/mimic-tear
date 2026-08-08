@@ -6,9 +6,9 @@
 
 namespace py = pybind11;
 
-using ai_player::controller::Controller;
-using ai_player::controller::ControllerState;
-using ai_player::controller::VirtualController;
+using mimic_tear::controller::Controller;
+using mimic_tear::controller::ControllerState;
+using mimic_tear::controller::VirtualController;
 
 PYBIND11_MODULE(ai_controller, module) {
     module.doc() = "Native SDL3 physical and virtual controllers";
@@ -81,7 +81,7 @@ PYBIND11_MODULE(ai_controller, module) {
     py::class_<VirtualController>(module, "VirtualController")
         .def(
             py::init<std::string>(),
-            py::arg("name") = "AI Player Virtual Controller"
+            py::arg("name") = "Mimic Tear Virtual Controller"
         )
         .def("apply", &VirtualController::apply, py::arg("state"))
         .def("reset", &VirtualController::reset)

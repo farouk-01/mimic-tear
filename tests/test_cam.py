@@ -10,13 +10,13 @@ from torch import Tensor, nn
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(PROJECT_ROOT / "src"))
+sys.path.insert(0, str(PROJECT_ROOT))
 
-from ai_player.visualization.hirescam import (  # noqa: E402
+from mimic_tear.visualization.hirescam import (  # noqa: E402
     HiResCamVisualizer,
     blend_heatmap,
 )
-from ai_player.policy import PolicyOutput  # noqa: E402
+from mimic_tear.policy import PolicyOutput  # noqa: E402
 
 
 class TinyPolicy(nn.Module):

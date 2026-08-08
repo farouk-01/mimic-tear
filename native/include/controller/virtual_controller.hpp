@@ -7,14 +7,14 @@
 
 #include <string>
 
-namespace ai_player::controller {
+namespace mimic_tear::controller {
 
 // An SDL gamepad whose inputs are supplied by the AI instead of hardware.
 // SDL virtual devices are visible only inside this process.
 class VirtualController {
 public:
     explicit VirtualController(
-        std::string name = "AI Player Virtual Controller"
+        std::string name = "Mimic Tear Virtual Controller"
     );
     ~VirtualController();
 
@@ -46,4 +46,4 @@ private:
     bool initialized_ = false;
 };
 
-}  // namespace ai_player::controller
+}  // namespace mimic_tear::controller

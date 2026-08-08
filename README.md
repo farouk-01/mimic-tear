@@ -1,4 +1,4 @@
-# AI Player quick start
+# Mimic Tear quick start
 
 Install the package in the project virtual environment once so the documented
 module and console entry points resolve consistently:
@@ -10,7 +10,7 @@ module and console entry points resolve consistently:
 Run commands from the project root in PowerShell:
 
 ```powershell
-cd C:\Users\farou\Documents\projects\ai-player
+cd C:\Users\farou\Documents\projects\mimic-tear
 .\.venv\Scripts\Activate.ps1
 ```
 
@@ -88,7 +88,7 @@ can increase GPU load and cause dropped frames.
 ## Let the AI play through the virtual controller
 
 The AI sends controller state to an elevated HIDMaestro bridge over the local
-named pipe `\\.\pipe\ai-player-controller`. The bridge creates a system-wide
+named pipe `\\.\pipe\mimic-tear-controller`. The bridge creates a system-wide
 virtual Xbox 360 controller that Elden Ring can read.
 
 ### One-time bridge setup

@@ -6,11 +6,11 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using HIDMaestro;
 
-namespace AiPlayer.ControllerBridge;
+namespace MimicTear.ControllerBridge;
 
 internal static class Program
 {
-    private const string PipeName = "ai-player-controller";
+    private const string PipeName = "mimic-tear-controller";
     private const int DefaultWatchdogMilliseconds = 250;
 
     public static async Task<int> Main(string[] args)
@@ -408,7 +408,7 @@ internal static class Program
     {
         Console.Error.WriteLine($"Unknown command '{command}'.");
         Console.Error.WriteLine(
-            "Usage: ai-player-controller-bridge [install|probe|serve] " +
+            "Usage: mimic-tear-controller-bridge [install|probe|serve] " +
             "[--watchdog-ms 250] [--client-sid S-1-...]"
         );
         return 2;

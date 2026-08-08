@@ -10,11 +10,10 @@ from unittest.mock import patch
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
-sys.path.insert(0, str(PROJECT_ROOT / "src"))
 sys.path.insert(0, str(PROJECT_ROOT))
 
-from ai_player.game_state import GameStateSnapshot  # noqa: E402
-from ai_player.recording.boss_loop import (  # noqa: E402
+from mimic_tear.game_state import GameStateSnapshot  # noqa: E402
+from mimic_tear.recording.boss_loop import (  # noqa: E402
     INPUT,
     KEYEVENTF_SCANCODE,
     SCAN_E,
@@ -28,7 +27,7 @@ from ai_player.recording.boss_loop import (  # noqa: E402
     reset_boss_attempt,
     send_key_chord,
 )
-from ai_player.recording.record import parse_args, promote_session_directory  # noqa: E402
+from mimic_tear.recording.record import parse_args, promote_session_directory  # noqa: E402
 
 
 class FakeClock:
@@ -95,8 +94,8 @@ class BossLoopTests(unittest.TestCase):
 
     def test_key_chord_holds_modifier_while_tapping_key(self) -> None:
         with (
-            patch("ai_player.recording.boss_loop._send_keyboard_event") as send_event,
-            patch("ai_player.recording.boss_loop.time.sleep") as sleep,
+            patch("mimic_tear.recording.boss_loop._send_keyboard_event") as send_event,
+            patch("mimic_tear.recording.boss_loop.time.sleep") as sleep,
         ):
             send_key_chord(VK_CONTROL, VK_O, hold_seconds=0.075)
 
@@ -185,7 +184,7 @@ class BossLoopTests(unittest.TestCase):
         chords: list[tuple[int, ...]] = []
         profile = SimpleNamespace(process_name="eldenring.exe")
 
-        with patch("ai_player.recording.boss_loop.load_memory_profile", return_value=profile):
+        with patch("mimic_tear.recording.boss_loop.load_memory_profile", return_value=profile):
             reset_boss_attempt(
                 Path("profile.json"),
                 timeout_seconds=10.0,

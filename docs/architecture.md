@@ -1,15 +1,15 @@
 # Project architecture
 
-All Python production code lives under `src/ai_player`. The three top-level
+All Python production code lives under `mimic_tear`. The three top-level
 Windows command files are intentionally thin launchers for the canonical
 scripts and installed commands.
 
 ```text
-ai-player/
+mimic-tear/
 |-- pyproject.toml
 |-- configs/
 |   `-- game-state/          Versioned memory profiles
-|-- src/ai_player/
+|-- mimic_tear/
 |   |-- cli/                 Argument parsing and command entry points
 |   |-- controller/          Controller state and bridge client
 |   |-- dataset/             Session discovery, decoding, transforms, loaders

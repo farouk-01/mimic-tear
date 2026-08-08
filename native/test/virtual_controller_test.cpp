@@ -9,8 +9,8 @@
 #include <limits>
 #include <stdexcept>
 
-using ai_player::controller::ControllerState;
-using ai_player::controller::VirtualController;
+using mimic_tear::controller::ControllerState;
+using mimic_tear::controller::VirtualController;
 
 namespace {
 
@@ -24,7 +24,7 @@ void require(const bool condition, const char* message) {
 
 int main() {
     try {
-        VirtualController controller("AI Player Test Controller");
+        VirtualController controller("Mimic Tear Test Controller");
         require(controller.connected(), "Virtual controller is disconnected");
 
         SDL_Gamepad* gamepad =

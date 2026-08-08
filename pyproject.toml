@@ -3,7 +3,7 @@ requires = ["setuptools>=77"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "ai-player"
+name = "mimic-tear"
 version = "0.1.0"
 description = "A synchronized vision-and-game-state policy for Elden Ring"
 readme = "README.md"
@@ -21,21 +21,22 @@ dependencies = [
 native = ["pybind11"]
 
 [project.scripts]
-ai-player-play = "ai_player.cli.play:main"
-ai-player-record = "ai_player.cli.record:main"
-ai-player-replay = "ai_player.cli.replay:main"
-ai-player-validate = "ai_player.cli.validate:main"
-ai-player-train = "ai_player.cli.train:main"
-ai-player-evaluate = "ai_player.cli.evaluate:main"
-ai-player-controller-probe = "ai_player.cli.controller_probe:main"
-ai-player-discover-game-state = "ai_player.cli.discover_game_state:main"
-ai-player-probe-game-state = "ai_player.cli.probe_game_state:main"
+mimic-tear-play = "mimic_tear.cli.play:main"
+mimic-tear-record = "mimic_tear.cli.record:main"
+mimic-tear-replay = "mimic_tear.cli.replay:main"
+mimic-tear-validate = "mimic_tear.cli.validate:main"
+mimic-tear-train = "mimic_tear.cli.train:main"
+mimic-tear-evaluate = "mimic_tear.cli.evaluate:main"
+mimic-tear-controller-probe = "mimic_tear.cli.controller_probe:main"
+mimic-tear-discover-game-state = "mimic_tear.cli.discover_game_state:main"
+mimic-tear-probe-game-state = "mimic_tear.cli.probe_game_state:main"
 
 [tool.setuptools]
-package-dir = {"" = "src"}
+package-dir = {"" = "."}
 
 [tool.setuptools.packages.find]
-where = ["src"]
+where = ["."]
+include = ["mimic_tear*"]
 
 [tool.ruff]
 line-length = 88

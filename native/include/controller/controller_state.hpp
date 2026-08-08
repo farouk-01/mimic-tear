@@ -2,7 +2,7 @@
 
 #include <string>
 
-namespace ai_player::controller {
+namespace mimic_tear::controller {
 
 struct ControllerState {
     float left_x = 0.0f;
@@ -36,4 +36,4 @@ struct ControllerState {
     [[nodiscard]] std::string to_string() const;
 };
 
-}  // namespace ai_player::controller
+}  // namespace mimic_tear::controller

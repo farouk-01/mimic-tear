@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.25)
 
 project(
-    ai_player_native
+    mimic_tear_native
     VERSION 0.1.0
     LANGUAGES CXX
 )
@@ -37,7 +37,7 @@ add_subdirectory(
 )
 
 add_library(
-    ai_player_controller
+    mimic_tear_controller
     STATIC
     src/controller.cpp
     src/controller_state.cpp
@@ -45,33 +45,33 @@ add_library(
 )
 
 target_include_directories(
-    ai_player_controller
+    mimic_tear_controller
     PUBLIC
         "${CMAKE_CURRENT_SOURCE_DIR}/include"
 )
 
 target_link_libraries(
-    ai_player_controller
+    mimic_tear_controller
     PUBLIC
         SDL3::SDL3
 )
 
 target_compile_features(
-    ai_player_controller
+    mimic_tear_controller
     PUBLIC
         cxx_std_20
 )
 
 if(MSVC)
     target_compile_options(
-        ai_player_controller
+        mimic_tear_controller
         PRIVATE
             /W4
             /permissive-
     )
 else()
     target_compile_options(
-        ai_player_controller
+        mimic_tear_controller
         PRIVATE
             -Wall
             -Wextra
@@ -93,7 +93,7 @@ target_include_directories(
 target_link_libraries(
     controller_test
     PRIVATE
-        ai_player_controller
+        mimic_tear_controller
 )
 
 add_executable(
@@ -104,7 +104,7 @@ add_executable(
 target_link_libraries(
     virtual_controller_test
     PRIVATE
-        ai_player_controller
+        mimic_tear_controller
 )
 
 enable_testing()
@@ -122,7 +122,7 @@ pybind11_add_module(
 target_link_libraries(
     ai_controller
     PRIVATE
-        ai_player_controller
+        mimic_tear_controller
 )
 
 add_custom_command(
@@ -135,7 +135,7 @@ add_custom_command(
 )
 
 set_target_properties(
-    ai_player_controller
+    mimic_tear_controller
     PROPERTIES
         POSITION_INDEPENDENT_CODE ON
 )

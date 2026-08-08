@@ -8,7 +8,7 @@
 #include <string>
 #include <utility>
 
-namespace ai_player::controller {
+namespace mimic_tear::controller {
 namespace {
 
 [[noreturn]] void throw_sdl_error(const char* operation) {
@@ -269,4 +269,4 @@ void VirtualController::close() noexcept {
     }
 }
 
-}  // namespace ai_player::controller
+}  // namespace mimic_tear::controller

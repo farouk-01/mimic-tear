@@ -3,7 +3,7 @@
 #include <iomanip>
 #include <sstream>
 
-namespace ai_player::controller {
+namespace mimic_tear::controller {
 
 std::string ControllerState::to_string() const {
     std::ostringstream output;
@@ -65,4 +65,4 @@ std::string ControllerState::to_string() const {
     return output.str();
 }
 
-}  // namespace ai_player::controller
+}  // namespace mimic_tear::controller

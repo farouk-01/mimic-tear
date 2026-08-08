@@ -1,2 +1,2 @@
-"""AI Player test suite."""
+"""Mimic Tear test suite."""
 

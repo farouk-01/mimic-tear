@@ -9,26 +9,25 @@ import torch
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(PROJECT_ROOT / "src"))
 sys.path.insert(0, str(PROJECT_ROOT))
 
-from ai_player.dataset.dataset import load_session_samples  # noqa: E402
-from ai_player.game_state import (  # noqa: E402
+from mimic_tear.dataset.dataset import load_session_samples  # noqa: E402
+from mimic_tear.game_state import (  # noqa: E402
     GAME_STATE_FEATURE_COUNT,
     GAME_STATE_FEATURE_NAMES,
     GameStateSample,
     GameStateSnapshot,
     encode_game_state_values,
 )
-from ai_player.policy import (  # noqa: E402
+from mimic_tear.policy import (  # noqa: E402
     EldenRingPolicy,
     load_policy_checkpoint,
     policy_model_config,
 )
-from ai_player.recording.schema import BUTTON_COLUMNS  # noqa: E402
-from ai_player.policy.loss import PolicyLoss  # noqa: E402
-from ai_player.training.train import train_one_epoch  # noqa: E402
-from ai_player.recording.game_state_capture import GameStateWriter  # noqa: E402
+from mimic_tear.recording.schema import BUTTON_COLUMNS  # noqa: E402
+from mimic_tear.policy.loss import PolicyLoss  # noqa: E402
+from mimic_tear.training.train import train_one_epoch  # noqa: E402
+from mimic_tear.recording.game_state_capture import GameStateWriter  # noqa: E402
 from tests.recording.test_recording import (  # noqa: E402
     current_row,
     write_inputs,

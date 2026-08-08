@@ -8,7 +8,7 @@
 #include <string>
 #include <utility>
 
-namespace ai_player::controller {
+namespace mimic_tear::controller {
 
 Controller::Controller(const float stick_deadzone)
     : stick_deadzone_(stick_deadzone) {
@@ -248,4 +248,4 @@ void Controller::close() noexcept {
     }
 }
 
-}  // namespace ai_player::controller
+}  // namespace mimic_tear::controller

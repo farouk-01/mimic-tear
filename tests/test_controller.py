@@ -7,17 +7,17 @@ import unittest
 from pathlib import Path
 
 
-SOURCE_ROOT = Path(__file__).parents[1] / "src"
-sys.path.insert(0, str(SOURCE_ROOT))
+PROJECT_ROOT = Path(__file__).parents[1]
+sys.path.insert(0, str(PROJECT_ROOT))
 
-from ai_player.controller import (  # noqa: E402
+from mimic_tear.controller import (  # noqa: E402
     CONTROLLER_LAYOUT_HEIGHT,
     CONTROLLER_LAYOUT_WIDTH,
     ControllerState,
     VirtualController,
     render_controller_layout,
 )
-from ai_player.recording.schema import BUTTON_COLUMNS  # noqa: E402
+from mimic_tear.recording.schema import BUTTON_COLUMNS  # noqa: E402
 
 
 class ControllerStateTests(unittest.TestCase):

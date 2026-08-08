@@ -6,7 +6,7 @@
 #include <exception>
 #include <iostream>
 
-using ai_player::controller::Controller;
+using mimic_tear::controller::Controller;
 
 int main(int argc, char* argv[]) {
     static_cast<void>(argc);

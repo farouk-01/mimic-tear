@@ -14,14 +14,13 @@ import pyarrow.parquet as pq
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
-sys.path.insert(0, str(PROJECT_ROOT / "src"))
 sys.path.insert(0, str(PROJECT_ROOT))
 
-from ai_player.game_state.discovery import (  # noqa: E402
+from mimic_tear.game_state.discovery import (  # noqa: E402
     BytePattern,
     EldenRingAddressDiscovery,
 )
-from ai_player.platform.windows.process_memory import (  # noqa: E402
+from mimic_tear.platform.windows.process_memory import (  # noqa: E402
     AntiCheatDetectedError,
     MemoryReadError,
     PESection,
@@ -30,28 +29,28 @@ from ai_player.platform.windows.process_memory import (  # noqa: E402
     assert_anti_cheat_inactive,
     is_anti_cheat_process_name,
 )
-from ai_player.game_state.profile import (  # noqa: E402
+from mimic_tear.game_state.profile import (  # noqa: E402
     EldenRingMemoryProfile,
     MemoryField,
     load_memory_profile,
 )
-from ai_player.game_state.reader import (  # noqa: E402
+from mimic_tear.game_state.reader import (  # noqa: E402
     EldenRingStateReader,
     GameStateSnapshot,
 )
-from ai_player.game_state.schema import GAME_STATE_PARQUET_SCHEMA  # noqa: E402
-from ai_player.recording.game_state_capture import (  # noqa: E402
+from mimic_tear.game_state.schema import GAME_STATE_PARQUET_SCHEMA  # noqa: E402
+from mimic_tear.recording.game_state_capture import (  # noqa: E402
     GameStateSample,
     GameStateSampler,
     GameStateWriter,
 )
-from ai_player.recording.record import parse_args  # noqa: E402
+from mimic_tear.recording.record import parse_args  # noqa: E402
 from tests.recording.test_recording import (  # noqa: E402
     current_row,
     write_inputs,
     write_video,
 )
-from ai_player.recording.validation import validate_session  # noqa: E402
+from mimic_tear.recording.validation import validate_session  # noqa: E402
 
 
 class FakeMemory:
@@ -224,7 +223,7 @@ class GameStateTests(unittest.TestCase):
         self.assertFalse(is_anti_cheat_process_name("eac_launcher.exe"))
         self.assertFalse(is_anti_cheat_process_name("eldenring.exe"))
         with patch(
-            "ai_player.platform.windows.process_memory.find_anti_cheat_processes",
+            "mimic_tear.platform.windows.process_memory.find_anti_cheat_processes",
             return_value=(RunningProcess(123, "EasyAntiCheat_EOS.exe"),),
         ):
             with self.assertRaisesRegex(

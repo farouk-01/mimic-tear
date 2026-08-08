@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import unittest
 
-from ai_player.platform.windows.global_hotkey import parse_hotkey
+from mimic_tear.platform.windows.global_hotkey import parse_hotkey
 
 
 class HotkeyTests(unittest.TestCase):

@@ -19,21 +19,20 @@ import torch
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
-sys.path.insert(0, str(PROJECT_ROOT / "src"))
 sys.path.insert(0, str(PROJECT_ROOT))
 
-from ai_player.recording.schema import (  # noqa: E402
+from mimic_tear.recording.schema import (  # noqa: E402
     INPUT_COLUMNS,
     PARQUET_SCHEMA,
     validate_columns,
 )
-from ai_player.recording.annotations import (  # noqa: E402
+from mimic_tear.recording.annotations import (  # noqa: E402
     FrameRange,
     load_frame_ranges,
     merge_frame_ranges,
     save_frame_ranges,
 )
-from ai_player.dataset.dataset import (  # noqa: E402
+from mimic_tear.dataset.dataset import (  # noqa: E402
     EldenRingDataset,
     RecordingSample,
     discover_sessions,
@@ -41,7 +40,7 @@ from ai_player.dataset.dataset import (  # noqa: E402
     load_session_samples,
     partition_sessions_by_split,
 )
-from ai_player.recording.record import (  # noqa: E402
+from mimic_tear.recording.record import (  # noqa: E402
     ControllerSampler,
     create_session_directories,
     FrameClockSynchronizer,
@@ -55,8 +54,8 @@ from ai_player.recording.record import (  # noqa: E402
     parse_recording_label,
     parse_region,
 )
-from ai_player.recording.validation import validate_csv_mirror, validate_session  # noqa: E402
-from ai_player.recording.replay import (  # noqa: E402
+from mimic_tear.recording.validation import validate_csv_mirror, validate_session  # noqa: E402
+from mimic_tear.recording.replay import (  # noqa: E402
     ReplayState,
     exclude_selection,
     load_replay_session,
@@ -178,10 +177,10 @@ class RecordingSchemaTests(unittest.TestCase):
         replay_session = object()
         with (
             patch(
-                "ai_player.recording.replay.load_replay_session",
+                "mimic_tear.recording.replay.load_replay_session",
                 return_value=replay_session,
             ) as load_session,
-            patch("ai_player.recording.replay.run_replay") as run_session,
+            patch("mimic_tear.recording.replay.run_replay") as run_session,
         ):
             open_replay(session_directory)
 
