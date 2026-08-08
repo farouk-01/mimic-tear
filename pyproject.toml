@@ -1,0 +1,42 @@
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ai-player"
+version = "0.1.0"
+description = "A synchronized vision-and-game-state policy for Elden Ring"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "dxcam; platform_system == 'Windows'",
+    "grad-cam>=1.5.5",
+    "numpy",
+    "opencv-python",
+    "pyarrow>=20",
+    "torch",
+]
+
+[project.optional-dependencies]
+native = ["pybind11"]
+
+[project.scripts]
+ai-player-play = "ai_player.cli.play:main"
+ai-player-record = "ai_player.cli.record:main"
+ai-player-replay = "ai_player.cli.replay:main"
+ai-player-validate = "ai_player.cli.validate:main"
+ai-player-train = "ai_player.cli.train:main"
+ai-player-evaluate = "ai_player.cli.evaluate:main"
+ai-player-controller-probe = "ai_player.cli.controller_probe:main"
+ai-player-discover-game-state = "ai_player.cli.discover_game_state:main"
+ai-player-probe-game-state = "ai_player.cli.probe_game_state:main"
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.ruff]
+line-length = 88
+target-version = "py311"

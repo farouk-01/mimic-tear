@@ -1,0 +1,11 @@
+native/build
+native/external/
+__pycache__/
+recordings/
+artifacts/
+.test-cache/
+bridges/hidmaestro/.deps/
+bridges/hidmaestro/bin/
+bridges/hidmaestro/obj/
+.vscode/
+*.egg-info

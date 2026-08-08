@@ -1,0 +1,102 @@
+{
+  "name": "elden-ring-read-only",
+  "game_version": "auto-discovered-layout",
+  "process_name": "eldenring.exe",
+  "module_name": "eldenring.exe",
+  "pointer_size": 8,
+  "locators": {
+    "world_chr_man": {
+      "kind": "elden_ring_world_chr_man"
+    }
+  },
+  "fields": {
+    "player_health": {
+      "base_locator": "world_chr_man",
+      "pointer_offsets": ["0x1E508", "0x190", "0x0", "0x138"],
+      "type": "int32",
+      "required": true,
+      "scope": "dynamic"
+    },
+    "player_max_health": {
+      "base_locator": "world_chr_man",
+      "pointer_offsets": ["0x1E508", "0x190", "0x0", "0x13C"],
+      "type": "int32",
+      "required": true,
+      "scope": "dynamic"
+    },
+    "player_fp": {
+      "base_locator": "world_chr_man",
+      "pointer_offsets": ["0x1E508", "0x190", "0x0", "0x148"],
+      "type": "int32"
+    },
+    "player_max_fp": {
+      "base_locator": "world_chr_man",
+      "pointer_offsets": ["0x1E508", "0x190", "0x0", "0x150"],
+      "type": "int32"
+    },
+    "player_stamina": {
+      "base_locator": "world_chr_man",
+      "pointer_offsets": ["0x1E508", "0x190", "0x0", "0x154"],
+      "type": "int32"
+    },
+    "player_max_stamina": {
+      "base_locator": "world_chr_man",
+      "pointer_offsets": ["0x1E508", "0x190", "0x0", "0x158"],
+      "type": "int32"
+    },
+    "player_x": {
+      "base_locator": "world_chr_man",
+      "pointer_offsets": ["0x1E508", "0x190", "0x68", "0x70"],
+      "type": "float32"
+    },
+    "player_y": {
+      "base_locator": "world_chr_man",
+      "pointer_offsets": ["0x1E508", "0x190", "0x68", "0x78"],
+      "type": "float32"
+    },
+    "player_z": {
+      "base_locator": "world_chr_man",
+      "pointer_offsets": ["0x1E508", "0x190", "0x68", "0x74"],
+      "type": "float32"
+    },
+    "location_id": {
+      "base_locator": "world_chr_man",
+      "pointer_offsets": ["0x1E508", "0x6D0"],
+      "type": "uint32"
+    },
+    "camera_yaw": { "enabled": false },
+    "camera_pitch": { "enabled": false },
+    "lock_on_active": {
+      "base_locator": "world_chr_man",
+      "pointer_offsets": ["0x1E508", "0xC9"],
+      "type": "bool"
+    },
+    "enemy_id": { "enabled": false },
+    "enemy_name": { "enabled": false },
+    "enemy_health": { "enabled": false },
+    "enemy_max_health": { "enabled": false },
+    "enemy_x": { "enabled": false },
+    "enemy_y": { "enabled": false },
+    "enemy_z": { "enabled": false },
+    "location_name": { "enabled": false },
+    "crimson_flask_count": { "enabled": false },
+    "cerulean_flask_count": { "enabled": false },
+    "selected_quick_item_id": { "enabled": false },
+    "selected_quick_item_count": { "enabled": false },
+    "quick_item_slots": { "enabled": false },
+    "current_left_weapon_id": { "enabled": false },
+    "current_right_weapon_id": { "enabled": false },
+    "two_handing": { "enabled": false },
+    "two_handed_weapon_id": { "enabled": false },
+    "current_spell_id": { "enabled": false },
+    "character_level": { "enabled": false },
+    "attribute_levels": { "enabled": false },
+    "left_weapon_slots": { "enabled": false },
+    "right_weapon_slots": { "enabled": false },
+    "weapon_upgrade_levels": { "enabled": false },
+    "armor_slots": { "enabled": false },
+    "talisman_slots": { "enabled": false },
+    "spell_slots": { "enabled": false },
+    "maximum_flask_counts": { "enabled": false }
+  }
+}
