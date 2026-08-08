@@ -142,11 +142,11 @@ ControllerState Controller::poll() const {
             gamepad_,
             SDL_GAMEPAD_BUTTON_NORTH
         ),
-        .left_shoulder = SDL_GetGamepadButton(
+        .left_bumper = SDL_GetGamepadButton(
             gamepad_,
             SDL_GAMEPAD_BUTTON_LEFT_SHOULDER
         ),
-        .right_shoulder = SDL_GetGamepadButton(
+        .right_bumper = SDL_GetGamepadButton(
             gamepad_,
             SDL_GAMEPAD_BUTTON_RIGHT_SHOULDER
         ),

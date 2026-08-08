@@ -41,8 +41,8 @@ std::string ControllerState::to_string() const {
         << "] "
 
         << "bumper["
-        << "L=" << static_cast<int>(left_shoulder) << " "
-        << "R=" << static_cast<int>(right_shoulder)
+        << "L=" << static_cast<int>(left_bumper) << " "
+        << "R=" << static_cast<int>(right_bumper)
         << "] "
 
         << "stick["

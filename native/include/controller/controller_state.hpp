@@ -19,8 +19,8 @@ struct ControllerState {
     bool west = false;
     bool north = false;
 
-    bool left_shoulder = false;
-    bool right_shoulder = false;
+    bool left_bumper = false;
+    bool right_bumper = false;
 
     bool back = false;
     bool start = false;
