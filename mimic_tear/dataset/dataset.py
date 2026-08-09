@@ -324,8 +324,12 @@ def load_session_samples(
     session_directory: str | Path,
     *,
     require_game_state: bool = False,
+    load_game_state: bool = True,
 ) -> list[RecordingSample]:
     """Load metadata and controller labels for one recording session."""
+
+    if require_game_state and not load_game_state:
+        raise ValueError("Required game state cannot be disabled while loading")
 
     session = Path(session_directory).expanduser().resolve()
     video_path = session / "frames.mp4"
@@ -339,10 +343,14 @@ def load_session_samples(
         raise FileNotFoundError(input_path)
 
     video_frame_count = _read_video_frame_count(video_path)
-    game_state_rows = _load_game_state_rows(
-        game_state_path,
-        frame_count=video_frame_count,
-        required=require_game_state,
+    game_state_rows = (
+        _load_game_state_rows(
+            game_state_path,
+            frame_count=video_frame_count,
+            required=require_game_state,
+        )
+        if load_game_state
+        else None
     )
     excluded_ranges = load_frame_ranges(session, total_frames=video_frame_count)
     samples: list[RecordingSample] = []
@@ -503,6 +511,7 @@ def load_recording_samples(
     sessions: Sequence[str | Path],
     *,
     require_game_state: bool = False,
+    load_game_state: bool = True,
 ) -> list[RecordingSample]:
     """Load and concatenate metadata from multiple sessions."""
 
@@ -516,6 +525,7 @@ def load_recording_samples(
             load_session_samples(
                 session,
                 require_game_state=require_game_state,
+                load_game_state=load_game_state,
             )
         )
 

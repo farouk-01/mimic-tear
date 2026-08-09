@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import os
 import random
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -10,6 +10,12 @@ import numpy as np
 import torch
 from torch.utils.data import DataLoader
 
+from mimic_tear.dataset.capabilities import (
+    GAME_STATE_CAPABILITY,
+    RecordingCapability,
+    RecordingSelectionReport,
+    select_recordings_by_capabilities,
+)
 from mimic_tear.dataset.dataset import (
     EldenRingDataset,
     discover_sessions,
@@ -41,6 +47,8 @@ class DataModuleConfig:
     frame_cache: bool = True
     rebuild_frame_cache: bool = False
     require_game_state: bool = True
+    required_training_capabilities: tuple[RecordingCapability, ...] = ()
+    required_validation_capabilities: tuple[RecordingCapability, ...] = ()
 
     def __post_init__(self) -> None:
         if self.batch_size <= 0:
@@ -72,8 +80,10 @@ class EldenRingDataModule:
         config: DataModuleConfig,
         *,
         sessions: Sequence[str | Path] | None = None,
+        log: Callable[[str], None] = print,
     ) -> None:
         self.config = config
+        self._log = log
         self._session_paths = (
             [Path(session).expanduser().resolve() for session in sessions]
             if sessions is not None
@@ -82,6 +92,8 @@ class EldenRingDataModule:
 
         self.train_dataset: EldenRingDataset | None = None
         self.validation_dataset: EldenRingDataset | None = None
+        self.training_selection_report: RecordingSelectionReport | None = None
+        self.validation_selection_report: RecordingSelectionReport | None = None
 
     def setup(self) -> None:
         session_paths = self._session_paths
@@ -94,13 +106,49 @@ class EldenRingDataModule:
         train_sessions, validation_sessions = partition_sessions_by_split(
             session_paths
         )
-        train_samples = load_recording_samples(
+        training_requirements = list(self.config.required_training_capabilities)
+        validation_requirements = list(
+            self.config.required_validation_capabilities
+        )
+        if self.config.require_game_state and not any(
+            capability.key == GAME_STATE_CAPABILITY.key
+            for capability in training_requirements
+        ):
+            training_requirements.append(GAME_STATE_CAPABILITY)
+        if self.config.require_game_state and not any(
+            capability.key == GAME_STATE_CAPABILITY.key
+            for capability in validation_requirements
+        ):
+            validation_requirements.append(GAME_STATE_CAPABILITY)
+
+        self.training_selection_report = select_recordings_by_capabilities(
             train_sessions,
+            required=training_requirements,
+        )
+        self.validation_selection_report = select_recordings_by_capabilities(
+            validation_sessions,
+            required=validation_requirements,
+        )
+        self._log_selection(self.training_selection_report, label="training")
+        self._log_selection(self.validation_selection_report, label="validation")
+        self._require_selected_sessions(
+            self.training_selection_report,
+            label="training",
+        )
+        self._require_selected_sessions(
+            self.validation_selection_report,
+            label="validation",
+        )
+
+        train_samples = load_recording_samples(
+            self.training_selection_report.included,
             require_game_state=self.config.require_game_state,
+            load_game_state=self.config.require_game_state,
         )
         validation_samples = load_recording_samples(
-            validation_sessions,
+            self.validation_selection_report.included,
             require_game_state=self.config.require_game_state,
+            load_game_state=self.config.require_game_state,
         )
         frame_cache_paths = (
             prepare_frame_caches(
@@ -108,7 +156,7 @@ class EldenRingDataModule:
                 width=self.config.width,
                 height=self.config.height,
                 rebuild=self.config.rebuild_frame_cache,
-                progress=print,
+                progress=self._log,
             )
             if self.config.frame_cache
             else {}
@@ -179,6 +227,30 @@ class EldenRingDataModule:
             return self.config.pin_memory
 
         return torch.cuda.is_available()
+
+    def _log_selection(
+        self,
+        report: RecordingSelectionReport,
+        *,
+        label: str,
+    ) -> None:
+        for line in report.log_lines(label=label):
+            self._log(line)
+
+    @staticmethod
+    def _require_selected_sessions(
+        report: RecordingSelectionReport,
+        *,
+        label: str,
+    ) -> None:
+        if report.included:
+            return
+        requirements = ", ".join(report.required_capabilities) or "none"
+        raise ValueError(
+            f"No {label} recordings satisfy the required optional "
+            f"capabilities ({requirements}); excluded "
+            f"{report.excluded_count} of {report.discovered_count} recording(s)"
+        )
 
     def _worker_options(self) -> dict[str, int]:
         if self.config.num_workers == 0:
