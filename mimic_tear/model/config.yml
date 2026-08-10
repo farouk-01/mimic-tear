@@ -1,0 +1,54 @@
+# Images [B,T,3,H,W]
+#         │
+#         v
+#       Vision
+#         │
+#         v
+# [B,T,visual_features]
+#         │
+#         v
+#      Temporal
+#        LSTM
+#         │
+#         v
+# [B,T,temporal_features] ──────┐
+#                               │
+# Game State [B,T,N]            │
+#         │                     │
+#         v                     │
+#     GameState                 │
+#         │                     │
+#         v                     │
+# [B,T,state_features] ─────────┤
+#                               v
+#                             Fusion
+#                               │
+#                               v
+#                     [B,T,fusion_features]
+#                               │
+#                               v
+#                           Controller
+#                          /          \
+#                         v            v
+#                [B,T,6] analog   [B,T,N] buttons
+
+model:
+  vision:
+    output_features: 512
+    pretrained: true
+
+  temporal:
+    hidden_features: 512
+    num_layers: 2
+    dropout: 0.1
+
+  game_state:
+    input_features: 24
+    hidden_features: 128
+    output_features: 128
+
+  fusion:
+    output_features: 512
+
+  controller:
+    button_outputs: 14
