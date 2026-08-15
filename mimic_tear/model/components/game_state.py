@@ -3,11 +3,11 @@ from dataclasses import dataclass
 
 from torch import Tensor, nn
 
-from ..config import Config
+from ..config import ComponentConfig
 
 
 @dataclass(frozen=True, slots=True)
-class GameStateConfig(Config):
+class GameStateConfig(ComponentConfig):
     input_features: int
     hidden_features: int
     output_features: int

@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from pathlib import Path
 
 from torch import Tensor, nn
+import yaml
 
 from mimic_tear.model.components import (
     Controller,
@@ -27,6 +29,58 @@ class PolicyConfig:
     game_state_cfg: GameStateConfig | None
     fusion_cfg: FusionConfig | None
     controller_cfg: ControllerConfig
+
+    @classmethod
+    def load(
+        cls,
+        game_state_input_features_count: int,
+        path: str | Path,
+    ) -> PolicyConfig:
+        path = Path(path)
+
+        with path.open("r", encoding="utf-8") as f:
+            cfg = yaml.safe_load(f)
+
+        if not isinstance(cfg, dict):
+            raise ValueError(f"Expected config to be a dictionary, got {type(cfg)}")
+
+        model = cfg.get("model")
+
+        if not isinstance(model, dict):
+            raise ValueError("Config must contain a 'model' section")
+        
+        vision_cfg = VisionConfig(**model["vision"])
+
+        temporal_cfg = TemporalConfig(
+            input_features=vision_cfg.output_features,
+            **model["temporal"],
+        )
+
+        game_state_cfg = GameStateConfig(
+            input_features=game_state_input_features_count,
+            **model["game_state"],
+        )
+
+        fusion_cfg = FusionConfig(
+            input_features=(
+                temporal_cfg.hidden_features,
+                game_state_cfg.output_features,
+            ),
+            **model["fusion"],
+        )
+
+        controller_cfg = ControllerConfig(
+            input_features=fusion_cfg.output_features,
+            **model["controller"],
+        )
+
+        return PolicyConfig(
+            vision_cfg=vision_cfg,
+            temporal_cfg=temporal_cfg,
+            game_state_cfg=game_state_cfg,
+            fusion_cfg=fusion_cfg,
+            controller_cfg=controller_cfg,
+        )
 
 
 class EldenRingPolicy(nn.Module):

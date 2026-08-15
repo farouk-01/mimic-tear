@@ -3,10 +3,10 @@ from dataclasses import dataclass
 import torch
 from torch import Tensor, nn
 
-from ..config import Config
+from ..config import ComponentConfig
 
 @dataclass(frozen=True, slots=True)
-class ControllerConfig(Config):
+class ControllerConfig(ComponentConfig):
     input_features: int
     button_outputs: int
 

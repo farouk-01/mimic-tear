@@ -5,11 +5,11 @@ from dataclasses import dataclass
 import torch
 from torch import Tensor, nn
 
-from ..config import Config
+from ..config import ComponentConfig
 
 
 @dataclass(frozen=True, slots=True)
-class FusionConfig(Config):
+class FusionConfig(ComponentConfig):
     input_features: tuple[int, ...]
     output_features: int
 

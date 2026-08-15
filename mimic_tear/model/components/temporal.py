@@ -4,12 +4,12 @@ from typing import TypeAlias
 
 from torch import Tensor, nn
 
-from ..config import Config
+from ..config import ComponentConfig
 
 LSTMState: TypeAlias = tuple[Tensor, Tensor]
 
 @dataclass(frozen=True, slots=True)
-class TemporalConfig(Config):
+class TemporalConfig(ComponentConfig):
     input_features: int
     hidden_features: int
     num_layers: int

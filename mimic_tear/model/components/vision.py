@@ -4,12 +4,13 @@ from dataclasses import dataclass
 from torch import Tensor, nn
 from torchvision.models import ResNet18_Weights, resnet18
 
-from ..config import Config
+from ..config import ComponentConfig
+
 
 @dataclass(frozen=True, slots=True)
-class VisionConfig(Config):
+class VisionConfig(ComponentConfig):
     output_features: int
-    pretrained: bool = True
+    weights_name: str | None
 
 
 class Vision(nn.Module):
@@ -17,22 +18,22 @@ class Vision(nn.Module):
         self,
         *,
         output_features: int,
-        pretrained: bool = True,
+        weights_name: str | None = "DEFAULT",
     ) -> None:
         super().__init__()
 
         if output_features <= 0:
             raise ValueError("output_features must be greater than zero")
 
-        weights = ResNet18_Weights.DEFAULT if pretrained else None
+        weights = None if weights_name is None else ResNet18_Weights[weights_name]
 
         self.backbone = resnet18(weights=weights)
-        
+
         self.backbone_features = self.backbone.fc.in_features
 
         # ImageNet classes are not useful for our purposes,
         # we need the visual information before classification.
-        self.backbone.fc = nn.Identity() # type: ignore
+        self.backbone.fc = nn.Identity()  # type: ignore
 
         self.output_features = output_features
 
@@ -61,9 +62,7 @@ class Vision(nn.Module):
             )
 
         if images.shape[1] != 3:
-            raise ValueError(
-                f"Expected 3 RGB channels, received {images.shape[1]}"
-            )
+            raise ValueError(f"Expected 3 RGB channels, received {images.shape[1]}")
 
         features = self.backbone(images)
         return self.projection(features)
