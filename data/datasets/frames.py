@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 
+import torch
 from torch import Tensor
 from torch.utils.data import Dataset
 
@@ -46,5 +47,16 @@ class FramesDataset(Dataset[Tensor]):
 
         if frame.shape[0] != 3:
             raise ValueError(f"Expected 3 RGB channels, received {frame.shape[0]}")
+
+        if frame.dtype == torch.uint8:
+            frame = frame.to(torch.float32) / 255.0
+        elif not frame.is_floating_point():
+            frame = frame.to(torch.float32)
+
+        if frame.dtype != torch.float32:
+            frame = frame.to(torch.float32)
+
+        if torch.any(frame < 0.0) or torch.any(frame > 1.0):
+            raise ValueError("Expected frame values in [0, 1]")
 
         return frame
