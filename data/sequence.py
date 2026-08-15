@@ -14,6 +14,7 @@ from data.stores import (
     ParquetGameStateStore,
     TensorFrameStore,
 )
+from data.stores.frames import VideoDecoderConfig
 from game_state import GameStateSchema
 from recording import Recording
 from torch import Tensor
@@ -101,12 +102,16 @@ class SequenceDataset(Dataset[SequenceSample]):
     @classmethod
     def load(
         cls,
+        *,
         recording: Recording,
         game_state_schema: GameStateSchema | None,
         sequence_length: int,
+        video_decoder_config: VideoDecoderConfig,
         drop_incomplete: bool = True,
     ) -> SequenceDataset:
-        frame_store = TensorFrameStore.from_mp4(recording.video)
+        frame_store = TensorFrameStore(
+            path=recording.video, **video_decoder_config.model_dump()
+        )
         frame_dataset = FramesDataset(store=frame_store)
         controller_store = ParquetControllerStore(path=recording.controller)
         controller_dataset = ControllerDataset(store=controller_store)

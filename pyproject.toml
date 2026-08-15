@@ -16,6 +16,8 @@ dependencies = [
     "pyarrow>=20",
     "pyyaml>=6",
     "torch",
+    "torchcodec",
+    "torchvision",
     "pytest",
     "pydantic>=2",
 ]
@@ -28,7 +30,30 @@ package-dir = {"" = "."}
 
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["mimic_tear*"]
+include = [
+    "mimic_tear*",
+    "capture*",
+    "configs*",
+    "controller*",
+    "data*",
+    "game_state*",
+    "recording*",
+]
+exclude = [
+    "_old*",
+    "controller.tests*",
+]
+
+[tool.pytest.ini_options]
+norecursedirs = [
+    ".venv",
+    ".pytest_cache",
+    ".test-cache",
+    "_old",
+    "native",
+    "recordings",
+]
+cache_dir = ".test-cache"
 
 [tool.ruff]
 line-length = 88
