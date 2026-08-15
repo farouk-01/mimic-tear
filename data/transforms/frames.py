@@ -3,13 +3,18 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 import torch
+from pydantic import BaseModel, ConfigDict, PositiveInt, PositiveFloat
 from torch import Tensor
 from torchvision.transforms import v2
 
-@dataclass(frozen=True, slots=True)
-class FrameTransformConfig:
+
+class FrameTransformConfig(BaseModel):
+    model_config = ConfigDict(frozen=True, extra="forbid", strict=True)
+
+    width: PositiveInt
+    height: PositiveInt
     mean: tuple[float, float, float] | None = None
-    std: tuple[float, float, float] | None = None
+    std: tuple[PositiveFloat, PositiveFloat, PositiveFloat] | None = None
     scale: bool = True
 
 
@@ -17,32 +22,35 @@ class FrameTransform:
     def __init__(
         self,
         *,
+        width: int,
+        height: int,
         mean: tuple[float, float, float] | None = None,
         std: tuple[float, float, float] | None = None,
         scale: bool = True,
     ) -> None:
-        if (mean is None) != (std is None):
-            raise ValueError(
-                "mean and std must either both be provided or both be None"
-            )
+        if width <= 0 or height <= 0:
+            raise ValueError("Frame dimensions must be positive")
 
-        transforms: list[torch.nn.Module] = [
-            v2.ToImage(),
-            v2.ToDtype(
-                torch.float32,
-                scale=scale,
-            ),
-        ]
+        transforms = []
+        transforms.append(v2.ToImage())
+        transforms.append(v2.Resize(size=(height, width), antialias=True))
+        transforms.append(v2.ToDtype(torch.float32, scale=scale))
 
-        if mean is not None and std is not None:
-            transforms.append(
-                v2.Normalize(
-                    mean=mean,
-                    std=std,
-                )
-            )
+        if std is not None and mean is not None:
+            if any(value <= 0 for value in std):
+                raise ValueError("Normalization standard deviations must be positive")
 
-        self.transform = v2.Compose(transforms)
+            transforms.append(v2.Normalize(mean=mean, std=std))
 
-    def __call__(self, frame: Tensor) -> Tensor:
-        return self.transform(frame)
+        self.transform = v2.Compose(transforms=transforms)
+
+    def __call__(
+        self,
+        frame: Tensor,
+    ) -> Tensor:
+        transformed = self.transform(frame)
+
+        if transformed.dtype != torch.float32:
+            raise RuntimeError("Frame transform did not produce float32")
+
+        return transformed

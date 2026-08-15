@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
+from collections.abc import Callable
 
 import torch
 from torch import Tensor
@@ -12,11 +13,11 @@ class FrameStore(ABC):
     def __len__(self) -> int: ...
 
     @abstractmethod
-    def get(self, index: int) -> Tensor:
-        """
-        Returns:
-            Frame tensor with shape [3, H, W].
-        """
+    def get(
+        self,
+        index: int,
+    ) -> Tensor:
+        """Return a uint8 RGB frame shaped [3, H, W]."""
         ...
 
 
@@ -25,11 +26,13 @@ class FramesDataset(Dataset[Tensor]):
         self,
         *,
         store: FrameStore,
+        transform: Callable[[Tensor], Tensor] | None = None,
     ) -> None:
         if len(store) <= 0:
             raise ValueError("Frame store cannot be empty")
 
         self.store = store
+        self.transform = transform
 
     def __len__(self) -> int:
         return len(self.store)
@@ -48,15 +51,17 @@ class FramesDataset(Dataset[Tensor]):
         if frame.shape[0] != 3:
             raise ValueError(f"Expected 3 RGB channels, received {frame.shape[0]}")
 
-        if frame.dtype == torch.uint8:
-            frame = frame.to(torch.float32) / 255.0
-        elif not frame.is_floating_point():
+        original_dtype = frame.dtype
+
+        if self.transform is not None:
+            frame = self.transform(frame)
+        else:
             frame = frame.to(torch.float32)
+
+            if original_dtype == torch.uint8:
+                frame = frame / 255.0
 
         if frame.dtype != torch.float32:
             frame = frame.to(torch.float32)
-
-        if torch.any(frame < 0.0) or torch.any(frame > 1.0):
-            raise ValueError("Expected frame values in [0, 1]")
 
         return frame
