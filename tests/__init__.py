@@ -1,2 +1,0 @@
-"""Mimic Tear test suite."""
-

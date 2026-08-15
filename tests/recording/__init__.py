@@ -1,2 +1,0 @@
-"""Recording subsystem tests."""
-
