@@ -4,7 +4,6 @@ from pathlib import Path
 from dataclasses import dataclass, fields
 from typing import Any
 
-# TODO rename to ComponentConfig
 @dataclass(frozen=True, slots=True)
 class ComponentConfig:
 

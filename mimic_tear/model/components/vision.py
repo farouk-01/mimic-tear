@@ -1,14 +1,14 @@
 from __future__ import annotations
 from dataclasses import dataclass
 
+from pydantic import BaseModel, ConfigDict
 from torch import Tensor, nn
 from torchvision.models import ResNet18_Weights, resnet18
 
-from ..config import ComponentConfig
 
-
-@dataclass(frozen=True, slots=True)
-class VisionConfig(ComponentConfig):
+class VisionConfig(BaseModel):
+    model_config = ConfigDict(frozen=True, extra="forbid", strict=True)
+    
     output_features: int
     weights_name: str | None
 

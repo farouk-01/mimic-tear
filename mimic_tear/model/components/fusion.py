@@ -2,14 +2,15 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from pydantic import BaseModel, ConfigDict
 import torch
 from torch import Tensor, nn
 
-from ..config import ComponentConfig
-
 
 @dataclass(frozen=True, slots=True)
-class FusionConfig(ComponentConfig):
+class FusionConfig(BaseModel):
+    model_config = ConfigDict(frozen=True, extra="forbid", strict=True)
+
     input_features: tuple[int, ...]
     output_features: int
 

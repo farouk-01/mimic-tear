@@ -2,14 +2,14 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import TypeAlias
 
+from pydantic import BaseModel, ConfigDict
 from torch import Tensor, nn
-
-from ..config import ComponentConfig
 
 LSTMState: TypeAlias = tuple[Tensor, Tensor]
 
-@dataclass(frozen=True, slots=True)
-class TemporalConfig(ComponentConfig):
+class TemporalConfig(BaseModel):
+    model_config = ConfigDict(frozen=True, extra="forbid", strict=True)
+
     input_features: int
     hidden_features: int
     num_layers: int

@@ -1,16 +1,15 @@
 from __future__ import annotations
 from dataclasses import dataclass
 
+from pydantic import BaseModel, ConfigDict, Field
 from torch import Tensor, nn
 
-from ..config import ComponentConfig
+class GameStateConfig(BaseModel):
+    model_config = ConfigDict(frozen=True, extra="forbid", strict=True)
 
-
-@dataclass(frozen=True, slots=True)
-class GameStateConfig(ComponentConfig):
-    input_features: int
-    hidden_features: int
-    output_features: int
+    input_features: int = Field(gt=0)
+    hidden_features: int = Field(gt=0)
+    output_features: int = Field(gt=0)
 
 
 class GameState(nn.Module):
@@ -22,16 +21,6 @@ class GameState(nn.Module):
         output_features: int,
     ) -> None:
         super().__init__()
-
-        if input_features <= 0:
-            raise ValueError("input_features must be greater than zero")
-
-        if hidden_features <= 0:
-            raise ValueError("hidden_features must be greater than zero")
-
-        if output_features <= 0:
-            raise ValueError("output_features must be greater than zero")
-
         self.input_features = input_features
         self.output_features = output_features
 

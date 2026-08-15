@@ -1,12 +1,12 @@
 from dataclasses import dataclass
 
+from pydantic import BaseModel, ConfigDict
 import torch
 from torch import Tensor, nn
 
-from ..config import ComponentConfig
+class ControllerConfig(BaseModel):
+    model_config = ConfigDict(frozen=True, extra="forbid", strict=True)
 
-@dataclass(frozen=True, slots=True)
-class ControllerConfig(ComponentConfig):
     input_features: int
     button_outputs: int
 
