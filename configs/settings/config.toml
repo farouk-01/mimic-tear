@@ -1,0 +1,73 @@
+[model.vision]
+output_features = 512
+weights_name = "DEFAULT"
+
+[model.temporal]
+hidden_features = 512
+num_layers = 2
+dropout = 0.1
+
+[model.game_state]
+hidden_features = 128
+output_features = 128
+
+[model.fusion]
+output_features = 512
+
+[model.controller]
+button_outputs = 14
+
+[hyperparameters]
+sequence_length = 15
+epochs = 20
+learning_rate = 0.0001
+weight_decay = 0.0001
+use_amp = true
+gradient_clip_norm = 1.0
+
+[hyperparameters.controller_weights]
+south = 1.0
+east = 1.0
+west = 1.0
+north = 1.0
+left_bumper = 1.0
+right_bumper = 1.0
+left_stick = 1.0
+right_stick = 1.0
+
+left_x = 1.0
+left_y = 1.0
+right_x = 1.0
+right_y = 1.0
+
+dpad_up = 1.0
+dpad_down = 1.0
+dpad_left = 1.0
+dpad_right = 1.0
+start = 1.0
+back = 1.0
+
+left_trigger = 1.0
+right_trigger = 1.0
+
+[recording]
+version = 1
+video_file = "frames.mp4"
+controller_file = "inputs.parquet"
+game_state_file = "game_state.parquet"
+metadata_file = "metadata.json"
+
+# logging settings
+[logging.regular]
+enabled = false
+level = "INFO"
+log_file_enable = false
+name = "mimic_tear"
+log_file = "logs/mimic_tear.log"
+
+[logging.perf_logger]
+enabled = false
+level = "DEBUG"
+log_file_enable = false
+name = "mimic_tear.performance"
+log_file = "logs/mimic_tear_perf.log"
