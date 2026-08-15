@@ -4,6 +4,7 @@ from dataclasses import dataclass
 
 import torch
 from torch import Tensor, nn
+from pydantic import BaseModel
 
 from mimic_tear.model.components import ControllerOutput
 
@@ -19,26 +20,16 @@ class PolicyLoss(nn.Module):
     def __init__(
         self,
         *,
-        analog_weight: float = 1.0,
-        button_weight: float = 1.0,
-        button_positive_weights: Tensor | None = None,
+        button_weight: Tensor,
+        analog_weight: Tensor,
     ) -> None:
         super().__init__()
-
-        if analog_weight < 0.0:
-            raise ValueError("analog_weight cannot be negative")
-
-        if button_weight < 0.0:
-            raise ValueError("button_weight cannot be negative")
 
         self.analog_weight = analog_weight
         self.button_weight = button_weight
 
         self.analog_loss = nn.SmoothL1Loss()
-
-        self.button_loss = nn.BCEWithLogitsLoss(
-            pos_weight=button_positive_weights,
-        )
+        self.button_loss = nn.BCEWithLogitsLoss(reduction="none")
 
     def forward(
         self,
@@ -57,10 +48,7 @@ class PolicyLoss(nn.Module):
             button_target,
         )
 
-        total = (
-            self.analog_weight * analog_loss
-            + self.button_weight * button_loss
-        )
+        total = (self.analog_weight * analog_loss) + (self.button_weight * button_loss)
 
         return PolicyLossOutput(
             total=total,
