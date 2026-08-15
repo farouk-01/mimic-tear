@@ -1,9 +1,12 @@
 from dataclasses import dataclass
 
+from pydantic import BaseModel, ConfigDict
+
 GameStateValue = int | float | bool
 
-@dataclass(frozen=True, slots=True)
-class GameStateField:
+class GameStateField(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True, strict=True)
+    
     name: str
     type: str
     required: bool = False
