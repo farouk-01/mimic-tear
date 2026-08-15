@@ -1,3 +1,7 @@
+# =============================================================================
+# Model
+# =============================================================================
+
 [model.vision]
 output_features = 512
 weights_name = "DEFAULT"
@@ -16,6 +20,11 @@ output_features = 512
 
 [model.controller]
 button_outputs = 14
+
+
+# =============================================================================
+# Training hyperparameters
+# =============================================================================
 
 [hyperparameters]
 sequence_length = 15
@@ -50,14 +59,45 @@ back = 1.0
 left_trigger = 1.0
 right_trigger = 1.0
 
-[recording]
+# =============================================================================
+# Data
+# =============================================================================
+
+[data.transforms.frames]
+width = 640
+height = 360
+scale = true
+
+[data.stores.frames]
+device = "cpu"
+dimension_order = "NCHW"
+seek_mode = "exact"
+num_ffmpeg_threads = 1
+
+# =============================================================================
+# Recording
+# =============================================================================
+
+[recording.files]
 version = 1
 video_file = "frames.mp4"
 controller_file = "inputs.parquet"
 game_state_file = "game_state.parquet"
 metadata_file = "metadata.json"
 
-# logging settings
+[recording.video]
+width = 1280
+height = 720
+fps = 30
+
+[recording.controller]
+flush_every = 1024
+
+
+# =============================================================================
+# Logging
+# =============================================================================
+
 [logging.regular]
 enabled = false
 level = "INFO"
@@ -71,3 +111,15 @@ level = "DEBUG"
 log_file_enable = false
 name = "mimic_tear.performance"
 log_file = "logs/mimic_tear_perf.log"
+
+
+# =============================================================================
+# Capture
+# =============================================================================
+
+[capture.screen]
+gpu_index = 0
+monitor_index = 0
+
+[capture.gamepad]
+stick_deadzone = 0.12

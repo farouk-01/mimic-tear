@@ -15,6 +15,8 @@ class ConfigKey(StrEnum):
     HYPERPARAMETERS = "hyperparameters"
     RECORDING = "recording"
     MODEL = "model"
+    CAPTURE = "capture"
+    DATA = "data"
 
 @dataclass(frozen=True, slots=True)
 class RawConfig:
@@ -60,9 +62,32 @@ class RawConfig:
         return self.config[ConfigKey.MODEL]["controller"]
 
     @property
-    def recording(self) -> dict[str, Any]:
-        return self.config[ConfigKey.RECORDING]
+    def transform_frames(self) -> dict[str, Any]:
+        return self.config[ConfigKey.DATA]["transforms"]["frames"]
 
+    @property
+    def stores_frames(self) -> dict[str, Any]:
+        return self.config[ConfigKey.DATA]["stores"]["frames"]
+
+    @property
+    def recording_files(self) -> dict[str, Any]:
+        return self.config[ConfigKey.RECORDING]["files"]
+
+    @property
+    def recording_video(self) -> dict[str, Any]:
+        return self.config[ConfigKey.RECORDING]["video"]
+
+    @property
+    def recording_controller(self) -> dict[str, Any]:
+        return self.config[ConfigKey.RECORDING]["controller"]
+
+    @property
+    def capture_screen(self) -> dict[str, Any]:
+        return self.config[ConfigKey.CAPTURE]["screen"]
+
+    @property
+    def capture_gamepad(self) -> dict[str, Any]:
+        return self.config[ConfigKey.CAPTURE]["gamepad"]
 
 
 def _load() -> dict:
