@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "mimic-tear"
 version = "0.1.0"
-description = "A synchronized vision-and-game-state policy for Elden Ring"
+description = "Mimic Tear"
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
@@ -14,22 +14,14 @@ dependencies = [
     "numpy",
     "opencv-python",
     "pyarrow>=20",
+    "pyyaml>=6",
     "torch",
+    "pytest",
+    "pydantic>=2",
 ]
 
 [project.optional-dependencies]
 native = ["pybind11"]
-
-[project.scripts]
-mimic-tear-play = "mimic_tear.cli.play:main"
-mimic-tear-record = "mimic_tear.cli.record:main"
-mimic-tear-replay = "mimic_tear.cli.replay:main"
-mimic-tear-validate = "mimic_tear.cli.validate:main"
-mimic-tear-train = "mimic_tear.cli.train:main"
-mimic-tear-evaluate = "mimic_tear.cli.evaluate:main"
-mimic-tear-controller-probe = "mimic_tear.cli.controller_probe:main"
-mimic-tear-discover-game-state = "mimic_tear.cli.discover_game_state:main"
-mimic-tear-probe-game-state = "mimic_tear.cli.probe_game_state:main"
 
 [tool.setuptools]
 package-dir = {"" = "."}

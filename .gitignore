@@ -9,3 +9,4 @@ bridges/hidmaestro/bin/
 bridges/hidmaestro/obj/
 .vscode/
 *.egg-info
+_old/
