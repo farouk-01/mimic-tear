@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from pydantic import BaseModel, Field, model_validator, ConfigDict
+from pydantic import BaseModel, Field, model_validator, ConfigDict, PositiveInt
 from pathlib import Path
 import torch
 import yaml
@@ -26,10 +26,10 @@ class ControllerInputsWeights(BaseModel):
     back: float = 1.0
 
     # analogs
-    left_stick_x: float = 1.0
-    left_stick_y: float = 1.0
-    right_stick_x: float = 1.0
-    right_stick_y: float = 1.0
+    left_x: float = 1.0
+    left_y: float = 1.0
+    right_x: float = 1.0
+    right_y: float = 1.0
     left_trigger: float = 1.0
     right_trigger: float = 1.0
 
@@ -67,14 +67,17 @@ class ControllerInputsWeights(BaseModel):
     def button_weights(self) -> torch.Tensor:
         from controller.inputs import BUTTON_INPUTS
 
-        return torch.tensor([getattr(self, name) for name in BUTTON_INPUTS], dtype=torch.float32)
+        return torch.tensor(
+            [getattr(self, name) for name in BUTTON_INPUTS], dtype=torch.float32
+        )
 
     @property
     def analog_weights(self) -> torch.Tensor:
         from controller.inputs import ANALOG_INPUTS
 
-        return torch.tensor([getattr(self, name) for name in ANALOG_INPUTS], dtype=torch.float32)
-
+        return torch.tensor(
+            [getattr(self, name) for name in ANALOG_INPUTS], dtype=torch.float32
+        )
 
 
 class Hyperparameters(BaseModel):
@@ -85,7 +88,11 @@ class Hyperparameters(BaseModel):
     use_amp: bool = Field(default=True)
     gradient_clip_norm: float | None = Field(default=1.0)
 
-    controller_weights: ControllerInputsWeights = Field(default_factory=ControllerInputsWeights)
+    controller_weights: ControllerInputsWeights = Field(
+        default_factory=ControllerInputsWeights
+    )
+
+    sequence_length: PositiveInt
 
     @classmethod
     def load(cls, path: str | Path) -> Hyperparameters:
