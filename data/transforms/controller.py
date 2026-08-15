@@ -5,13 +5,13 @@ from dataclasses import dataclass
 import torch
 from torch import Tensor
 
-from mimic_tear.model.config import Config
+# from mimic_tear.model.config import ComponentConfig
 
 
-@dataclass(frozen=True, slots=True)
-class ControllerTransformConfig(Config):
-    clamp_sticks: bool = True
-    clamp_triggers: bool = True
+# @dataclass(frozen=True, slots=True)
+# class ControllerTransformConfig(ComponentConfig):
+#     clamp_sticks: bool = True
+#     clamp_triggers: bool = True
 
 
 class ControllerTransform:
