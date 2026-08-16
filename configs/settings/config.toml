@@ -27,8 +27,8 @@ button_outputs = 14
 # =============================================================================
 
 [hyperparameters]
-sequence_length = 15
-epochs = 20
+sequence_length = 120
+epochs = 3
 learning_rate = 0.0001
 weight_decay = 0.0001
 use_amp = true
@@ -64,15 +64,15 @@ right_trigger = 1.0
 # =============================================================================
 
 [data.transforms.frames]
-width = 640
-height = 360
+width = 480
+height = 270
 scale = true
 
 [data.stores.frames]
-device = "cpu"
+device = "cuda"
 dimension_order = "NCHW"
 seek_mode = "exact"
-num_ffmpeg_threads = 1
+num_ffmpeg_threads = 4
 
 # =============================================================================
 # Recording
@@ -106,7 +106,7 @@ name = "mimic_tear"
 log_file = "logs/mimic_tear.log"
 
 [logging.perf_logger]
-enabled = false
+enabled = true
 level = "DEBUG"
 log_file_enable = false
 name = "mimic_tear.performance"

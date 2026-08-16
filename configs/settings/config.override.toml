@@ -12,7 +12,7 @@ log_file = "logs/mimic_tear.log"
 
 [logging.perf_logger]
 enabled = true
-level = "INFO"
+level = "DEBUG"
 log_file_enable = false
 name = "mimic_tear.performance"
 log_file = "logs/mimic_tear_perf.log"

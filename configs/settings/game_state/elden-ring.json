@@ -60,6 +60,7 @@
       "type": "float32"
     },
     "location_id": {
+        "enabled": false,
       "base_locator": "world_chr_man",
       "pointer_offsets": ["0x1E508", "0x6D0"],
       "type": "uint32"
