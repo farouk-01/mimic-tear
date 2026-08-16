@@ -71,33 +71,26 @@ class Controller(nn.Module):
         """
         Args:
             features:
-                [B, input_features]
+                [B, T, input_features]
 
         Returns:
             ControllerOutput:
                 analog:
-                    [B, 6]
-
-                    0: left stick x
-                    1: left stick y
-                    2: right stick x
-                    3: right stick y
-                    4: left bumper
-                    5: right bumper
+                    [B, T, 6]
 
                 button_logits:
-                    [B, button_outputs]
+                    [B, T, button_outputs]
         """
-        if features.ndim != 2:
+        if features.ndim != 3:
             raise ValueError(
-                "Expected features with shape [B, F], "
+                "Expected features with shape [B, T, F], "
                 f"received {tuple(features.shape)}"
             )
 
-        if features.shape[1] != self.input_features:
+        if features.shape[-1] != self.input_features:
             raise ValueError(
                 f"Expected {self.input_features} features, "
-                f"received {features.shape[1]}"
+                f"received {features.shape[-1]}"
             )
 
         left_stick = torch.tanh(
@@ -118,7 +111,7 @@ class Controller(nn.Module):
                 right_stick,
                 bumpers,
             ),
-            dim=1,
+            dim=-1,
         )
 
         button_logits = self.buttons(features)
