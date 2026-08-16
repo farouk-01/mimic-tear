@@ -28,6 +28,7 @@ class Logger(logging.Logger):
         name: str,
         level: int = logging.DEBUG,
         log_file: str | None = None,
+        log_file_enable: bool = False,
         enabled: bool = False,
     ) -> None:
         super().__init__(name, level)
@@ -36,7 +37,8 @@ class Logger(logging.Logger):
         if not self.handlers:
             self.propagate = False
             self._console_handler()
-            self._add_file_handler(log_file) if log_file else None
+            if log_file_enable:
+                self._add_file_handler(log_file) if log_file else None
 
     def _console_handler(self) -> None:
         console_handler = logging.StreamHandler(sys.stdout)
