@@ -15,6 +15,7 @@ from data.stores import (
     TensorFrameStore,
 )
 from data.stores.frames import VideoDecoderConfig
+from data.transforms.frames import FrameTransform, FrameTransformConfig
 from game_state import GameStateSchema
 from recording import Recording
 from torch import Tensor
@@ -107,12 +108,14 @@ class SequenceDataset(Dataset[SequenceSample]):
         game_state_schema: GameStateSchema | None,
         sequence_length: int,
         video_decoder_config: VideoDecoderConfig,
+        frame_transform_condig: FrameTransformConfig,
         drop_incomplete: bool = True,
     ) -> SequenceDataset:
         frame_store = TensorFrameStore(
             path=recording.video, **video_decoder_config.model_dump()
         )
-        frame_dataset = FramesDataset(store=frame_store)
+        frame_transform = FrameTransform(**frame_transform_condig.model_dump())
+        frame_dataset = FramesDataset(store=frame_store, transform=frame_transform)
         controller_store = ParquetControllerStore(path=recording.controller)
         controller_dataset = ControllerDataset(store=controller_store)
 

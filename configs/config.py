@@ -119,7 +119,7 @@ class MimicTearConfig(BaseModel):
             for path in directory.rglob(self.recording_files.video_file):
                 recording_dir.append(path.parent)
 
-            sorted(recording_dir)
+            recording_dir.sort()
 
             if not recording_dir:
                 raise FileNotFoundError(
@@ -143,6 +143,7 @@ class MimicTearConfig(BaseModel):
                         game_state_schema=self.game_state.schema_,
                         sequence_length=self.hyperparameters.sequence_length,
                         drop_incomplete=False,
+                        frame_transform_condig=self.transform_frames,
                     )
                 )
             return datasets
