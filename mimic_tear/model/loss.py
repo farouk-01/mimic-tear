@@ -17,6 +17,9 @@ class PolicyLossOutput:
 
 
 class PolicyLoss(nn.Module):
+    analog_weight: Tensor
+    button_weight: Tensor
+
     def __init__(
         self,
         *,
@@ -25,11 +28,11 @@ class PolicyLoss(nn.Module):
     ) -> None:
         super().__init__()
 
-        self.analog_weight = analog_weight
-        self.button_weight = button_weight
+        self.register_buffer("analog_weight", analog_weight)
+        self.register_buffer("button_weight", button_weight)
 
-        self.analog_loss = nn.SmoothL1Loss()
-        self.button_loss = nn.BCEWithLogitsLoss(reduction="none")
+        self.analog_criterion = nn.SmoothL1Loss(reduction="none")
+        self.button_criterion = nn.BCEWithLogitsLoss(reduction="none")
 
     def forward(
         self,
@@ -38,17 +41,28 @@ class PolicyLoss(nn.Module):
         analog_target: Tensor,
         button_target: Tensor,
     ) -> PolicyLossOutput:
-        analog_loss = self.analog_loss(
+        analog_loss = self.analog_criterion(
             output.analog,
             analog_target,
         )
 
-        button_loss = self.button_loss(
+        button_loss = self.button_criterion(
             output.button_logits,
             button_target,
         )
 
-        total = (self.analog_weight * analog_loss) + (self.button_weight * button_loss)
+        analog_loss = (analog_loss * self.analog_weight).sum(
+            dim=-1
+        ) / self.analog_weight.sum()
+
+        button_loss = (button_loss * self.button_weight).sum(
+            dim=-1
+        ) / self.button_weight.sum()
+
+        analog_loss = analog_loss.mean()
+        button_loss = button_loss.mean()
+
+        total = analog_loss + button_loss
 
         return PolicyLossOutput(
             total=total,
