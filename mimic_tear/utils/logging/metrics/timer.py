@@ -1,18 +1,19 @@
 from __future__ import annotations
 
-from collections.abc import Mapping
 from time import perf_counter
 from typing import Literal
 
 from pydantic import BaseModel, ConfigDict
 
-from .base import FormattedMetricLines, MetricResult, ProfileMetric
+from .base import MetricResult, ProfileMetric
+
+TimeUnit = Literal["ms", "s", "min"]
 
 
 class TimerMetricConfig(BaseModel):
     model_config = ConfigDict(frozen=True, extra="forbid", strict=True)
 
-    unit: Literal["ms", "s"] = "ms"
+    unit: TimeUnit = "ms"
     precision: int = 2
 
 
@@ -21,7 +22,7 @@ class TimerMetric(ProfileMetric):
 
     def __init__(
         self,
-        unit: Literal["ms", "s"] = "ms",
+        unit: TimeUnit = "ms",
         precision: int = 2,
     ) -> None:
         self._started_at = 0.0
@@ -32,6 +33,16 @@ class TimerMetric(ProfileMetric):
         self._started_at = perf_counter()
 
     def stop(self) -> MetricResult:
-        return {
-            "time_ms": (perf_counter() - self._started_at) * 1000,
-        }
+        elapsed_seconds = perf_counter() - self._started_at
+
+        match self.unit:
+            case "ms":
+                elapsed = elapsed_seconds * 1000
+            case "s":
+                elapsed = elapsed_seconds
+            case "min":
+                elapsed = elapsed_seconds / 60
+            case _:
+                raise ValueError(f"Invalid time unit: {self.unit}")
+
+        return {f"time_{self.unit}": round(elapsed, self.precision)}
