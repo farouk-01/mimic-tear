@@ -120,12 +120,20 @@ ram_enabled = true
 cuda_enabled = true
 
 [logging.profiling.timer]
+unit = "ms"
+precision = 2
 
 [logging.profiling.cpu]
+cpu_percent = true
 
 [logging.profiling.ram]
+usage = true
+delta = true
 
 [logging.profiling.cuda]
+allocated = true
+reserved = true
+peak = true
 
 
 # =============================================================================

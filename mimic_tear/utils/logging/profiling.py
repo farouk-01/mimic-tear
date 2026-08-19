@@ -1,36 +1,38 @@
 from __future__ import annotations
 
-from abc import ABC, abstractmethod
-from pydantic import BaseModel, ConfigDict
-import torch
+from functools import wraps
 from typing import (
     Callable,
-    TypeVar,
     ParamSpec,
+    TypeVar,
 )
-from functools import wraps
+
+from pydantic import BaseModel, ConfigDict
+import torch
+from rich.columns import Columns
+from rich.table import Table
 
 from ..logging.logger import Logger
-from .metrics.base import ProfileMetric
+from .metrics.base import MetricResult, ProfileMetric
 from .metrics.cpu import CPUMetric, CPUMetricConfig
 from .metrics.cuda import CUDAMetric, CUDAMetricConfig
 from .metrics.ram import RAMMetric, RAMMetricConfig
 from .metrics.timer import TimerMetric, TimerMetricConfig
 
-
 Parameters = ParamSpec("Parameters")
 Result = TypeVar("Result")
+
+type ProfileResult = dict[str, MetricResult]
 
 _profiler: Profiler | None = None
 
 
-class Profilable(ABC):
-    profiler: Profiler
-    perf_logger: Logger
-
-
 class ProfilerConfig(BaseModel):
-    model_config = ConfigDict(frozen=True, extra="forbid", strict=True)
+    model_config = ConfigDict(
+        frozen=True,
+        extra="forbid",
+        strict=True,
+    )
 
     enabled: bool = True
 
@@ -83,31 +85,61 @@ class Profiler:
         for metric in self.metrics:
             metric.start()
 
-    def stop(self) -> dict[str, float]:
+    def stop(self) -> ProfileResult:
         if not self.config.enabled:
             return {}
 
-        result: dict[str, float] = {}
+        result: ProfileResult = {}
 
-        for metric in reversed(self.metrics):
-            result.update(metric.stop())
+        for metric in self.metrics:
+            result[metric.name] = metric.stop()
 
         return result
 
+    def render(
+        self,
+        result: ProfileResult,
+    ) -> Columns:
+        tables: list[Table] = []
 
-def profile(function: Callable[Parameters, Result]) -> Callable[Parameters, Result]:
+        for metric_name, values in result.items():
+            if not values:
+                continue
+
+            table = Table(title=metric_name, show_header=False)
+
+            table.add_column("Metric")
+            table.add_column("Value", justify="right")
+
+            for name, value in values.items():
+                table.add_row(name, f"{value:.2f}")
+
+            tables.append(table)
+
+        return Columns(tables, equal=False, expand=False, padding=(0, 1))
+
+
+def profile(
+    function: Callable[Parameters, Result],
+) -> Callable[Parameters, Result]:
     @wraps(function)
-    def wrapper(*args: Parameters.args, **kwargs: Parameters.kwargs) -> Result:
-        if _profiler is None:
+    def wrapper(
+        *args: Parameters.args,
+        **kwargs: Parameters.kwargs,
+    ) -> Result:
+        if _profiler is None or not _profiler.config.enabled:
             return function(*args, **kwargs)
 
         _profiler.start()
 
         try:
             return function(*args, **kwargs)
+
         finally:
             metrics = _profiler.stop()
 
-            _profiler.logger.debug("%s | %s", function.__qualname__, metrics)
+            if metrics:
+                _profiler.logger.debug("%s", function.__qualname__)
+                _profiler.logger.print(_profiler.render(metrics))
 
     return wrapper

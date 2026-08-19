@@ -20,6 +20,8 @@ dependencies = [
     "torchvision",
     "pytest",
     "pydantic>=2",
+    "psutil",
+    "rich",
 ]
 
 [project.optional-dependencies]

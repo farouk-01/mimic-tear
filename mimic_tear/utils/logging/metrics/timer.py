@@ -1,9 +1,12 @@
 from __future__ import annotations
-from typing import Literal
+
+from collections.abc import Mapping
 from time import perf_counter
+from typing import Literal
+
 from pydantic import BaseModel, ConfigDict
 
-from .base import ProfileMetric
+from .base import FormattedMetricLines, MetricResult, ProfileMetric
 
 
 class TimerMetricConfig(BaseModel):
@@ -14,7 +17,13 @@ class TimerMetricConfig(BaseModel):
 
 
 class TimerMetric(ProfileMetric):
-    def __init__(self, unit: Literal["ms", "s"], precision: int = 2) -> None:
+    name = "Timer"
+
+    def __init__(
+        self,
+        unit: Literal["ms", "s"] = "ms",
+        precision: int = 2,
+    ) -> None:
         self._started_at = 0.0
         self.unit = unit
         self.precision = precision
@@ -22,7 +31,7 @@ class TimerMetric(ProfileMetric):
     def start(self) -> None:
         self._started_at = perf_counter()
 
-    def stop(self) -> dict[str, float]:
-        elapsed_seconds = perf_counter() - self._started_at
-
-        return {"time_ms": elapsed_seconds * 1000}
+    def stop(self) -> MetricResult:
+        return {
+            "time_ms": (perf_counter() - self._started_at) * 1000,
+        }

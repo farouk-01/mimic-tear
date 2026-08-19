@@ -2,20 +2,27 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from time import perf_counter
 
 import psutil
 from pydantic import BaseModel, ConfigDict
 
-from .base import ProfileMetric
+from .base import FormattedMetricLines, MetricResult, ProfileMetric
 
 
 class CPUMetricConfig(BaseModel):
     model_config = ConfigDict(frozen=True, extra="forbid", strict=True)
 
+    cpu_percent: bool = True
+
 
 class CPUMetric(ProfileMetric):
-    def __init__(self) -> None:
+    name = "CPU"
+
+    def __init__(self, cpu_percent: bool = True) -> None:
+        self.cpu_percent = cpu_percent
+
         self._process = psutil.Process()
         self._started_at = 0.0
         self._cpu_start = None
@@ -24,7 +31,7 @@ class CPUMetric(ProfileMetric):
         self._started_at = perf_counter()
         self._cpu_start = self._process.cpu_times()
 
-    def stop(self) -> dict[str, float]:
+    def stop(self) -> MetricResult:
         if self._cpu_start is None:
             raise RuntimeError("CPUMetric was not started")
 
@@ -38,10 +45,11 @@ class CPUMetric(ProfileMetric):
             - self._cpu_start.system
         )
 
-        cpu_percent = (
-            cpu_seconds / elapsed_seconds * 100 if elapsed_seconds > 0 else 0.0
-        )
+        result: MetricResult = {}
 
-        return {
-            "cpu_percent": cpu_percent,
-        }
+        if self.cpu_percent:
+            result["cpu_percent"] = (
+                cpu_seconds / elapsed_seconds * 100 if elapsed_seconds > 0 else 0.0
+            )
+
+        return result
