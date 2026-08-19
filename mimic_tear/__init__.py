@@ -6,7 +6,7 @@ from .training import (
     load_checkpoint,
     save_checkpoint,
 )
-
+from .mimic import MimicTear
 
 __all__ = [
     "EldenRingPolicy",
@@ -16,4 +16,5 @@ __all__ = [
     "EpochMetrics",
     "load_checkpoint",
     "save_checkpoint",
+    "MimicTear",
 ]

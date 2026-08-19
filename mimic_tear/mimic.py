@@ -1,11 +1,20 @@
 from __future__ import annotations
 import torch
+from torch.utils.data import ConcatDataset, DataLoader
+from pathlib import Path
+from typing import TYPE_CHECKING
 
-from utils.logging import Logger
-from configs.config import MimicTearConfig
+from mimic_tear.utils.logging.logger import Logger
 from mimic_tear.training import Trainer
-from mimic_tear.utils.timing import timed
 from mimic_tear.training.checkpoint import save_checkpoint
+from mimic_tear.utils.logging.profiling import Profiler
+from recording.session import RecordingSession
+
+if TYPE_CHECKING:
+    from configs.config import MimicTearConfig
+    from data.sequence import SequenceDataset
+    from mimic_tear.training import EpochMetrics
+
 
 
 class MimicTear:
@@ -18,19 +27,38 @@ class MimicTear:
     ) -> None:
         self.config = config
         self.hyperparameters = config.hyperparameters
-        self.trainer = Trainer(
-            config=config.policy,
-            hyperparameters=config.hyperparameters,
-            device=device,
-            optimizer=optimizer,
-        )
+        self.device = device
+        self._optimizer = optimizer
+        self._trainer : Trainer | None = None
         self.logger = Logger(**config.regular_logging.model_dump())
         self.perf_logger = Logger(**config.perf_logging.model_dump())
 
-        self.logger.info(f"Device: %s", device)
+        self.profiler = Profiler(
+            config.profiling,
+            logger=self.perf_logger,
+            device=self.device,
+        )
 
-    @timed("perf_logger")
-    def train(self):
+        if device == "cuda":
+            gpu_name = torch.cuda.get_device_name(device)
+            self.logger.info("Device: %s (%s)", device, gpu_name)
+        else:
+            self.logger.info("Device: %s", device)
+
+    @property
+    def trainer(self) -> Trainer: # lazy trainer
+        if self._trainer is None:
+            self.logger.info("Initializing trainer on %s...", self.device)
+            self._trainer = Trainer(
+                config=self.config.policy,
+                hyperparameters=self.hyperparameters,
+                device=self.device,
+                optimizer=self._optimizer,
+            )
+        return self._trainer
+    
+
+    def mimic(self) -> None:
         self.logger.info("Starting training...")
 
         train_datasets, val_datasets = self.config.load_recordings()
@@ -38,6 +66,8 @@ class MimicTear:
         self.logger.info("Validation recordings: %d", len(val_datasets))
 
         best_val_loss = float("inf")
+
+        trainer = self.trainer # initialize trainer
 
         for epoch in range(1, self.hyperparameters.epochs + 1):
             train_metrics = self.trainer.train_epoch(train_datasets)
@@ -75,3 +105,20 @@ class MimicTear:
                 train_metrics.total_loss,
                 val_metrics.total_loss,
             )
+
+    def train(self) -> None:
+        self.mimic()
+
+    def record(
+        self,
+        *,
+        name: str | None = None,
+        seconds: float | None = None,
+    ) -> Path:
+        self.logger.info("Starting gameplay recording...")
+
+        output = RecordingSession(config=self.config).run(name=name, seconds=seconds)
+
+        self.logger.info("Recording saved to %s", output)
+
+        return output

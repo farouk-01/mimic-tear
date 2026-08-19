@@ -9,6 +9,7 @@ from data.sequence import SequenceDataset, SequenceSample
 from mimic_tear.model.loss import PolicyLoss
 from mimic_tear.model.policy import PolicyConfig, EldenRingPolicy
 from .hyperparameters import Hyperparameters
+from mimic_tear.utils import profile
 
 
 @dataclass(slots=True)
@@ -65,8 +66,12 @@ class Sampler:
         # Policy expects:
         # images: [B, T, 3, H, W]
         #
-        # For now B=1 because we're preserving one recording
-        # recurrent state sequentially.
+        # For now B=1 
+        # B = batch
+        # B1 -> B2 -> B3 
+        #
+        # T = sequence length
+        # [T1, T2, T3] -> [T1, T2, T3] -> [T1, T2, T3]
         images = sample.images.unsqueeze(0).to(device, non_blocking=True)
         analog = sample.analog.unsqueeze(0).to(device, non_blocking=True)
         buttons = sample.buttons.unsqueeze(0).to(device, non_blocking=True)
@@ -112,8 +117,9 @@ class Trainer:
 
         btn_weight = hyperparameters.controller_weights.button_weights
         analog_weight = hyperparameters.controller_weights.analog_weights
-        self.loss = PolicyLoss(button_weight=btn_weight, analog_weight=analog_weight)
+        self.loss = PolicyLoss(button_weight=btn_weight, analog_weight=analog_weight).to(self.device)
 
+    @profile
     def train_epoch(self, recordings: Iterable[SequenceDataset]) -> EpochMetrics:
         self.model.train()
         metrics = EpochMetrics()
@@ -121,14 +127,6 @@ class Trainer:
         for recording in recordings:
             state = None
             for sample in recording:
-                # SequenceDataset returns:
-                # images: [T, 3, H, W]
-                #
-                # Policy expects:
-                # images: [B, T, 3, H, W]
-                #
-                # For now B=1 because we're preserving one recording
-                # recurrent state sequentially.
                 batch = Sampler.prepare(self.device, sample)
 
                 self.optimizer.zero_grad(set_to_none=True)
@@ -170,6 +168,7 @@ class Trainer:
                 )
         return metrics.average()
 
+    @profile
     def validate(self, recordings: Iterable[SequenceDataset]) -> EpochMetrics:
         self.model.eval()
         metrics = EpochMetrics()
