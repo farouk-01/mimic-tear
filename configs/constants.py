@@ -34,6 +34,10 @@ class RawConfig:
         return self.config[ConfigKey.LOGGING]["perf_logger"]
 
     @property
+    def profiling(self) -> dict[str, Any]:
+        return self.config[ConfigKey.LOGGING]["profiling"]
+
+    @property
     def hyperparameters(self) -> dict[str, Any]:
         return self.config[ConfigKey.HYPERPARAMETERS]
 

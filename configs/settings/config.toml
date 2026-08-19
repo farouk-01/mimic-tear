@@ -112,6 +112,21 @@ log_file_enable = false
 name = "mimic_tear.performance"
 log_file = "logs/mimic_tear_perf.log"
 
+[logging.profiling]
+enabled = true
+timer_enabled = true
+cpu_enabled = true
+ram_enabled = true
+cuda_enabled = true
+
+[logging.profiling.timer]
+
+[logging.profiling.cpu]
+
+[logging.profiling.ram]
+
+[logging.profiling.cuda]
+
 
 # =============================================================================
 # Capture

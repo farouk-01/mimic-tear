@@ -21,7 +21,14 @@ from data.transforms.frames import FrameTransformConfig
 
 from .constants import RawConfig
 from mimic_tear.model import PolicyConfig
-from mimic_tear.utils.logging import LoggingConfig
+from mimic_tear.utils.logging.logger import LoggingConfig
+from mimic_tear.utils.logging.profiling import ProfilerConfig
+from mimic_tear.utils.logging.metrics import (
+    CPUMetricConfig,
+    CUDAMetricConfig,
+    RAMMetricConfig,
+    TimerMetricConfig,
+)
 from game_state.elden_ring.config import EldenRingConfig
 from recording import RecordingConfig, Recording
 from mimic_tear.training.trainer import Hyperparameters
@@ -35,6 +42,7 @@ class MimicTearConfig(BaseModel):
 
     regular_logging: LoggingConfig = LoggingConfig.model_validate(_raw.regular_logging)
     perf_logging: LoggingConfig = LoggingConfig.model_validate(_raw.perf_logging)
+    profiling: ProfilerConfig = ProfilerConfig.model_validate(_raw.profiling)
 
     game_state: EldenRingConfig = EldenRingConfig.model_validate_json(_raw.game_state)
 
