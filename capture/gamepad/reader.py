@@ -1,13 +1,27 @@
 from __future__ import annotations
 
-import ai_controller
+from importlib import import_module
+from typing import Any
+from pydantic import ConfigDict, BaseModel, NonNegativeFloat
 
-from controller import AnalogState, ButtonState, ControllerState
+from controller import (
+    AnalogState,
+    ButtonState,
+    ControllerState,
+)
+
+class GamepadReaderConfig(BaseModel):
+    model_config = ConfigDict(frozen=True, extra="forbid", strict=True)
+
+    stick_deadzone: NonNegativeFloat
 
 
 class GamepadReader:
-    def __init__(self, stick_deadzone: float = 0.12) -> None:
-        self._gamepad = ai_controller.Controller(stick_deadzone)
+    def __init__(self, stick_deadzone: float) -> None:
+        native = import_module("ai_controller")
+        self._gamepad: Any = native.Controller(
+            stick_deadzone
+        )
 
     @property
     def name(self) -> str:
