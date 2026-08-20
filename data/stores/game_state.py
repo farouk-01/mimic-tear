@@ -3,11 +3,11 @@ from __future__ import annotations
 from pathlib import Path
 
 import pyarrow.parquet as pq
+import torch
+from torch import Tensor
+import numpy as np
 
-from data.datasets.game_state import (
-    GameStateStore,
-    GameStateValue,
-)
+from data.datasets.game_state import GameStateStore, GameStateValue
 
 
 class ParquetGameStateStore(GameStateStore):
@@ -20,42 +20,29 @@ class ParquetGameStateStore(GameStateStore):
         self.path = Path(path)
 
         if not self.path.is_file():
-            raise FileNotFoundError(
-                f"Game-state parquet does not exist: {self.path}"
-            )
+            raise FileNotFoundError(f"Game-state parquet does not exist: {self.path}")
 
         if not features:
-            raise ValueError(
-                "Game-state features cannot be empty"
-            )
+            raise ValueError("Game-state features cannot be empty")
 
-        table = pq.read_table(
-            self.path,
-            columns=list(features),
-        )
+        table = pq.read_table(self.path, columns=list(features))
 
-        missing = [
-            feature
-            for feature in features
-            if feature not in table.column_names
-        ]
+        missing = [feature for feature in features if feature not in table.column_names]
 
         if missing:
-            raise ValueError(
-                f"Game-state parquet is missing features: {missing}"
-            )
+            raise ValueError(f"Game-state parquet is missing features: {missing}")
 
         if table.num_rows <= 0:
-            raise ValueError(
-                "Game-state parquet cannot be empty"
-            )
+            raise ValueError("Game-state parquet cannot be empty")
 
         self._features = features
 
-        self._columns = {
-            feature: table[feature].to_pylist()
-            for feature in features
-        }
+        self._states = torch.from_numpy(
+            np.stack(
+                [table[feature].to_numpy(zero_copy_only=False) for feature in features],
+                axis=1,
+            )
+        ).to(torch.float32)
 
         self._length = table.num_rows
 
@@ -76,7 +63,18 @@ class ParquetGameStateStore(GameStateStore):
         if not 0 <= index < len(self):
             raise IndexError(index)
 
-        return {
-            feature: self._columns[feature][index]
-            for feature in self._features
-        }
+        state = self._states[index]
+
+        return {feature: state[i].item() for i, feature in enumerate(self._features)}
+
+    def get_range(self, start: int, end: int) -> Tensor:
+        if start < 0:
+            start += len(self)
+
+        if end < 0:
+            end += len(self)
+
+        if not 0 <= start <= end <= len(self):
+            raise IndexError(f"Invalid range [{start}:{end}]")
+
+        return self._states[start:end]

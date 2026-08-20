@@ -4,14 +4,14 @@ from dataclasses import dataclass
 
 import torch
 from torch import Tensor
+from pydantic import BaseModel, ConfigDict
 
-# from mimic_tear.model.config import ComponentConfig
 
+class ControllerTransformConfig(BaseModel):
+    model_config = ConfigDict(frozen=True, extra="forbid", strict=True)
 
-# @dataclass(frozen=True, slots=True)
-# class ControllerTransformConfig(ComponentConfig):
-#     clamp_sticks: bool = True
-#     clamp_triggers: bool = True
+    clamp_sticks: bool = True
+    clamp_triggers: bool = True
 
 
 class ControllerTransform:

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
 
 import torch
 from torch import Tensor
@@ -13,24 +13,16 @@ GameStateValue = int | float | bool
 class GameStateStore(ABC):
     @property
     @abstractmethod
-    def features(self) -> tuple[str, ...]:
-        """
-        Ordered game-state features exposed by this store.
-        """
-        ...
+    def features(self) -> tuple[str, ...]: ...
 
     @abstractmethod
     def __len__(self) -> int: ...
 
     @abstractmethod
-    def get(
-        self,
-        index: int,
-    ) -> Mapping[str, GameStateValue]:
-        """
-        Return one frame-aligned game-state snapshot.
-        """
-        ...
+    def get(self, index: int) -> Mapping[str, GameStateValue]: ...
+
+    @abstractmethod
+    def get_range(self, start: int, end: int) -> Tensor: ...
 
 
 class GameStateDataset(Dataset[Tensor]):
@@ -38,6 +30,7 @@ class GameStateDataset(Dataset[Tensor]):
         self,
         *,
         store: GameStateStore,
+        transform: Callable[[Tensor], Tensor] | None = None,
     ) -> None:
         if len(store) <= 0:
             raise ValueError("Game-state store cannot be empty")
@@ -47,14 +40,12 @@ class GameStateDataset(Dataset[Tensor]):
 
         self.store = store
         self.features = store.features
+        self.transform = transform
 
     def __len__(self) -> int:
         return len(self.store)
 
-    def __getitem__(
-        self,
-        index: int,
-    ) -> Tensor:
+    def __getitem__(self, index: int) -> Tensor:
         state = self.store.get(index)
 
         missing = [feature for feature in self.features if feature not in state]
@@ -62,7 +53,20 @@ class GameStateDataset(Dataset[Tensor]):
         if missing:
             raise ValueError(f"Game-state sample is missing features: {missing}")
 
-        return torch.tensor(
+        state_tensor = torch.tensor(
             [float(state[feature]) for feature in self.features],
             dtype=torch.float32,
         )
+
+        if self.transform is not None:
+            state_tensor = self.transform(state_tensor)
+
+        return state_tensor
+
+    def get_range(self, start: int, end: int) -> Tensor:
+        states = self.store.get_range(start, end)
+
+        if self.transform is not None:
+            states = self.transform(states)
+
+        return states

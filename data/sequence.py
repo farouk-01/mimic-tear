@@ -15,10 +15,11 @@ from data.stores import (
     TensorFrameStore,
 )
 from data.stores.frames import VideoDecoderConfig
+from data.transforms.controller import ControllerTransform, ControllerTransformConfig
 from data.transforms.frames import FrameTransform, FrameTransformConfig
+from data.transforms.game_state import GameStateTransform, GameStateTransformConfig
 from game_state import GameStateSchema
 from recording import Recording
-from torch import Tensor
 
 
 @dataclass(frozen=True, slots=True)
@@ -81,22 +82,18 @@ class SequenceDataset(Dataset[SequenceSample]):
 
         images = self.frames.get_range(start, end)
 
-        controller_samples = [self.controller[i] for i in range(start, end)]
-
-        analog = torch.stack([sample.analog for sample in controller_samples])
-
-        buttons = torch.stack([sample.buttons for sample in controller_samples])
+        controller = self.controller.get_range(start, end)
 
         game_state = (
-            torch.stack([self.game_state[i] for i in range(start, end)])
+            self.game_state.get_range(start, end)
             if self.game_state is not None
             else None
         )
 
         return SequenceSample(
             images=images,
-            analog=analog,
-            buttons=buttons,
+            analog=controller.analog,
+            buttons=controller.buttons,
             game_state=game_state,
         )
 
@@ -108,16 +105,25 @@ class SequenceDataset(Dataset[SequenceSample]):
         game_state_schema: GameStateSchema | None,
         sequence_length: int,
         video_decoder_config: VideoDecoderConfig,
-        frame_transform_condig: FrameTransformConfig,
+        frame_transform_config: FrameTransformConfig,
+        game_state_transform_config: GameStateTransformConfig | None,
+        controller_transform_config: ControllerTransformConfig,
         drop_incomplete: bool = True,
     ) -> SequenceDataset:
         frame_store = TensorFrameStore(
             path=recording.video, **video_decoder_config.model_dump()
         )
-        frame_transform = FrameTransform(**frame_transform_condig.model_dump())
+        frame_transform = FrameTransform(**frame_transform_config.model_dump())
+
         frame_dataset = FramesDataset(store=frame_store, transform=frame_transform)
         controller_store = ParquetControllerStore(path=recording.controller)
-        controller_dataset = ControllerDataset(store=controller_store)
+
+        controller_transform = ControllerTransform(
+            **controller_transform_config.model_dump()
+        )
+        controller_dataset = ControllerDataset(
+            store=controller_store, transform=controller_transform
+        )
 
         if recording.game_state is not None:
             if game_state_schema is None:
@@ -131,8 +137,18 @@ class SequenceDataset(Dataset[SequenceSample]):
                 features=game_state_schema.features,
             )
 
+            game_state_transform = (
+                GameStateTransform(**game_state_transform_config.model_dump())
+                if game_state_transform_config is not None
+                else None
+            )
+
+            # if game_state_transform is None:
+            #     logger.warning("Game state is provided but it's transform is None")
+
             game_state_dataset: GameStateDataset | None = GameStateDataset(
                 store=game_state_store,
+                transform=game_state_transform,
             )
         else:
             game_state_dataset = None

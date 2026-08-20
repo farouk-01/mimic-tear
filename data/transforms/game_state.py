@@ -2,14 +2,16 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from pydantic import BaseModel, ConfigDict, PositiveFloat
 import torch
 from torch import Tensor
 
 
-@dataclass(frozen=True, slots=True)
-class GameStateTransformConfig:
+class GameStateTransformConfig(BaseModel):
+    model_config = ConfigDict(frozen=True, extra="forbid", strict=True)
+
     mean: tuple[float, ...] | None = None
-    std: tuple[float, ...] | None = None
+    std: tuple[PositiveFloat, ...] | None = None
 
 
 class GameStateTransform:
