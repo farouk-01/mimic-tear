@@ -8,7 +8,7 @@ from typing import ParamSpec, TypeVar, overload
 import torch
 from pydantic import BaseModel, ConfigDict, Field
 
-from ..logging.logger import Logger
+from .logger import Logger
 from .metrics.base import ProfileMetric
 from .metrics.cpu import CPUMetric, CPUMetricConfig
 from .metrics.cuda import CUDAMetric, CUDAMetricConfig
