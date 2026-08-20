@@ -21,7 +21,6 @@ dependencies = [
     "pytest",
     "pydantic>=2",
     "psutil",
-    "rich",
 ]
 
 [project.optional-dependencies]

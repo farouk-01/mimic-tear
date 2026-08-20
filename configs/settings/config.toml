@@ -132,7 +132,7 @@ delta = true
 
 [logging.profiling.cuda]
 allocated = true
-reserved = true
+reserved = false
 peak = true
 
 

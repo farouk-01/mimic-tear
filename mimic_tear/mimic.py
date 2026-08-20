@@ -70,7 +70,9 @@ class MimicTear:
         trainer = self.trainer # initialize trainer
 
         for epoch in range(1, self.hyperparameters.epochs + 1):
+            self.logger.info("Starting epoch %d/%d...", epoch, self.hyperparameters.epochs)
             train_metrics = self.trainer.train_epoch(train_datasets)
+            self.logger.info("Validating epoch %d/%d...", epoch, self.hyperparameters.epochs)
             val_metrics = self.trainer.validate(val_datasets)
 
             metadata = {
