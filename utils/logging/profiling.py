@@ -153,10 +153,10 @@ class Profiler:
                 average = sum(values) / len(values)
 
                 self.logger.debug(
-                    "%-26s | %-10s | avg=%.2f | samples=%d",
+                    "%-26s | %-10s | %-8s | samples=%d",
                     name,
                     metric_name,
-                    average,
+                    f"avg={average:.2f}",
                     len(values),
                 )
 
@@ -176,7 +176,7 @@ def profile(
 
         config = _profiler.get_profile(function)
 
-        if config is None:
+        if config is None or not config.enabled:
             return function(*args, **kwargs)
 
         metrics = _profiler.create_metrics(
