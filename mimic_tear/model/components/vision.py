@@ -5,6 +5,8 @@ from pydantic import BaseModel, ConfigDict
 from torch import Tensor, nn
 from torchvision.models import ResNet18_Weights, resnet18
 
+from utils import profile
+
 
 class VisionConfig(BaseModel):
     model_config = ConfigDict(frozen=True, extra="forbid", strict=True)
@@ -12,7 +14,7 @@ class VisionConfig(BaseModel):
     output_features: int
     weights_name: str | None
 
-
+# note : current most expensive component ~31/~35
 class Vision(nn.Module):
     def __init__(
         self,
@@ -47,6 +49,7 @@ class Vision(nn.Module):
                 nn.ReLU(inplace=True),
             )
 
+    @profile
     def forward(self, images: Tensor) -> Tensor:
         """
         Args:

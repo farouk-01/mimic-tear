@@ -5,6 +5,8 @@ from typing import TypeAlias
 from pydantic import BaseModel, ConfigDict
 from torch import Tensor, nn
 
+from utils import profile
+
 LSTMState: TypeAlias = tuple[Tensor, Tensor]
 
 class TemporalConfig(BaseModel):
@@ -51,6 +53,7 @@ class Temporal(nn.Module):
             dropout=dropout if num_layers > 1 else 0.0,
         )
 
+    @profile
     def forward(
         self,
         features: Tensor,

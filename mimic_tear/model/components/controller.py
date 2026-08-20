@@ -4,6 +4,8 @@ from pydantic import BaseModel, ConfigDict
 import torch
 from torch import Tensor, nn
 
+from utils import profile
+
 class ControllerConfig(BaseModel):
     model_config = ConfigDict(frozen=True, extra="forbid", strict=True)
 
@@ -67,6 +69,7 @@ class Controller(nn.Module):
             nn.Linear(256, button_outputs),
         )
 
+    @profile
     def forward(self, features: Tensor) -> ControllerOutput:
         """
         Args:

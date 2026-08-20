@@ -6,6 +6,7 @@ from pydantic import BaseModel, ConfigDict
 import torch
 from torch import Tensor, nn
 
+from utils import profile
 
 @dataclass(frozen=True, slots=True)
 class FusionConfig(BaseModel):
@@ -48,6 +49,7 @@ class Fusion(nn.Module):
                 nn.ReLU(inplace=True),
             )
 
+    @profile
     def forward(self, *features: Tensor) -> Tensor:
         if len(features) != len(self.input_features):
             raise ValueError(

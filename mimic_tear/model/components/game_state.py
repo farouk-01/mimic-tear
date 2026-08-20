@@ -4,6 +4,8 @@ from dataclasses import dataclass
 from pydantic import BaseModel, ConfigDict, Field
 from torch import Tensor, nn
 
+from utils import profile
+
 class GameStateConfig(BaseModel):
     model_config = ConfigDict(frozen=True, extra="forbid", strict=True)
 
@@ -31,6 +33,7 @@ class GameState(nn.Module):
             nn.ReLU(inplace=True),
         )
 
+    @profile
     def forward(self, state: Tensor) -> Tensor:
         """
         Args:

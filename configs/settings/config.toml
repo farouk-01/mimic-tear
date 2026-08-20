@@ -81,7 +81,7 @@ scale = true
 
 [data.stores.frames]
 device = "cuda"
-dimension_order = "NCHW"
+dimension_order = "NCHW" # ResNet expects NCHW
 seek_mode = "exact"
 num_ffmpeg_threads = 4
 
@@ -147,6 +147,17 @@ reserved = false
 peak = true
 
 # =============================================================================
+# Capture
+# =============================================================================
+
+[capture.screen]
+gpu_index = 0
+monitor_index = 0
+
+[capture.gamepad]
+stick_deadzone = 0.12
+
+# =============================================================================
 # Function profiles
 # =============================================================================
 
@@ -191,7 +202,7 @@ aggregate = true
 flush = false
 
 [logging.profiling.profiles."FramesDataset.get_range"]
-enabled = true
+enabled = false
 timer = true
 cuda_timer = true
 cpu = false
@@ -201,7 +212,7 @@ aggregate = true
 flush = false
 
 [logging.profiling.profiles."TensorFrameStore.get_range"]
-enabled = true
+enabled = false
 timer = true
 cuda_timer = true
 cpu = false
@@ -211,7 +222,7 @@ aggregate = true
 flush = false
 
 [logging.profiling.profiles."EldenRingPolicy.forward"]
-enabled = true
+enabled = false
 timer = true
 cuda_timer = true
 cpu = false
@@ -221,7 +232,7 @@ aggregate = true
 flush = false
 
 [logging.profiling.profiles."PolicyLoss.forward"]
-enabled = true
+enabled = false
 timer = true
 cuda_timer = true
 cpu = false
@@ -230,14 +241,52 @@ cuda = false
 aggregate = true
 flush = false
 
+[logging.profiling.profiles."Vision.forward"]
+enabled = false
+timer = false
+cuda_timer = true
+cpu = false
+ram = false
+cuda = false
+aggregate = true
+flush = false
 
-# =============================================================================
-# Capture
-# =============================================================================
+[logging.profiling.profiles."Temporal.forward"]
+enabled = false
+timer = false
+cuda_timer = true
+cpu = false
+ram = false
+cuda = false
+aggregate = true
+flush = false
 
-[capture.screen]
-gpu_index = 0
-monitor_index = 0
+[logging.profiling.profiles."GameState.forward"]
+enabled = false
+timer = false
+cuda_timer = true
+cpu = false
+ram = false
+cuda = false
+aggregate = true
+flush = false
 
-[capture.gamepad]
-stick_deadzone = 0.12
+[logging.profiling.profiles."Fusion.forward"]
+enabled = false
+timer = false
+cuda_timer = true
+cpu = false
+ram = false
+cuda = false
+aggregate = true
+flush = false
+
+[logging.profiling.profiles."Controller.forward"]
+enabled = false
+timer = false
+cuda_timer = true
+cpu = false
+ram = false
+cuda = false
+aggregate = true
+flush = false
