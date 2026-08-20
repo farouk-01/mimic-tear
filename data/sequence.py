@@ -79,7 +79,7 @@ class SequenceDataset(Dataset[SequenceSample]):
             len(self.frames),
         )
 
-        images = torch.stack([self.frames[i] for i in range(start, end)])
+        images = self.frames.get_range(start, end)
 
         controller_samples = [self.controller[i] for i in range(start, end)]
 

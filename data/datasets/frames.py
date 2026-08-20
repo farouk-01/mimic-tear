@@ -20,6 +20,15 @@ class FrameStore(ABC):
         """Return a uint8 RGB frame shaped [3, H, W]."""
         ...
 
+    @abstractmethod
+    def get_range(
+        self,
+        start: int,
+        end: int,
+    ) -> Tensor:
+        """Return uint8 RGB frames shaped [T, 3, H, W]."""
+        ...
+
 
 class FramesDataset(Dataset[Tensor]):
     def __init__(
@@ -37,12 +46,10 @@ class FramesDataset(Dataset[Tensor]):
     def __len__(self) -> int:
         return len(self.store)
 
-    def __getitem__(
+    def _prepare_frame(
         self,
-        index: int,
+        frame: Tensor,
     ) -> Tensor:
-        frame = self.store.get(index)
-
         if frame.ndim != 3:
             raise ValueError(
                 "Expected frame with shape [3, H, W], " f"received {tuple(frame.shape)}"
@@ -65,3 +72,10 @@ class FramesDataset(Dataset[Tensor]):
             frame = frame.to(torch.float32)
 
         return frame
+
+    def __getitem__(self, index: int) -> Tensor:
+        return self._prepare_frame(self.store.get(index))
+
+    def get_range(self, start: int, end: int) -> Tensor:
+        frames = self.store.get_range(start, end)
+        return torch.stack([self._prepare_frame(frame) for frame in frames])

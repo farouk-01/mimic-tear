@@ -3,7 +3,9 @@ from typing import Literal
 
 import torch
 from torch import Tensor
-from torchcodec.decoders import VideoDecoder # pyright: ignore[reportPrivateImportUsage]
+from torchcodec.decoders import (
+    VideoDecoder,  # pyright: ignore[reportPrivateImportUsage]
+)
 from pydantic import BaseModel, ConfigDict
 
 from data.datasets.frames import FrameStore
@@ -16,6 +18,7 @@ class VideoDecoderConfig(BaseModel):
     dimension_order: Literal["NCHW", "NHWC"] = "NCHW"
     seek_mode: Literal["exact", "approximate"] = "exact"
     num_ffmpeg_threads: int = 1
+
 
 class TensorFrameStore(FrameStore):
     def __init__(
@@ -38,8 +41,8 @@ class TensorFrameStore(FrameStore):
     def __len__(self) -> int:
         return len(self.frames)
 
-    def get(
-        self,
-        index: int,
-    ) -> Tensor:
+    def get(self, index: int) -> Tensor:
         return self.frames.get_frame_at(index).data
+
+    def get_range(self, start: int, end: int) -> Tensor:
+        return self.frames.get_frames_in_range(start=start, stop=end).data
