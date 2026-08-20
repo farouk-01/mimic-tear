@@ -9,6 +9,7 @@ from torchcodec.decoders import (
 from pydantic import BaseModel, ConfigDict
 
 from data.datasets.frames import FrameStore
+from utils import profile
 
 
 class VideoDecoderConfig(BaseModel):
@@ -41,8 +42,10 @@ class TensorFrameStore(FrameStore):
     def __len__(self) -> int:
         return len(self.frames)
 
+    @profile
     def get(self, index: int) -> Tensor:
         return self.frames.get_frame_at(index).data
 
+    @profile
     def get_range(self, start: int, end: int) -> Tensor:
         return self.frames.get_frames_in_range(start=start, stop=end).data

@@ -21,6 +21,7 @@ from mimic_tear.model.components import (
     Vision,
     VisionConfig,
 )
+from utils import profile
 
 
 class PolicyConfig(BaseModel):
@@ -57,6 +58,7 @@ class EldenRingPolicy(nn.Module):
 
         self.controller = Controller(**config.controller.model_dump())
 
+    @profile
     def forward(
         self,
         images: Tensor,

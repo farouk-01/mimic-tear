@@ -7,6 +7,7 @@ from torch import Tensor, nn
 from pydantic import BaseModel
 
 from mimic_tear.model.components import ControllerOutput
+from utils import profile
 
 
 @dataclass(frozen=True, slots=True)
@@ -34,6 +35,7 @@ class PolicyLoss(nn.Module):
         self.analog_criterion = nn.SmoothL1Loss(reduction="none")
         self.button_criterion = nn.BCEWithLogitsLoss(reduction="none")
 
+    @profile
     def forward(
         self,
         output: ControllerOutput,

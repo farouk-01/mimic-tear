@@ -21,8 +21,8 @@ from data.transforms.frames import FrameTransformConfig
 
 from .constants import RawConfig
 from mimic_tear.model import PolicyConfig
-from mimic_tear.utils.logging.logger import LoggingConfig
-from mimic_tear.utils.logging.profiling import ProfilerConfig
+from utils.logging.logger import LoggingConfig
+from utils.logging.profiling import ProfilerConfig
 from game_state.elden_ring.config import EldenRingConfig
 from recording import RecordingConfig, Recording
 from mimic_tear.training.trainer import DataLoaderConfig, Hyperparameters

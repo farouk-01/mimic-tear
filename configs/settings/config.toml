@@ -146,6 +146,90 @@ allocated = true
 reserved = false
 peak = true
 
+# =============================================================================
+# Function profiles
+# =============================================================================
+
+[logging.profiling.profiles."Trainer.train_epoch"]
+enabled = true
+timer = true
+cuda_timer = true
+cpu = true
+ram = true
+cuda = true
+aggregate = false
+flush = true
+
+[logging.profiling.profiles."Trainer.validate"]
+enabled = true
+timer = true
+cuda_timer = true
+cpu = true
+ram = true
+cuda = true
+aggregate = false
+flush = true
+
+[logging.profiling.profiles."SequenceDataset.__getitem__"]
+enabled = false
+timer = true
+cuda_timer = true
+cpu = false
+ram = false
+cuda = false
+aggregate = true
+flush = false
+
+[logging.profiling.profiles."TensorFrameStore.get"]
+enabled = false
+timer = true
+cuda_timer = true
+cpu = false
+ram = false
+cuda = false
+aggregate = true
+flush = false
+
+[logging.profiling.profiles."FramesDataset.get_range"]
+enabled = true
+timer = true
+cuda_timer = true
+cpu = false
+ram = false
+cuda = false
+aggregate = true
+flush = false
+
+[logging.profiling.profiles."TensorFrameStore.get_range"]
+enabled = true
+timer = true
+cuda_timer = true
+cpu = false
+ram = false
+cuda = false
+aggregate = true
+flush = false
+
+[logging.profiling.profiles."EldenRingPolicy.forward"]
+enabled = true
+timer = true
+cuda_timer = true
+cpu = false
+ram = false
+cuda = false
+aggregate = true
+flush = false
+
+[logging.profiling.profiles."PolicyLoss.forward"]
+enabled = true
+timer = true
+cuda_timer = true
+cpu = false
+ram = false
+cuda = false
+aggregate = true
+flush = false
+
 
 # =============================================================================
 # Capture

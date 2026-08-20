@@ -11,7 +11,7 @@ from data.sequence import SequenceDataset, SequenceSample
 from mimic_tear.model.loss import PolicyLoss
 from mimic_tear.model.policy import PolicyConfig, EldenRingPolicy
 from .hyperparameters import Hyperparameters
-from mimic_tear.utils import profile
+from utils import profile
 
 
 class DataLoaderConfig(BaseModel):

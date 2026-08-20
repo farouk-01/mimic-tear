@@ -7,6 +7,8 @@ import torch
 from torch import Tensor
 from torch.utils.data import Dataset
 
+from utils import profile
+
 
 class FrameStore(ABC):
     @abstractmethod
@@ -73,9 +75,11 @@ class FramesDataset(Dataset[Tensor]):
 
         return frame
 
+    @profile
     def __getitem__(self, index: int) -> Tensor:
         return self._prepare_frame(self.store.get(index))
 
+    @profile
     def get_range(self, start: int, end: int) -> Tensor:
         frames = self.store.get_range(start, end)
         return torch.stack([self._prepare_frame(frame) for frame in frames])
