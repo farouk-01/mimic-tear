@@ -48,38 +48,40 @@ class FramesDataset(Dataset[Tensor]):
     def __len__(self) -> int:
         return len(self.store)
 
-    def _prepare_frame(
-        self,
-        frame: Tensor,
-    ) -> Tensor:
-        if frame.ndim != 3:
+    def _prepare(self, frames: Tensor) -> Tensor:
+        if frames.ndim not in (3, 4):
             raise ValueError(
-                "Expected frame with shape [3, H, W], " f"received {tuple(frame.shape)}"
+                "Expected frame(s) with shape [3, H, W] or [T, 3, H, W], "
+                f"received {tuple(frames.shape)}"
             )
 
-        if frame.shape[0] != 3:
-            raise ValueError(f"Expected 3 RGB channels, received {frame.shape[0]}")
+        channel_dim = 0 if frames.ndim == 3 else 1
 
-        original_dtype = frame.dtype
+        if frames.shape[channel_dim] != 3:
+            raise ValueError(
+                f"Expected 3 RGB channels, received {frames.shape[channel_dim]}"
+            )
+
+        original_dtype = frames.dtype
 
         if self.transform is not None:
-            frame = self.transform(frame)
+            frames = self.transform(frames)
         else:
-            frame = frame.to(torch.float32)
+            frames = frames.to(torch.float32)
 
             if original_dtype == torch.uint8:
-                frame = frame / 255.0
+                frames = frames / 255.0
 
-        if frame.dtype != torch.float32:
-            frame = frame.to(torch.float32)
+        if frames.dtype != torch.float32:
+            frames = frames.to(torch.float32)
 
-        return frame
+        return frames
 
     @profile
     def __getitem__(self, index: int) -> Tensor:
-        return self._prepare_frame(self.store.get(index))
+        return self._prepare(self.store.get(index))
 
     @profile
     def get_range(self, start: int, end: int) -> Tensor:
         frames = self.store.get_range(start, end)
-        return torch.stack([self._prepare_frame(frame) for frame in frames])
+        return self._prepare(frames).contiguous()

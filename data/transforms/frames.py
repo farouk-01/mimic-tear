@@ -46,9 +46,9 @@ class FrameTransform:
 
     def __call__(
         self,
-        frame: Tensor,
+        frames: Tensor,
     ) -> Tensor:
-        transformed = self.transform(frame)
+        transformed = self.transform(frames)
 
         if transformed.dtype != torch.float32:
             raise RuntimeError("Frame transform did not produce float32")
