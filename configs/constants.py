@@ -17,6 +17,7 @@ class ConfigKey(StrEnum):
     MODEL = "model"
     CAPTURE = "capture"
     DATA = "data"
+    DATALOADER = "data_loader"
 
 @dataclass(frozen=True, slots=True)
 class RawConfig:
@@ -64,6 +65,10 @@ class RawConfig:
     @property
     def controller(self) -> dict[str, Any]:
         return self.config[ConfigKey.MODEL]["controller"]
+
+    @property
+    def data_loader(self) -> dict[str, Any]:
+        return self.config[ConfigKey.DATALOADER]
 
     @property
     def transform_frames(self) -> dict[str, Any]:

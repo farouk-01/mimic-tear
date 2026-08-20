@@ -23,15 +23,9 @@ from .constants import RawConfig
 from mimic_tear.model import PolicyConfig
 from mimic_tear.utils.logging.logger import LoggingConfig
 from mimic_tear.utils.logging.profiling import ProfilerConfig
-from mimic_tear.utils.logging.metrics import (
-    CPUMetricConfig,
-    CUDAMetricConfig,
-    RAMMetricConfig,
-    TimerMetricConfig,
-)
 from game_state.elden_ring.config import EldenRingConfig
 from recording import RecordingConfig, Recording
-from mimic_tear.training.trainer import Hyperparameters
+from mimic_tear.training.trainer import DataLoaderConfig, Hyperparameters
 from data import SequenceDataset
 
 _raw = RawConfig()
@@ -89,6 +83,8 @@ class MimicTearConfig(BaseModel):
     controller: ControllerConfig = ControllerConfig.model_validate(
         {**_raw.controller, "input_features": fusion.output_features}
     )
+
+    data_loader: DataLoaderConfig = DataLoaderConfig.model_validate(_raw.data_loader)
 
     policy: PolicyConfig = PolicyConfig(
         vision=vision,

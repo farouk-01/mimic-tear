@@ -2,14 +2,25 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from collections.abc import Iterable
+from pydantic import BaseModel, ConfigDict
 import torch
 from torch.nn.utils import clip_grad_norm_
+from torch.utils.data import DataLoader
 
 from data.sequence import SequenceDataset, SequenceSample
 from mimic_tear.model.loss import PolicyLoss
 from mimic_tear.model.policy import PolicyConfig, EldenRingPolicy
 from .hyperparameters import Hyperparameters
 from mimic_tear.utils import profile
+
+
+class DataLoaderConfig(BaseModel):
+    model_config = ConfigDict(frozen=True, extra="forbid", strict=True)
+
+    batch_size: int | None = None
+    shuffle: bool = False
+    num_workers: int = 0
+    pin_memory: bool = False
 
 
 @dataclass(slots=True)
@@ -97,6 +108,7 @@ class Trainer:
         hyperparameters: Hyperparameters,
         device: torch.device | str,
         optimizer: torch.optim.Optimizer | None = None,
+        data_loader_config: DataLoaderConfig,
     ) -> None:
         self.device = torch.device(device)
         self.hyperparams = hyperparameters
@@ -118,6 +130,13 @@ class Trainer:
         btn_weight = hyperparameters.controller_weights.button_weights
         analog_weight = hyperparameters.controller_weights.analog_weights
         self.loss = PolicyLoss(button_weight=btn_weight, analog_weight=analog_weight).to(self.device)
+        self.data_loader_config = data_loader_config
+
+    def _loader(self, recording: SequenceDataset) -> DataLoader:
+        return DataLoader(
+            recording,
+            **self.data_loader_config.model_dump(),
+        )
 
     @profile
     def train_epoch(self, recordings: Iterable[SequenceDataset]) -> EpochMetrics:
@@ -126,7 +145,8 @@ class Trainer:
 
         for recording in recordings:
             state = None
-            for sample in recording:
+
+            for sample in self._loader(recording):
                 batch = Sampler.prepare(self.device, sample)
 
                 self.optimizer.zero_grad(set_to_none=True)
@@ -177,7 +197,7 @@ class Trainer:
             for recording in recordings:
                 state = None
 
-                for sample in recording:
+                for sample in self._loader(recording):
                     batch = Sampler.prepare(self.device, sample)
 
                     with torch.autocast(
