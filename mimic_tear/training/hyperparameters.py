@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from pydantic import BaseModel, Field, model_validator, ConfigDict, PositiveInt
+from pydantic import BaseModel, Field, PositiveFloat, model_validator, ConfigDict, PositiveInt
 from pathlib import Path
 import torch
 import yaml
@@ -79,11 +79,20 @@ class ControllerInputsWeights(BaseModel):
             [getattr(self, name) for name in ANALOG_INPUTS], dtype=torch.float32
         )
 
+class EarlyStoppingConfig(BaseModel):
+    model_config = ConfigDict(frozen=True, extra="forbid", strict=True)
+
+    enabled: bool = True
+    patience: PositiveInt = 3
+    min_delta: PositiveFloat = 0.001
+    
 
 class Hyperparameters(BaseModel):
     epochs: int = Field(default=20)
     learning_rate: float = Field(default=1e-4)
     weight_decay: float = Field(default=1e-4)
+
+    early_stopping: EarlyStoppingConfig = Field(default_factory=EarlyStoppingConfig)
 
     use_amp: bool = Field(default=True)
     gradient_clip_norm: float | None = Field(default=1.0)

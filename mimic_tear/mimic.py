@@ -1,20 +1,16 @@
 from __future__ import annotations
 import torch
-from torch.utils.data import ConcatDataset, DataLoader
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from mimic_tear.utils.logging.logger import Logger
+from utils.logging.logger import Logger
 from mimic_tear.training import Trainer
 from mimic_tear.training.checkpoint import save_checkpoint
-from mimic_tear.utils.logging.profiling import Profiler
+from utils.logging.profiling import Profiler
 from recording.session import RecordingSession
 
 if TYPE_CHECKING:
     from configs.config import MimicTearConfig
-    from data.sequence import SequenceDataset
-    from mimic_tear.training import EpochMetrics
-
 
 
 class MimicTear:
@@ -29,7 +25,7 @@ class MimicTear:
         self.hyperparameters = config.hyperparameters
         self.device = device
         self._optimizer = optimizer
-        self._trainer : Trainer | None = None
+        self._trainer: Trainer | None = None
         self.logger = Logger(**config.regular_logging.model_dump())
         self.perf_logger = Logger(**config.perf_logging.model_dump())
 
@@ -46,7 +42,7 @@ class MimicTear:
             self.logger.info("Device: %s", device)
 
     @property
-    def trainer(self) -> Trainer: # lazy trainer
+    def trainer(self) -> Trainer:  # lazy trainer
         if self._trainer is None:
             self.logger.info("Initializing trainer on %s...", self.device)
             self._trainer = Trainer(
@@ -54,9 +50,9 @@ class MimicTear:
                 hyperparameters=self.hyperparameters,
                 device=self.device,
                 optimizer=self._optimizer,
+                data_loader_config=self.config.data_loader,
             )
         return self._trainer
-    
 
     def mimic(self) -> None:
         self.logger.info("Starting training...")
@@ -67,12 +63,22 @@ class MimicTear:
 
         best_val_loss = float("inf")
 
-        trainer = self.trainer # initialize trainer
+        trainer = self.trainer  # initialize trainer
+
+        best_val_loss = float("inf")
+        early_stopping_best = float("inf")
+        epochs_without_improvement = 0
+        early_stopping = self.hyperparameters.early_stopping
 
         for epoch in range(1, self.hyperparameters.epochs + 1):
-            self.logger.info("Starting epoch %d/%d...", epoch, self.hyperparameters.epochs)
+            self.logger.info(
+                "Training epoch %d/%d...", epoch, self.hyperparameters.epochs
+            )
             train_metrics = self.trainer.train_epoch(train_datasets)
-            self.logger.info("Validating epoch %d/%d...", epoch, self.hyperparameters.epochs)
+
+            self.logger.info(
+                "Validating epoch %d/%d...", epoch, self.hyperparameters.epochs
+            )
             val_metrics = self.trainer.validate(val_datasets)
 
             metadata = {
@@ -107,6 +113,30 @@ class MimicTear:
                 train_metrics.total_loss,
                 val_metrics.total_loss,
             )
+
+            if not early_stopping.enabled:
+                continue
+
+            improvement = early_stopping_best - val_metrics.total_loss
+
+            if improvement > early_stopping.min_delta:
+                early_stopping_best = val_metrics.total_loss
+                epochs_without_improvement = 0
+            else:
+                epochs_without_improvement += 1
+
+            if epochs_without_improvement >= early_stopping.patience:
+                self.logger.info(
+                    "Early stopping at epoch %d after %d epochs without improvement.",
+                    epoch,
+                    epochs_without_improvement,
+                )
+                self.logger.info(
+                    "Best validation loss: %.4f at epoch %d",
+                    early_stopping_best,
+                    epoch - epochs_without_improvement,
+                )
+                break
 
     def train(self) -> None:
         self.mimic()
