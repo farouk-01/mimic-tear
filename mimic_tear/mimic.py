@@ -1,13 +1,22 @@
 from __future__ import annotations
+from time import sleep
 import torch
 from pathlib import Path
 from typing import TYPE_CHECKING
+from threading import Event
 
+from game_state.elden_ring.reader import EldenRingGameStateReader
+from mimic_tear.model.policy import EldenRingPolicy
+from mimic_tear.player.player import Player
 from utils.logging.logger import Logger
 from mimic_tear.training import Trainer
-from mimic_tear.training.checkpoint import save_checkpoint
+from mimic_tear.training.checkpoint import load_checkpoint, save_checkpoint
 from utils.logging.profiling import Profiler
 from recording.session import RecordingSession
+from capture.screen.reader import ScreenReader
+from recording.writers.gamepad import GamepadWriter
+from data.transforms.frames import FrameTransform
+from data.transforms.game_state import GameStateTransform, GameStateTransformConfig
 
 if TYPE_CHECKING:
     from configs.config import MimicTearConfig
@@ -57,7 +66,7 @@ class MimicTear:
     def mimic(self) -> None:
         self.logger.info("Starting training...")
 
-        train_datasets, val_datasets = self.config.load_recordings()
+        train_datasets, val_datasets, game_state_transform = self.config.load_recordings()
         self.logger.info("Training recordings: %d", len(train_datasets))
         self.logger.info("Validation recordings: %d", len(val_datasets))
 
@@ -86,6 +95,7 @@ class MimicTear:
                 "network_hyperparameters": self.hyperparameters.model_dump(),
                 "policy_config": self.config.policy.model_dump(),
                 "sequence_length": self.hyperparameters.sequence_length,
+                "game_state_transform": game_state_transform.model_dump(),
             }
 
             save_checkpoint(
@@ -154,3 +164,65 @@ class MimicTear:
         self.logger.info("Recording saved to %s", output)
 
         return output
+
+    def summon(
+        self,
+        *,
+        stop_event: Event | None = None,
+    ) -> None:
+        input("Press Enter to summon (Ctrl+C to dismiss)")
+        self.logger.info("Summoning Mimic Tear...")
+        sleep(3.0)
+
+        model = EldenRingPolicy(config=self.config.policy).to(self.device)
+
+        checkpoint = load_checkpoint(
+            self.config.artifacts_directory / "best.pt",
+            model=model,
+        )
+
+        metadata = checkpoint["metadata"]
+
+        game_state_transform_config = GameStateTransformConfig.model_validate(
+            metadata["game_state_transform"]
+        )
+
+        frame_transform = FrameTransform(**self.config.transform_frames.model_dump())
+        game_state_transform = GameStateTransform(
+            **game_state_transform_config.model_dump()
+        )
+
+        screen = ScreenReader(**self.config.capture_screen.model_dump())
+        game_state_reader = EldenRingGameStateReader.open(self.config.game_state)
+        gamepad = GamepadWriter()
+
+        grace_logger = Logger(**self.config.grace_logging.model_dump())
+
+        player = Player(
+            model=model,
+            screen=screen,
+            gamepad=gamepad,
+            frame_transform=frame_transform,
+            game_state_reader=game_state_reader,
+            game_state_transform=game_state_transform,
+            game_state_features=self.config.game_state.schema_.features,
+            device=self.device,
+            fps=self.config.video_config.fps,
+            logger=grace_logger,
+        )
+
+        try:
+            player.run()
+        except KeyboardInterrupt:
+            self.logger.info("Mimic Tear dismissed.")
+        finally:
+            game_state_reader.close()
+            screen.close()
+            gamepad.close()
+
+    def eval(
+        self,
+        *,
+        stop_event: Event | None = None,
+    ) -> None:
+        self.summon(stop_event=stop_event)
