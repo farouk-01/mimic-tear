@@ -8,7 +8,10 @@ import torch
 from torch import Tensor
 import numpy as np
 
+from .validations import normalize_index, normalize_range
+
 from ..datasets.game_state import GameStateStore, GameStateValue
+
 
 class ParquetGameStateStoreConfig(BaseModel):
     model_config = ConfigDict(frozen=True, extra="forbid", strict=True)
@@ -74,28 +77,14 @@ class ParquetGameStateStore(GameStateStore):
     def __len__(self) -> int:
         return self._length
 
-    def get(
-        self,
-        index: int,
-    ) -> dict[str, GameStateValue]:
-        if index < 0:
-            index += len(self)
-
-        if not 0 <= index < len(self):
-            raise IndexError(index)
+    def get(self, index: int) -> dict[str, GameStateValue]:
+        index = normalize_index(index, len(self))
 
         state = self._states[index]
 
         return {feature: state[i].item() for i, feature in enumerate(self._features)}
 
     def get_range(self, start: int, end: int) -> Tensor:
-        if start < 0:
-            start += len(self)
-
-        if end < 0:
-            end += len(self)
-
-        if not 0 <= start <= end <= len(self):
-            raise IndexError(f"Invalid range [{start}:{end}]")
+        start, end = normalize_range(start, end, len(self))
 
         return self._states[start:end]

@@ -31,9 +31,6 @@ class GamepadWriter:
             raise RuntimeError(f"Unexpected controller bridge response: {message}")
 
     def write(self, state: GamepadState) -> None:
-        if self._pipe is None:
-            raise RuntimeError("Controller bridge is not connected")
-
         state.validate()
 
         payload = {
@@ -62,6 +59,12 @@ class GamepadWriter:
 
         self._write(payload)
 
+    def _ensure_connected(self) -> BinaryIO:
+        if self._pipe is None:
+            raise RuntimeError("Controller bridge is not connected")
+
+        return self._pipe
+
     def reset(self) -> None:
         if self._pipe is not None:
             self._write({"type": "reset"})
@@ -78,11 +81,10 @@ class GamepadWriter:
             self._pipe = None
 
     def _write(self, payload: dict[str, object]) -> None:
-        if self._pipe is None:
-            raise RuntimeError("Controller bridge is not connected")
+        pipe = self._ensure_connected()
 
         message = json.dumps(payload, separators=(",", ":")) + "\n"
-        self._pipe.write(message.encode("utf-8"))
+        pipe.write(message.encode("utf-8"))
 
     def __enter__(self) -> GamepadWriter:
         self.connect()

@@ -15,13 +15,11 @@ class DataPipeline:
         process_config: ProcessConfig,
         writer_config: WriterConfig,
     ) -> None:
-        if capture_config.fps != writer_config.video.fps:
-            raise ValueError("Capture and video FPS must match")
-
-        if process_config.recording != writer_config.recording:
-            raise ValueError(
-                "Writer and processor recording configurations must match"
-            )
+        self._validate_config_compatibility(
+            capture_config=capture_config,
+            process_config=process_config,
+            writer_config=writer_config,
+        )
 
         self.capture_config = capture_config
         self.process_config = process_config
@@ -43,21 +41,12 @@ class DataPipeline:
         if seconds is not None and seconds <= 0:
             raise ValueError("seconds must be greater than zero")
 
-        root_path = Path(root).resolve()
-        path = root_path
-
-        if theme is not None:
-            path = path / self._path_component(theme, label="Theme")
-
-        if sub_theme is not None:
-            path = path / self._path_component(sub_theme, label="Sub-theme")
-
-        path = path / self._session_name(name)
-        path = path / datetime.now().strftime("%Y%m%d-%H%M%S")
-        path = path.resolve()
-
-        if not path.is_relative_to(root_path):
-            raise ValueError(f"Recording path escapes root directory: {path}")
+        path = self._recording_path(
+            root=root,
+            theme=theme,
+            sub_theme=sub_theme,
+            name=name,
+        )
 
         fps = self.capture_config.fps
         max_frames = max(1, round(seconds * fps)) if seconds is not None else None
@@ -124,29 +113,63 @@ class DataPipeline:
         return self.processor.process_sequence(source=recording_path)
 
     @staticmethod
-    def _session_name(name: str | None) -> str:
-        if name is None:
-            return datetime.now().strftime("%Y%m%d-%H%M%S")
+    def _validate_config_compatibility(
+        *,
+        capture_config: CaptureConfig,
+        process_config: ProcessConfig,
+        writer_config: WriterConfig,
+    ) -> None:
+        if capture_config.fps != writer_config.video.fps:
+            raise ValueError(
+                "Capture FPS must match video writer FPS: "
+                f"{capture_config.fps} != {writer_config.video.fps}"
+            )
 
-        return DataPipeline._path_component(name, label="Recording name")
+        if process_config.recording != writer_config.recording:
+            raise ValueError("Process and writer recording configurations must match")
 
     @staticmethod
-    def _path_component(value: str, *, label: str) -> str:
-        value = value.strip()
+    def _recording_path(
+        root: str | Path,
+        *,
+        theme: str | None,
+        sub_theme: str | None,
+        name: str,
+    ) -> Path:
+        root_path = Path(root).resolve()
+        path = root_path
 
-        if not value:
-            raise ValueError(f"{label} cannot be empty")
+        def path_component(value: str, *, label: str) -> str:
+            value = value.strip()
 
-        component = Path(value)
+            if not value:
+                raise ValueError(f"{label} cannot be empty")
 
-        if (
-            "/" in value
-            or "\\" in value
-            or value in {".", ".."}
-            or component.is_absolute()
-            or bool(component.drive)
-            or len(component.parts) != 1
-        ):
-            raise ValueError(f"{label} must be a single path component: {value!r}")
+            component = Path(value)
 
-        return value
+            if (
+                "/" in value
+                or "\\" in value
+                or value in {".", ".."}
+                or component.is_absolute()
+                or bool(component.drive)
+                or len(component.parts) != 1
+            ):
+                raise ValueError(f"{label} must be a single path component: {value!r}")
+
+            return value
+
+        if theme is not None:
+            path /= path_component(theme, label="Theme")
+
+        if sub_theme is not None:
+            path /= path_component(sub_theme, label="Sub-theme")
+
+        path /= path_component(name, label="Recording name")
+        path /= datetime.now().strftime("%Y%m%d-%H%M%S")
+        path = path.resolve()
+
+        if not path.is_relative_to(root_path):
+            raise ValueError(f"Recording path escapes root directory: {path}")
+
+        return path

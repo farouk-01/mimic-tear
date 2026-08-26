@@ -19,21 +19,10 @@ from .locator import (
     ModulePointerLocator,
 )
 from .profile import EldenRingMemoryProfile
-from .states import InventoryEntryField, InventoryField, PointerField
+from .states import InventoryEntryField, InventoryField, PointerField, ENTRY_FORMATS
 
 
 class EldenRingReader(GameStateReader):
-    _ENTRY_FORMATS = {
-        "int8": "<b",
-        "uint8": "<B",
-        "int16": "<h",
-        "uint16": "<H",
-        "int32": "<i",
-        "uint32": "<I",
-        "int64": "<q",
-        "uint64": "<Q",
-    }
-
     def __init__(
         self,
         profile: EldenRingMemoryProfile,
@@ -119,10 +108,7 @@ class EldenRingReader(GameStateReader):
         name: str,
         dynamic_locators: dict[str, int | None],
     ) -> int | None:
-        try:
-            locator = self.profile.locators[name]
-        except KeyError as error:
-            raise ValueError(f"Unknown locator: {name!r}") from error
+        locator = self.profile.locators[name]
 
         if isinstance(locator, CharacterHandleLocator):
             if name not in dynamic_locators:
@@ -140,7 +126,7 @@ class EldenRingReader(GameStateReader):
         try:
             return self._static_locator_addresses[name]
         except KeyError as error:
-            raise ValueError(f"Static locator was not resolved: {name!r}") from error
+            raise RuntimeError(f"Static locator was not resolved: {name!r}") from error
 
     def _read_pointer_field(
         self,
@@ -202,12 +188,7 @@ class EldenRingReader(GameStateReader):
         structure_name: str,
         dynamic_locators: dict[str, int | None],
     ) -> dict[int, int] | None:
-        try:
-            definition = self.profile.structures[structure_name]
-        except KeyError as error:
-            raise ValueError(
-                f"Unknown inventory structure: {structure_name!r}"
-            ) from error
+        definition = self.profile.structures[structure_name]
 
         base_address = self._locator_address(
             definition.locator,
@@ -238,14 +219,10 @@ class EldenRingReader(GameStateReader):
             list_address,
             (definition.max_index + 1) * entry_size,
         )
-        try:
-            handle_field = definition.entry_fields["item_handle"]
-            item_id_field = definition.entry_fields["item_id"]
-            quantity_field = definition.entry_fields["quantity"]
-        except KeyError as error:
-            raise ValueError(
-                f"Inventory structure {structure_name!r} is missing {error}"
-            ) from error
+        
+        handle_field = definition.entry_fields["item_handle"]
+        item_id_field = definition.entry_fields["item_id"]
+        quantity_field = definition.entry_fields["quantity"]
 
         items: dict[int, int] = {}
         populated = 0
@@ -269,16 +246,11 @@ class EldenRingReader(GameStateReader):
         entry_offset: int,
         field: InventoryEntryField,
     ) -> int:
-        try:
-            format_string = self._ENTRY_FORMATS[field.type]
-        except KeyError as error:
-            raise ValueError(
-                f"Unsupported inventory entry type: {field.type!r}"
-            ) from error
+        format_string = ENTRY_FORMATS[field.type]
         return int(
-            struct.unpack_from(format_string, raw, entry_offset + int(field.offset, 0))[
-                0
-            ]
+            struct.unpack_from(
+                format_string, raw, entry_offset + int(field.offset, 0)
+            )[0]
         )
 
     def __enter__(self) -> Self:

@@ -1,11 +1,33 @@
 from __future__ import annotations
 
 from pydantic import BaseModel
+from typing import Literal
 
+type InventoryEntryType = Literal[
+    "int8",
+    "uint8",
+    "int16",
+    "uint16",
+    "int32",
+    "uint32",
+    "int64",
+    "uint64",
+]
+
+ENTRY_FORMATS: dict[InventoryEntryType, str] = {
+    "int8": "<b",
+    "uint8": "<B",
+    "int16": "<h",
+    "uint16": "<H",
+    "int32": "<i",
+    "uint32": "<I",
+    "int64": "<q",
+    "uint64": "<Q",
+}
 
 class InventoryEntryField(BaseModel):
     offset: str
-    type: str
+    type: InventoryEntryType
 
 
 class InventoryStructure(BaseModel):

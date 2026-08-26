@@ -12,6 +12,7 @@ from data.models.gamepad import (
     GamepadState,
 )
 from ..datasets.controller import ControllerSample, ControllerStore
+from .validations import normalize_index, normalize_range
 
 
 class ParquetControllerStore(ControllerStore):
@@ -70,11 +71,7 @@ class ParquetControllerStore(ControllerStore):
         return self._timestamps_ns
 
     def get(self, index: int) -> GamepadState:
-        if index < 0:
-            index += len(self)
-
-        if not 0 <= index < len(self):
-            raise IndexError(index)
+        index = normalize_index(index, len(self))
 
         analog = self._analog[index]
         buttons = self._buttons[index]
@@ -110,14 +107,7 @@ class ParquetControllerStore(ControllerStore):
         return state
 
     def get_range(self, start: int, end: int) -> ControllerSample:
-        if start < 0:
-            start += len(self)
-
-        if end < 0:
-            end += len(self)
-
-        if not 0 <= start <= end <= len(self):
-            raise IndexError(f"Invalid range [{start}:{end}]")
+        start, end = normalize_range(start, end, len(self))
 
         return ControllerSample(
             analog=self._analog[start:end],

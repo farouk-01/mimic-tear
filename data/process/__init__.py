@@ -24,6 +24,12 @@ from .datasets import (
 from .sequence import SequenceDataset
 from data.models.record import RecordingConfig, Recording
 
+__all__ = [
+    "ProcessConfig",
+    "Process",
+    "SequenceDataset",
+]
+
 
 class ProcessConfig(BaseModel):
     model_config = ConfigDict(frozen=True, extra="forbid", strict=True)
@@ -50,6 +56,65 @@ class Process:
         self.config = config
         self.sequence_length = config.sequence_length
         self.drop_incomplete = config.drop_incomplete
+
+    def process_sequence(self, source: str | Path) -> SequenceDataset:
+        recording = Recording.from_directory(root=source, config=self.config.recording)
+
+        if recording.game_state is None:
+            raise ValueError(
+                f"Missing game-state data in recording at {recording.root}"
+            )
+
+        frame_dataset = self._load_frames_dataset(source=recording.video)
+        controller_dataset = self._load_controller_dataset(source=recording.controller)
+        game_state_dataset = self._load_game_state_dataset(source=recording.game_state)
+
+        self._validate_recording_integrity(
+            frames=frame_dataset,
+            controller=controller_dataset,
+            game_state=game_state_dataset,
+        )
+
+        return SequenceDataset(
+            frames=frame_dataset,
+            controller=controller_dataset,
+            game_state=game_state_dataset,
+            sequence_length=self.sequence_length,
+            drop_incomplete=self.drop_incomplete,
+        )
+
+    @staticmethod
+    def _validate_recording_integrity(
+        *,
+        frames: FramesDataset,
+        controller: ControllerDataset,
+        game_state: GameStateDataset,
+    ) -> None:
+        if len(frames) != len(controller):
+            raise ValueError(
+                "Frame and controller sample counts do not match: "
+                f"{len(frames)} != {len(controller)}"
+            )
+
+        if len(frames) != len(game_state):
+            raise ValueError(
+                "Frame and game-state sample counts do not match: "
+                f"{len(frames)} != {len(game_state)}"
+            )
+
+        expected_indices = torch.arange(len(frames), dtype=torch.int64)
+
+        if not torch.equal(controller.store.indices, expected_indices):
+            raise ValueError("Controller indices are not sequential")
+
+        if not torch.equal(controller.store.indices, game_state.store.indices):
+            raise ValueError("Controller and game-state indices do not match")
+
+        if not torch.equal(
+            controller.store.timestamps_ns,
+            game_state.store.timestamps_ns
+        ):
+            raise ValueError("Controller and game-state timestamps do not match")
 
     def _load_frames_dataset(self, source: str | Path) -> FramesDataset:
         frame_store = TensorFrameStore(
@@ -80,59 +145,3 @@ class Process:
             **self.config.game_state_transform.model_dump(),
         )
         return GameStateDataset(store=game_state_store, transform=game_state_transform)
-
-    def process_sequence(self, source: str | Path) -> SequenceDataset:
-        recording = Recording.from_directory(root=source, config=self.config.recording)
-
-        if recording.game_state is None:
-            raise ValueError(
-                f"Missing game-state data in recording at {recording.root}"
-            )
-
-        frame_dataset = self._load_frames_dataset(source=recording.video)
-        controller_dataset = self._load_controller_dataset(source=recording.controller)
-        game_state_dataset = self._load_game_state_dataset(source=recording.game_state)
-
-        if len(frame_dataset) != len(controller_dataset):
-            raise ValueError(
-                "Frame and controller sample counts do not match: "
-                f"{len(frame_dataset)} != {len(controller_dataset)}"
-            )
-
-        if len(frame_dataset) != len(game_state_dataset):
-            raise ValueError(
-                "Frame and game-state sample counts do not match: "
-                f"{len(frame_dataset)} != {len(game_state_dataset)}"
-            )
-
-        expected_indices = torch.arange(len(frame_dataset), dtype=torch.int64)
-
-        if not torch.equal(controller_dataset.store.indices, expected_indices):
-            raise ValueError("Controller indices are not sequential")
-
-        if not torch.equal(
-            controller_dataset.store.indices,
-            game_state_dataset.store.indices,
-        ):
-            raise ValueError("Controller and game-state indices do not match")
-
-        if not torch.equal(
-            controller_dataset.store.timestamps_ns,
-            game_state_dataset.store.timestamps_ns,
-        ):
-            raise ValueError("Controller and game-state timestamps do not match")
-
-        return SequenceDataset(
-            frames=frame_dataset,
-            controller=controller_dataset,
-            game_state=game_state_dataset,
-            sequence_length=self.sequence_length,
-            drop_incomplete=self.drop_incomplete,
-        )
-
-
-__all__ = [
-    "ProcessConfig",
-    "Process",
-    "SequenceDataset",
-]
