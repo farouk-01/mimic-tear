@@ -6,20 +6,21 @@ import torch
 from torch import Tensor
 from torch.utils.data import Dataset
 
-from data.datasets.controller import ControllerDataset
-from data.datasets.frames import FramesDataset
-from data.datasets.game_state import GameStateDataset
-from data.stores import (
+from .datasets.controller import ControllerDataset
+from .datasets.frames import FramesDataset
+from .datasets.game_state import GameStateDataset
+from .stores import (
     ParquetControllerStore,
     ParquetGameStateStore,
     TensorFrameStore,
 )
-from data.stores.frames import VideoDecoderConfig
-from data.transforms.controller import ControllerTransform, ControllerTransformConfig
-from data.transforms.frames import FrameTransform, FrameTransformConfig
-from data.transforms.game_state import GameStateTransform, GameStateTransformConfig
+from .stores.frames import VideoDecoderConfig
+from .transforms.controller import ControllerTransform, ControllerTransformConfig
+from .transforms.frames import FrameTransform, FrameTransformConfig
+from .transforms.game_state import GameStateTransform, GameStateTransformConfig
+
 from game_state import GameStateSchema
-from recording import Recording
+from ..write import Recording
 
 
 @dataclass(frozen=True, slots=True)

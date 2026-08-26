@@ -11,7 +11,7 @@ from controller import (
     ButtonState,
     ControllerState,
 )
-from data.datasets.controller import ControllerSample, ControllerStore
+from ..datasets.controller import ControllerSample, ControllerStore
 
 
 class ParquetControllerStore(ControllerStore):

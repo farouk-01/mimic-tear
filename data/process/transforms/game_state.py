@@ -11,6 +11,9 @@ class GameStateTransformConfig(BaseModel):
 
 
 class Transform(ABC):
+    @property
+    @abstractmethod
+    def name(self) -> str: ...
 
     @property
     @abstractmethod
@@ -26,6 +29,10 @@ class Ratio(Transform):
         self.denominator = denominator
 
     @property
+    def name(self) -> str:
+        return "ratio"
+
+    @property
     def inputs(self) -> tuple[str, str]:
         return self.numerator, self.denominator
 
@@ -39,7 +46,7 @@ class Ratio(Transform):
         return torch.where(
             denominator != 0,
             numerator / safe_denominator,
-            torch.zeros_like(numerator)
+            torch.zeros_like(numerator),
         )
 
 

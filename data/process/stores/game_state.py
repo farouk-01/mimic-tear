@@ -3,18 +3,24 @@ from __future__ import annotations
 from pathlib import Path
 
 import pyarrow.parquet as pq
+from pydantic import BaseModel, ConfigDict
 import torch
 from torch import Tensor
 import numpy as np
 
-from data.datasets.game_state import GameStateStore, GameStateValue
+from ..datasets.game_state import GameStateStore, GameStateValue
+
+class ParquetGameStateStoreConfig(BaseModel):
+    model_config = ConfigDict(frozen=True, extra="forbid", strict=True)
+
+    features: tuple[str, ...]
 
 
 class ParquetGameStateStore(GameStateStore):
     def __init__(
         self,
-        *,
         path: str | Path,
+        *,
         features: tuple[str, ...],
     ) -> None:
         self.path = Path(path)

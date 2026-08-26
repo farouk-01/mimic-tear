@@ -10,7 +10,7 @@ from capture.screen import ScreenReader
 from game_state.elden_ring import (
     EldenRingGameStateReader,
 )
-from recording.recorder import Recorder
+from .recorder import Recorder
 
 if TYPE_CHECKING:
     from configs.config import MimicTearConfig

@@ -8,14 +8,14 @@ from types import TracebackType
 
 from capture import CaptureSample
 from game_state import GameStateSchema
-from recording.manifest import RecordingConfig
-from recording.metadata import RecordingMetadata
-from recording.writers.controller import (
+from .manifest import RecordingConfig
+from .metadata import RecordingMetadata
+from .writers.controller import (
     ControllerWriter,
     ControllerWriterConfig,
 )
-from recording.writers.game_state import GameStateWriter
-from recording.writers.video import (
+from .writers.game_state import GameStateWriter
+from .writers.video import (
     VideoConfig,
     VideoFrameWriter,
 )

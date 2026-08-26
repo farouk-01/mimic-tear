@@ -8,7 +8,7 @@ from torchcodec.decoders import (
 )
 from pydantic import BaseModel, ConfigDict
 
-from data.datasets.frames import FrameStore
+from ..datasets.frames import FrameStore
 from utils import profile
 
 

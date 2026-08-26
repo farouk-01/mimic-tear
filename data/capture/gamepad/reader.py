@@ -10,6 +10,7 @@ from controller import (
     ControllerState,
 )
 
+
 class GamepadReaderConfig(BaseModel):
     model_config = ConfigDict(frozen=True, extra="forbid", strict=True)
 
@@ -19,9 +20,7 @@ class GamepadReaderConfig(BaseModel):
 class GamepadReader:
     def __init__(self, stick_deadzone: float) -> None:
         native = import_module("ai_controller")
-        self._gamepad: Any = native.Controller(
-            stick_deadzone
-        )
+        self._gamepad: Any = native.Controller(stick_deadzone)
 
     @property
     def name(self) -> str:
