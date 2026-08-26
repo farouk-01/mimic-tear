@@ -34,8 +34,6 @@ __all__ = [
 class WriterConfig(BaseModel):
     model_config = ConfigDict(frozen=True, extra="forbid", strict=True)
 
-    root: str | Path
-
     recording: RecordingConfig
     video: VideoConfig
     game_state: GameStateWriterConfig
@@ -43,10 +41,9 @@ class WriterConfig(BaseModel):
 
 
 class Writer:
-    def __init__(self, *, config: WriterConfig) -> None:
+    def __init__(self, *, config: WriterConfig, path: str | Path) -> None:
         self.config = config
-
-        self.root = Path(config.root)
+        self.root = Path(path)
         self.root.mkdir(parents=True, exist_ok=True)
 
         self._validate_targets()

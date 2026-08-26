@@ -22,31 +22,37 @@ class DataPipeline:
         self.process_config = process_config
         self.writer_config = writer_config
 
-    @cached_property
-    def capture(self) -> Capture:
-        return Capture(config=self.capture_config)
-
-    @cached_property
-    def process(self) -> Process:
-        return Process(config=self.process_config)
-
-    @cached_property
-    def writer(self) -> Writer:
-        return Writer(config=self.writer_config)
-
-    def record_one_session(
+    def record_session(
         self,
         *,
+        root: str | Path,
+        theme: str | None = None,
+        sub_theme: str | None = None,
+        name: str,
         seconds: float | None = None,
-    ) -> None:
+    ) -> Path:
         if seconds is not None and seconds <= 0:
             raise ValueError("seconds must be greater than zero")
 
-        capture = self.capture
-        writer = self.writer
+        root_path = Path(root).resolve()
+        path = root_path
 
-        finalize = False
-        fps = capture.fps
+        if theme is not None:
+            path = path / self._path_component(theme, label="Theme")
+
+        if sub_theme is not None:
+            path = path / self._path_component(sub_theme, label="Sub-theme")
+
+        path = path / self._session_name(name)
+        path = path / datetime.now().strftime("%Y%m%d-%H%M%S")
+        path = path.resolve()
+
+        if not path.is_relative_to(root_path):
+            raise ValueError(f"Recording path escapes root directory: {path}")
+
+        self._validate_recording_directory(path)
+
+        fps = self.capture_config.fps
         max_frames = max(1, round(seconds * fps)) if seconds is not None else None
 
         print("Press Ctrl+C to stop recording.")
@@ -54,73 +60,85 @@ class DataPipeline:
         if seconds is not None:
             print(f"Recording for {seconds:.1f} seconds.")
 
-        try:
-            stream = capture.capture_stream()
-
-            for sample in stream:
-                game_state = (
-                    sample.game_state.values if sample.game_state is not None else None
-                )
-
-                if game_state is None:
-                    raise RuntimeError(
-                        "Game state is None, but it is required for writing."
+        with (
+            Capture(config=self.capture_config) as capture,
+            Writer(config=self.writer_config, path=path) as writer,
+        ):
+            try:
+                for sample in capture.capture_stream():
+                    game_state = (
+                        sample.game_state.values
+                        if sample.game_state is not None
+                        else None
                     )
 
-                writer.write_record(
-                    index=sample.index,
-                    timestamp_ns=sample.timestamp_ns,
-                    video_frame=sample.frame.image,
-                    controller_state=sample.controller,
-                    game_state=game_state,
-                )
+                    if game_state is None:
+                        raise RuntimeError(
+                            "Game state is None, but it is required for writing."
+                        )
 
-                elapsed_seconds = writer.sample_count / fps
+                    writer.write_record(
+                        index=sample.index,
+                        timestamp_ns=sample.timestamp_ns,
+                        video_frame=sample.frame.image,
+                        controller_state=sample.controller,
+                        game_state=game_state,
+                    )
 
-                print(
-                    f"\r"
-                    f"Frames: {writer.sample_count} "
-                    f"Time: {elapsed_seconds:.1f}s "
-                    f"Capture: "
-                    f"{sample.capture_duration_ns / 1_000_000:.2f}ms",
-                    end="",
-                    flush=True,
-                )
+                    elapsed_seconds = writer.sample_count / fps
 
-                if max_frames is not None and writer.sample_count >= max_frames:
-                    break
+                    print(
+                        f"\r"
+                        f"Frames: {writer.sample_count} "
+                        f"Time: {elapsed_seconds:.1f}s "
+                        f"Capture: "
+                        f"{sample.capture_duration_ns / 1_000_000:.2f}ms",
+                        end="",
+                        flush=True,
+                    )
 
-        except KeyboardInterrupt:
-            finalize = True
-            print("\nStopping recording...")
+                    if (
+                        max_frames is not None
+                        and writer.sample_count >= max_frames
+                    ):
+                        break
 
-        else:
-            finalize = True
-            print("\nRecording complete.")
-
-        finally:
-            try:
-                writer.close(finalize=finalize)
-            finally:
-                capture.close()
+            except KeyboardInterrupt:
+                print("\nStopping recording...")
 
         print()
         print(f"Saved {writer.sample_count} samples " f"to {writer.root.resolve()}")
 
-    # @staticmethod
-    # def _session_name(name: str | None) -> str:
-    #     if name is None:
-    #         return datetime.now().strftime("%Y%m%d-%H%M%S")
+        return path
 
-    #     name = name.strip()
+    def _validate_recording_directory(self, path: Path) -> None:
+        if path.exists() and not path.is_dir():
+            raise ValueError(f"Path {path} is a file, but a directory is required")
 
-    #     if not name:
-    #         raise ValueError("Recording name cannot be empty")
+    @staticmethod
+    def _session_name(name: str | None) -> str:
+        if name is None:
+            return datetime.now().strftime("%Y%m%d-%H%M%S")
 
-    #     if "/" in name or "\\" in name:
-    #         raise ValueError("Recording name cannot contain a path")
+        return DataPipeline._path_component(name, label="Recording name")
 
-    #     if name in {".", ".."}:
-    #         raise ValueError(f"Invalid recording name: {name!r}")
+    @staticmethod
+    def _path_component(value: str, *, label: str) -> str:
+        value = value.strip()
 
-    #     return name
+        if not value:
+            raise ValueError(f"{label} cannot be empty")
+
+        component = Path(value)
+
+        if (
+            "/" in value
+            or "\\" in value
+            or value in {".", ".."}
+            or component.is_absolute()
+            or bool(component.drive)
+            or len(component.parts) != 1
+        ):
+            raise ValueError(f"{label} must be a single path component: {value!r}")
+
+        return value
