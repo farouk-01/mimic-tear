@@ -4,7 +4,7 @@ from typing import Literal
 
 from pydantic import BaseModel
 
-from capture.memory.windows import MemoryReadError, ProcessMemory
+from data.capture.memory.windows import MemoryReadError, ProcessMemory
 
 
 class ModulePointerLocator(BaseModel):

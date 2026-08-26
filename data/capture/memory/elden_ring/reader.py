@@ -4,10 +4,14 @@ import struct
 from types import TracebackType
 from typing import Self
 
-from capture.memory.windows import MemoryReadError, ProcessMemory
-from game_state.reader import GameStateReader
-from game_state.schema import GameStateField, GameStateSchema, GameStateValue
-from game_state.snapshot import GameStateSnapshot
+from data.capture.memory.windows import MemoryReadError, ProcessMemory
+from data.capture.memory.game_state import (
+    GameStateReader,
+    GameStateSnapshot,
+    GameStateSchema,
+    GameStateValue,
+    GameStateField,
+)
 
 from .locator import (
     CharacterHandleLocator,

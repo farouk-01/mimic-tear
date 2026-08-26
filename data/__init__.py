@@ -1,5 +1,5 @@
-from .process.sequence import SequenceDataset
+from .pipeline import DataPipeline
 
 __all__ = [
-    "SequenceDataset",
+    "DataPipeline",
 ]

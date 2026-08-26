@@ -4,12 +4,12 @@ import pyarrow.parquet as pq
 import torch
 import numpy as np
 
-from controller import (
+from data.models.gamepad import (
     ANALOG_INPUTS,
     BUTTON_INPUTS,
     AnalogState,
     ButtonState,
-    ControllerState,
+    GamepadState,
 )
 from ..datasets.controller import ControllerSample, ControllerStore
 
@@ -61,7 +61,7 @@ class ParquetControllerStore(ControllerStore):
     def __len__(self) -> int:
         return self._length
 
-    def get(self, index: int) -> ControllerState:
+    def get(self, index: int) -> GamepadState:
         if index < 0:
             index += len(self)
 
@@ -71,7 +71,7 @@ class ParquetControllerStore(ControllerStore):
         analog = self._analog[index]
         buttons = self._buttons[index]
 
-        state = ControllerState(
+        state = GamepadState(
             analog=AnalogState(
                 left_x=analog[0].item(),
                 left_y=analog[1].item(),

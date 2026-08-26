@@ -15,7 +15,7 @@ class DataPipeline:
         process_config: ProcessConfig,
         writer_config: WriterConfig,
     ) -> None:
-        if self.capture_config.fps != self.writer_config.video.fps:
+        if capture_config.fps != writer_config.video.fps:
             raise ValueError("Capture and video FPS must match")
         
         self.capture_config = capture_config

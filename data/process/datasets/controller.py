@@ -8,7 +8,7 @@ import torch
 from torch import Tensor
 from torch.utils.data import Dataset
 
-from controller import ControllerState
+from data.models.gamepad import GamepadState
 
 
 @dataclass(frozen=True, slots=True)
@@ -22,7 +22,7 @@ class ControllerStore(ABC):
     def __len__(self) -> int: ...
 
     @abstractmethod
-    def get(self, index: int) -> ControllerState: ...
+    def get(self, index: int) -> GamepadState: ...
 
     @abstractmethod
     def get_range(self, start: int, end: int) -> ControllerSample: ...

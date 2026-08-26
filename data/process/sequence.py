@@ -2,25 +2,12 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-import torch
 from torch import Tensor
 from torch.utils.data import Dataset
 
 from .datasets.controller import ControllerDataset
 from .datasets.frames import FramesDataset
 from .datasets.game_state import GameStateDataset
-from .stores import (
-    ParquetControllerStore,
-    ParquetGameStateStore,
-    TensorFrameStore,
-)
-from .stores.frames import VideoDecoderConfig
-from .transforms.controller import ControllerTransform, ControllerTransformConfig
-from .transforms.frames import FrameTransform, FrameTransformConfig
-from .transforms.game_state import GameStateTransform, GameStateTransformConfig
-
-from game_state import GameStateSchema
-from ..write import Recording
 
 
 @dataclass(frozen=True, slots=True)
@@ -76,10 +63,7 @@ class SequenceDataset(Dataset[SequenceSample]):
             raise IndexError(index)
 
         start = index * self.sequence_length
-        end = min(
-            start + self.sequence_length,
-            len(self.frames),
-        )
+        end = min(start + self.sequence_length, len(self.frames))
 
         images = self.frames.get_range(start, end)
 
@@ -98,80 +82,80 @@ class SequenceDataset(Dataset[SequenceSample]):
             game_state=game_state,
         )
 
-    @classmethod
-    def load(
-        cls,
-        *,
-        recording: Recording,
-        game_state_schema: GameStateSchema | None,
-        sequence_length: int,
-        video_decoder_config: VideoDecoderConfig,
-        frame_transform_config: FrameTransformConfig,
-        game_state_transform_config: GameStateTransformConfig | None,
-        controller_transform_config: ControllerTransformConfig,
-        drop_incomplete: bool = True,
-    ) -> SequenceDataset:
-        frame_store = TensorFrameStore(
-            path=recording.video, **video_decoder_config.model_dump()
-        )
-        frame_transform = FrameTransform(**frame_transform_config.model_dump())
+    # @classmethod
+    # def load(
+    #     cls,
+    #     *,
+    #     recording: Recording,
+    #     game_state_schema: GameStateSchema | None,
+    #     sequence_length: int,
+    #     video_decoder_config: VideoDecoderConfig,
+    #     frame_transform_config: FrameTransformConfig,
+    #     game_state_transform_config: GameStateTransformConfig | None,
+    #     controller_transform_config: ControllerTransformConfig,
+    #     drop_incomplete: bool = True,
+    # ) -> SequenceDataset:
+    #     frame_store = TensorFrameStore(
+    #         path=recording.video, **video_decoder_config.model_dump()
+    #     )
+    #     frame_transform = FrameTransform(**frame_transform_config.model_dump())
 
-        frame_dataset = FramesDataset(store=frame_store, transform=frame_transform)
-        controller_store = ParquetControllerStore(path=recording.controller)
+    #     frame_dataset = FramesDataset(store=frame_store, transform=frame_transform)
+    #     controller_store = ParquetControllerStore(path=recording.controller)
 
-        controller_transform = ControllerTransform(
-            **controller_transform_config.model_dump()
-        )
-        controller_dataset = ControllerDataset(
-            store=controller_store, transform=controller_transform
-        )
+    #     controller_transform = ControllerTransform(
+    #         **controller_transform_config.model_dump()
+    #     )
+    #     controller_dataset = ControllerDataset(
+    #         store=controller_store, transform=controller_transform
+    #     )
 
-        if recording.game_state is not None:
-            if game_state_schema is None:
-                raise ValueError(
-                    "game_state_schema must be provided when "
-                    "the recording contains game-state data"
-                )
+    #     if recording.game_state is not None:
+    #         if game_state_schema is None:
+    #             raise ValueError(
+    #                 "game_state_schema must be provided when "
+    #                 "the recording contains game-state data"
+    #             )
 
-            game_state_store = ParquetGameStateStore(
-                path=recording.game_state,
-                features=game_state_schema.features,
-            )
+    #         game_state_store = ParquetGameStateStore(
+    #             path=recording.game_state,
+    #             features=game_state_schema.features,
+    #         )
 
-            game_state_transform = (
-                GameStateTransform(**game_state_transform_config.model_dump())
-                if game_state_transform_config is not None
-                else None
-            )
+    #         game_state_transform = (
+    #             GameStateTransform(**game_state_transform_config.model_dump())
+    #             if game_state_transform_config is not None
+    #             else None
+    #         )
 
-            # if game_state_transform is None:
-            #     logger.warning("Game state is provided but it's transform is None")
+    #         # if game_state_transform is None:
+    #         #     logger.warning("Game state is provided but it's transform is None")
 
-            game_state_dataset: GameStateDataset | None = GameStateDataset(
-                store=game_state_store,
-                transform=game_state_transform,
-            )
-        else:
-            game_state_dataset = None
+    #         game_state_dataset: GameStateDataset | None = GameStateDataset(
+    #             store=game_state_store,
+    #             transform=game_state_transform,
+    #         )
+    #     else:
+    #         game_state_dataset = None
 
-        if len(frame_dataset) != len(controller_dataset):
-            raise ValueError(
-                "Frame and controller sample counts do not match: "
-                f"{len(frame_dataset)} != {len(controller_dataset)}"
-            )
+    #     if len(frame_dataset) != len(controller_dataset):
+    #         raise ValueError(
+    #             "Frame and controller sample counts do not match: "
+    #             f"{len(frame_dataset)} != {len(controller_dataset)}"
+    #         )
 
-        if game_state_dataset is not None and len(game_state_dataset) != len(
-            frame_dataset
-        ):
-            raise ValueError(
-                "Frame and game-state sample counts do not match: "
-                f"{len(frame_dataset)} != {len(game_state_dataset)}"
-            )
+    #     if game_state_dataset is not None and len(game_state_dataset) != len(
+    #         frame_dataset
+    #     ):
+    #         raise ValueError(
+    #             "Frame and game-state sample counts do not match: "
+    #             f"{len(frame_dataset)} != {len(game_state_dataset)}"
+    #         )
 
-        return SequenceDataset(
-            frames=frame_dataset,
-            controller=controller_dataset,
-            game_state=game_state_dataset,
-            sequence_length=sequence_length,
-            drop_incomplete=drop_incomplete,
-        )
+    #     return SequenceDataset(
+    #         frames=frame_dataset,
+    #         controller=controller_dataset,
+    #         game_state=game_state_dataset,
+    #         sequence_length=sequence_length,
+    #         drop_incomplete=drop_incomplete,
+    #     )

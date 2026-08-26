@@ -5,18 +5,18 @@ from dataclasses import dataclass
 from threading import Event
 from time import perf_counter_ns, sleep
 
-from game_state import GameStateReader
-
 from .gamepad.reader import GamepadReader
 from .screen import ScreenReader, CapturedFrame
-from controller import ControllerState
-from game_state import GameStateSnapshot
+from .memory.game_state import GameStateReader, GameStateSnapshot
+
+from data.models.gamepad import GamepadState
+
 
 @dataclass(frozen=True, slots=True)
 class CaptureSample:
     index: int
     frame: CapturedFrame
-    controller: ControllerState
+    controller: GamepadState
     game_state: GameStateSnapshot | None
     completed_ns: int
 

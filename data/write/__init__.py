@@ -20,7 +20,7 @@ from .writers import (
     GameStateWriterConfig,
     ControllerWriter,
 )
-from controller import ControllerState
+from data.models.gamepad import GamepadState
 
 __all__ = [
     "Recording",
@@ -95,7 +95,7 @@ class Writer:
         index: int,
         timestamp_ns: int,
         video_frame: NDArray[np.uint8],
-        controller_state: ControllerState,
+        controller_state: GamepadState,
         game_state: Mapping[str, object],
     ) -> None:
         if self._closed:

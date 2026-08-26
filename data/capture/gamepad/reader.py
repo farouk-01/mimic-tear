@@ -4,10 +4,10 @@ from importlib import import_module
 from typing import Any
 from pydantic import ConfigDict, BaseModel, NonNegativeFloat
 
-from controller import (
+from data.models.gamepad import (
     AnalogState,
     ButtonState,
-    ControllerState,
+    GamepadState,
 )
 
 
@@ -30,13 +30,13 @@ class GamepadReader:
     def connected(self) -> bool:
         return self._gamepad.connected
 
-    def read(self) -> ControllerState:
+    def read(self) -> GamepadState:
         if not self.connected:
             raise RuntimeError("Gamepad disconnected")
 
         native = self._gamepad.poll()
 
-        state = ControllerState(
+        state = GamepadState(
             analog=AnalogState(
                 left_x=native.left_x,
                 left_y=native.left_y,

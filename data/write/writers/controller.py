@@ -6,10 +6,10 @@ import pyarrow as pa
 import pyarrow.parquet as pq
 from pydantic import ConfigDict, BaseModel, PositiveInt
 
-from controller import (
+from data.models.gamepad import (
     ANALOG_INPUTS,
     BUTTON_INPUTS,
-    ControllerState,
+    GamepadState,
 )
 
 class ControllerWriterConfig(BaseModel):
@@ -67,7 +67,7 @@ class ControllerWriter:
         *,
         index: int,
         timestamp_ns: int,
-        state: ControllerState,
+        state: GamepadState,
     ) -> None:
         if self._closed:
             raise RuntimeError(
