@@ -66,11 +66,18 @@ class Process:
         return ControllerDataset(store=controller_store, transform=controller_transform)
 
     def _load_game_state_dataset(self, source: str | Path) -> GameStateDataset:
+        from .transforms.definitions import GAME_STATE_TRANSFORMS
+
         game_state_store = ParquetGameStateStore(
             path=source, features=self.config.game_state_store.features
         )
+
+        names_to_indice = {name: i for i, name in enumerate(game_state_store.features)}
+
         game_state_transform = GameStateTransform(
-            **self.config.game_state_transform.model_dump()
+            generic_transforms=GAME_STATE_TRANSFORMS,
+            names_to_indice=names_to_indice,
+            **self.config.game_state_transform.model_dump(),
         )
         return GameStateDataset(store=game_state_store, transform=game_state_transform)
 
@@ -114,7 +121,6 @@ class Process:
             game_state_dataset.store.timestamps_ns,
         ):
             raise ValueError("Controller and game-state timestamps do not match")
-
 
         return SequenceDataset(
             frames=frame_dataset,
