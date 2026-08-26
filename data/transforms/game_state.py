@@ -1,8 +1,7 @@
 from __future__ import annotations
+from abc import ABC, abstractmethod
 
-from dataclasses import dataclass
-
-from pydantic import BaseModel, ConfigDict, PositiveFloat
+from pydantic import BaseModel, ConfigDict
 import torch
 from torch import Tensor
 
@@ -10,66 +9,60 @@ from torch import Tensor
 class GameStateTransformConfig(BaseModel):
     model_config = ConfigDict(frozen=True, extra="forbid", strict=True)
 
-    mean: tuple[float, ...] | None = None
-    std: tuple[PositiveFloat, ...] | None = None
+
+class Transform(ABC):
+
+    @property
+    @abstractmethod
+    def inputs(self) -> tuple[str, ...]: ...
+
+    @abstractmethod
+    def __call__(self, *args, **kwargs) -> Tensor: ...
+
+
+class Ratio(Transform):
+    def __init__(self, numerator: str, denominator: str) -> None:
+        self.numerator = numerator
+        self.denominator = denominator
+
+    @property
+    def inputs(self) -> tuple[str, str]:
+        return self.numerator, self.denominator
+
+    def __call__(self, numerator: Tensor, denominator: Tensor) -> Tensor:
+        safe_denominator = torch.where(
+            denominator != 0,
+            denominator,
+            torch.ones_like(denominator),
+        )
+
+        return torch.where(
+            denominator != 0,
+            numerator / safe_denominator,
+            torch.zeros_like(numerator)
+        )
 
 
 class GameStateTransform:
     def __init__(
         self,
-        *,
-        mean: tuple[float, ...] | None = None,
-        std: tuple[float, ...] | None = None,
+        transforms: tuple[Transform, ...],
+        names_to_indice: dict[str, int],
     ) -> None:
-        if (mean is None) != (std is None):
-            raise ValueError(
-                "mean and std must either both be provided or both be None"
-            )
+        self.transforms = transforms
+        self.name_to_indices = names_to_indice
 
-        if mean is not None and std is not None:
-            if len(mean) != len(std):
-                raise ValueError(
-                    "mean and std must contain the same number of features"
-                )
+    def __call__(self, states: Tensor) -> Tensor:
+        for transform_def in self.transforms:
+            inputs = transform_def.inputs
+            indices = [self.name_to_indices[name] for name in inputs]
 
-            if any(value <= 0.0 for value in std):
-                raise ValueError(
-                    "All standard deviations must be greater than zero"
-                )
+            input_tensors = [states[..., index] for index in indices]
+            outputs = transform_def(*input_tensors)
 
-            self.mean: Tensor | None = torch.tensor(
-                mean,
-                dtype=torch.float32,
-            )
+            if outputs.ndim == states.ndim - 1:
+                outputs = outputs.unsqueeze(-1)
 
-            self.std: Tensor | None = torch.tensor(
-                std,
-                dtype=torch.float32,
-            )
-        else:
-            self.mean = None
-            self.std = None
+            states = torch.cat((states, outputs), dim=-1)
 
-    def __call__(self, state: Tensor) -> Tensor:
-        state = state.to(torch.float32)
-
-        if self.mean is None or self.std is None:
-            return state
-
-        if state.shape[-1] != self.mean.shape[0]:
-            raise ValueError(
-                f"Expected {self.mean.shape[0]} game-state features, "
-                f"received {state.shape[-1]}"
-            )
-
-        mean = self.mean.to(
-            device=state.device,
-            dtype=state.dtype,
-        )
-
-        std = self.std.to(
-            device=state.device,
-            dtype=state.dtype,
-        )
-
-        return (state - mean) / std
+        return states
