@@ -25,19 +25,9 @@ class ParquetControllerStore(ControllerStore):
         if not self.path.is_file():
             raise FileNotFoundError(f"Controller parquet does not exist: {self.path}")
 
-        table = pq.read_table(self.path)
-
-        required_columns = (
-            *ANALOG_INPUTS,
-            *BUTTON_INPUTS,
+        table = pq.read_table(
+            self.path, columns=["index", "timestamp_ns", *ANALOG_INPUTS, *BUTTON_INPUTS]
         )
-
-        missing = [
-            column for column in required_columns if column not in table.column_names
-        ]
-
-        if missing:
-            raise ValueError(f"Controller parquet is missing columns: {missing}")
 
         if table.num_rows <= 0:
             raise ValueError("Controller parquet cannot be empty")
@@ -58,8 +48,26 @@ class ParquetControllerStore(ControllerStore):
 
         self._length = table.num_rows
 
+        self._indices = torch.tensor(
+            table["index"].to_numpy(zero_copy_only=False),
+            dtype=torch.int64,
+        )
+
+        self._timestamps_ns = torch.tensor(
+            table["timestamp_ns"].to_numpy(zero_copy_only=False),
+            dtype=torch.int64,
+        )
+
     def __len__(self) -> int:
         return self._length
+
+    @property
+    def indices(self) -> torch.Tensor:
+        return self._indices
+
+    @property
+    def timestamps_ns(self) -> torch.Tensor:
+        return self._timestamps_ns
 
     def get(self, index: int) -> GamepadState:
         if index < 0:

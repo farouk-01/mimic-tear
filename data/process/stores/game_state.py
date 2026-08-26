@@ -31,12 +31,9 @@ class ParquetGameStateStore(GameStateStore):
         if not features:
             raise ValueError("Game-state features cannot be empty")
 
-        table = pq.read_table(self.path, columns=list(features))
+        required = ("index", "timestamp_ns", *features)
 
-        missing = [feature for feature in features if feature not in table.column_names]
-
-        if missing:
-            raise ValueError(f"Game-state parquet is missing features: {missing}")
+        table = pq.read_table(self.path, columns=required)
 
         if table.num_rows <= 0:
             raise ValueError("Game-state parquet cannot be empty")
@@ -51,6 +48,24 @@ class ParquetGameStateStore(GameStateStore):
         ).to(torch.float32)
 
         self._length = table.num_rows
+
+        self._indices = torch.tensor(
+            table["index"].to_numpy(zero_copy_only=False),
+            dtype=torch.int64,
+        )
+
+        self._timestamps_ns = torch.tensor(
+            table["timestamp_ns"].to_numpy(zero_copy_only=False),
+            dtype=torch.int64,
+        )
+
+    @property
+    def indices(self) -> torch.Tensor:
+        return self._indices
+
+    @property
+    def timestamps_ns(self) -> torch.Tensor:
+        return self._timestamps_ns
 
     @property
     def features(self) -> tuple[str, ...]:

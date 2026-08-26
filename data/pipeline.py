@@ -3,7 +3,7 @@ from functools import cached_property
 from pathlib import Path
 
 from .capture import CaptureConfig, Capture
-from .process import ProcessConfig, Process
+from .process import ProcessConfig, Process, SequenceDataset
 from .write import Writer, WriterConfig
 
 
@@ -17,10 +17,19 @@ class DataPipeline:
     ) -> None:
         if capture_config.fps != writer_config.video.fps:
             raise ValueError("Capture and video FPS must match")
-        
+
+        if process_config.recording != writer_config.recording:
+            raise ValueError(
+                "Writer and processor recording configurations must match"
+            )
+
         self.capture_config = capture_config
         self.process_config = process_config
         self.writer_config = writer_config
+
+    @cached_property
+    def processor(self) -> Process:
+        return Process(config=self.process_config)
 
     def record_session(
         self,
@@ -49,8 +58,6 @@ class DataPipeline:
 
         if not path.is_relative_to(root_path):
             raise ValueError(f"Recording path escapes root directory: {path}")
-
-        self._validate_recording_directory(path)
 
         fps = self.capture_config.fps
         max_frames = max(1, round(seconds * fps)) if seconds is not None else None
@@ -97,10 +104,7 @@ class DataPipeline:
                         flush=True,
                     )
 
-                    if (
-                        max_frames is not None
-                        and writer.sample_count >= max_frames
-                    ):
+                    if max_frames is not None and writer.sample_count >= max_frames:
                         break
 
             except KeyboardInterrupt:
@@ -111,9 +115,13 @@ class DataPipeline:
 
         return path
 
-    def _validate_recording_directory(self, path: Path) -> None:
-        if path.exists() and not path.is_dir():
-            raise ValueError(f"Path {path} is a file, but a directory is required")
+    def process_recording(
+        self,
+        *,
+        source: str | Path,
+    ) -> SequenceDataset:
+        recording_path = Path(source).resolve()
+        return self.processor.process_sequence(source=recording_path)
 
     @staticmethod
     def _session_name(name: str | None) -> str:

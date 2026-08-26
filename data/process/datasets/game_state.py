@@ -24,6 +24,14 @@ class GameStateStore(ABC):
     @abstractmethod
     def get_range(self, start: int, end: int) -> Tensor: ...
 
+    @property
+    @abstractmethod
+    def indices(self) -> Tensor: ...
+
+    @property
+    @abstractmethod
+    def timestamps_ns(self) -> Tensor: ...
+
 
 class GameStateDataset(Dataset[Tensor]):
     def __init__(

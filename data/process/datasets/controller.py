@@ -27,6 +27,14 @@ class ControllerStore(ABC):
     @abstractmethod
     def get_range(self, start: int, end: int) -> ControllerSample: ...
 
+    @property
+    @abstractmethod
+    def indices(self) -> Tensor: ...
+
+    @property
+    @abstractmethod
+    def timestamps_ns(self) -> Tensor: ...
+
 
 class ControllerDataset(Dataset[ControllerSample]):
     def __init__(

@@ -10,7 +10,7 @@ from pydantic import BaseModel, ConfigDict
 import numpy as np
 from numpy.typing import NDArray
 
-from .manifest import Recording, RecordingConfig
+from data.models.record import RecordingConfig
 from .metadata import RecordingMetadata
 from .writers import (
     ControllerWriterConfig,
@@ -23,8 +23,6 @@ from .writers import (
 from data.models.gamepad import GamepadState
 
 __all__ = [
-    "Recording",
-    "RecordingConfig",
     "RecordingMetadata",
     "WriterConfig",
     "Writer",
