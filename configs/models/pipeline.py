@@ -28,6 +28,7 @@ from data.write import (
 
 from .model import ModelConfig
 from .training import TrainingConfig
+from .game_state import ProcessedGameStateSchema
 
 
 class DataPipelineConfig(BaseModel):
@@ -45,6 +46,7 @@ class DataPipelineConfig(BaseModel):
         game_state: EldenRingMemoryProfile,
         model: ModelConfig,
         training: TrainingConfig,
+        processed_game_state_schema: ProcessedGameStateSchema,
     ) -> Self:
         recording = RecordingConfig.model_validate(raw_pipeline["recording"]["files"])
 
@@ -53,7 +55,7 @@ class DataPipelineConfig(BaseModel):
         process = cls._load_process(
             raw_pipeline,
             recording=recording,
-            game_state=game_state,
+            game_state_schema=processed_game_state_schema,
             model=model,
             training=training,
         )
@@ -110,7 +112,7 @@ class DataPipelineConfig(BaseModel):
         raw: dict,
         *,
         recording: RecordingConfig,
-        game_state: EldenRingMemoryProfile,
+        game_state_schema: ProcessedGameStateSchema,
         model: ModelConfig,
         training: TrainingConfig,
     ) -> ProcessConfig:
@@ -145,7 +147,7 @@ class DataPipelineConfig(BaseModel):
         )
 
         game_state_store = ParquetGameStateStoreConfig(
-            features=tuple(game_state.fields)
+            features=game_state_schema.get_required_fields_names(include_derived=False),
         )
 
         return ProcessConfig(
@@ -155,6 +157,7 @@ class DataPipelineConfig(BaseModel):
             controller_transform=controller_transform,
             frame_transform=frame_transform,
             game_state_transform=game_state_transform,
+            game_state_schema=game_state_schema,
             sequence_length=training.hyperparameters.sequence_length,
             drop_incomplete=True,
         )

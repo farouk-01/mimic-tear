@@ -1,16 +1,24 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from collections.abc import Callable, Mapping, Sequence
+from collections.abc import Callable, Sequence
+from typing import TypeVar, Generic
 
-import torch
 from torch import Tensor
 from torch.utils.data import Dataset
 
-GameStateValue = int | float | bool
+from configs.models.game_state import ProcessedGameStateSchema, TORCH_DTYPES
+from utils.registries import Registry
+
+type GameStateValue = int | float | bool | str | None
+
+RowT = TypeVar("RowT")
+RangeT = TypeVar("RangeT")
+
+type GameStateTensors = dict[str, Tensor]
 
 
-class GameStateStore(ABC):
+class GameStateStore(ABC, Generic[RowT, RangeT]):
     @property
     @abstractmethod
     def features(self) -> tuple[str, ...]: ...
@@ -19,26 +27,42 @@ class GameStateStore(ABC):
     def __len__(self) -> int: ...
 
     @abstractmethod
-    def get(self, index: int) -> Mapping[str, GameStateValue]: ...
+    def get(self, index: int) -> RowT: ...
 
     @abstractmethod
-    def get_range(self, start: int, end: int) -> Tensor: ...
+    def get_range(self, start: int, end: int) -> RangeT: ...
 
     @property
     @abstractmethod
-    def indices(self) -> Tensor: ...
+    def indices(self) -> Sequence[int]: ...
 
     @property
     @abstractmethod
-    def timestamps_ns(self) -> Tensor: ...
+    def timestamps_ns(self) -> Sequence[int]: ...
 
 
-class GameStateDataset(Dataset[Tensor]):
+class GameStateStoreAdapter(ABC, Generic[RowT, RangeT]):
+    @abstractmethod
+    def get(self, data: RowT, schema: ProcessedGameStateSchema) -> GameStateTensors: ...
+
+    @abstractmethod
+    def get_range(
+        self, data: RangeT, schema: ProcessedGameStateSchema
+    ) -> GameStateTensors: ...
+
+
+game_state_store_adapters = Registry[
+    type[GameStateStore], type[GameStateStoreAdapter]
+]()
+
+
+class GameStateDataset(Dataset[GameStateTensors]):
     def __init__(
         self,
         *,
         store: GameStateStore,
-        transform: Callable[[Tensor], Tensor] | None = None,
+        schema: ProcessedGameStateSchema,
+        transform: Callable[[GameStateTensors], GameStateTensors] | None = None,
     ) -> None:
         if len(store) <= 0:
             raise ValueError("Game-state store cannot be empty")
@@ -47,34 +71,82 @@ class GameStateDataset(Dataset[Tensor]):
             raise ValueError("Game-state store must expose at least one feature")
 
         self.store = store
+        self.schema = schema
+        adapter_cls = game_state_store_adapters.resolve(type(store))
+        self.adapter = adapter_cls()
+
+        expected = schema.get_required_fields_names(include_derived=False)
+
+        missing = [feature for feature in expected if feature not in store.features]
+
+        if missing:
+            raise ValueError(
+                f"Game-state store is missing features required by schema: {missing}"
+            )
+
         self.features = store.features
         self.transform = transform
 
     def __len__(self) -> int:
         return len(self.store)
 
-    def __getitem__(self, index: int) -> Tensor:
+    def __getitem__(self, index: int) -> GameStateTensors:
         state = self.store.get(index)
+        tensors = self.adapter.get(state, self.schema)
 
-        missing = [feature for feature in self.features if feature not in state]
+        if self.transform is not None:
+            tensors = self.transform(tensors)
+            self._validate_transformed_tensors(tensors)
+
+        return tensors
+
+    def get_range(self, start: int, end: int) -> GameStateTensors:
+        states = self.store.get_range(start, end)
+        tensors = self.adapter.get_range(states, self.schema)
+
+        if self.transform is not None:
+            tensors = self.transform(tensors)
+            self._validate_transformed_tensors(tensors)
+
+        return tensors
+
+    def _validate_transformed_tensors(self, tensors: GameStateTensors) -> None:
+        required_derived = self.schema.get_required_derived_fields()
+        required_derived_names = {field.name for field in required_derived}
+        non_derived_names = set(
+            self.schema.get_required_fields_names(include_derived=False)
+        )
+        expected_names = required_derived_names | non_derived_names
+
+        errors: list[Exception] = []
+
+        missing = [name for name in required_derived_names if name not in tensors]
+        unexpected = [name for name in tensors if name not in expected_names]
 
         if missing:
-            raise ValueError(f"Game-state sample is missing features: {missing}")
+            errors.append(ValueError(f"Missing required derived features: {missing}"))
 
-        state_tensor = torch.tensor(
-            [float(state[feature]) for feature in self.features],
-            dtype=torch.float32,
-        )
+        if unexpected:
+            errors.append(
+                ValueError(f"Unexpected features in transformed tensors: {unexpected}")
+            )
 
-        if self.transform is not None:
-            state_tensor = self.transform(state_tensor)
+        for field in required_derived:
+            if field.name not in tensors:
+                continue
 
-        return state_tensor
+            tensor = tensors[field.name]
 
-    def get_range(self, start: int, end: int) -> Tensor:
-        states = self.store.get_range(start, end)
+            if tensor.dtype != TORCH_DTYPES[field.dtype]:
+                errors.append(
+                    TypeError(
+                        f"Feature '{field.name}' has unexpected dtype: "
+                        f"expected {field.dtype}, got {tensor.dtype}"
+                    )
+                )
 
-        if self.transform is not None:
-            states = self.transform(states)
-
-        return states
+        if errors:
+            raise ExceptionGroup(
+                "Game-state dataset transform validation failed",
+                errors,
+            )

@@ -1,7 +1,7 @@
 from pydantic import ConfigDict, BaseModel
 from pathlib import Path
 
-import torch
+from configs.models.game_state import ProcessedGameStateSchema
 
 from .stores.controller import ParquetControllerStore
 from .stores.game_state import ParquetGameStateStoreConfig, ParquetGameStateStore
@@ -43,6 +43,8 @@ class ProcessConfig(BaseModel):
     controller_transform: ControllerTransformConfig
     frame_transform: FrameTransformConfig
     game_state_transform: GameStateTransformConfig
+
+    game_state_schema: ProcessedGameStateSchema
 
     sequence_length: int
     drop_incomplete: bool = True
@@ -103,18 +105,15 @@ class Process:
                 f"{len(frames)} != {len(game_state)}"
             )
 
-        expected_indices = torch.arange(len(frames), dtype=torch.int64)
+        expected_indices = list(range(len(frames)))
 
-        if not torch.equal(controller.store.indices, expected_indices):
+        if list(controller.store.indices) != expected_indices:
             raise ValueError("Controller indices are not sequential")
 
-        if not torch.equal(controller.store.indices, game_state.store.indices):
+        if list(controller.store.indices) != list(game_state.store.indices):
             raise ValueError("Controller and game-state indices do not match")
 
-        if not torch.equal(
-            controller.store.timestamps_ns,
-            game_state.store.timestamps_ns
-        ):
+        if list(controller.store.timestamps_ns) != list(game_state.store.timestamps_ns):
             raise ValueError("Controller and game-state timestamps do not match")
 
     def _load_frames_dataset(self, source: str | Path) -> FramesDataset:
@@ -131,18 +130,24 @@ class Process:
         )
         return ControllerDataset(store=controller_store, transform=controller_transform)
 
-    def _load_game_state_dataset(self, source: str | Path) -> GameStateDataset:
+    def _load_game_state_dataset(
+        self,
+        source: str | Path,
+    ) -> GameStateDataset:
         from .transforms.definitions import GAME_STATE_TRANSFORMS
 
+        # note : only the required features are passed
         game_state_store = ParquetGameStateStore(
             path=source, features=self.config.game_state_store.features
         )
 
-        names_to_indice = {name: i for i, name in enumerate(game_state_store.features)}
-
         game_state_transform = GameStateTransform(
             generic_transforms=GAME_STATE_TRANSFORMS,
-            names_to_indice=names_to_indice,
             **self.config.game_state_transform.model_dump(),
         )
-        return GameStateDataset(store=game_state_store, transform=game_state_transform)
+
+        return GameStateDataset(
+            store=game_state_store,
+            schema=self.config.game_state_schema,
+            transform=game_state_transform,
+        )

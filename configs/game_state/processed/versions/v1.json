@@ -1,0 +1,108 @@
+{
+    "player_health": {
+        "kind": "continuous",
+        "dtype": "float32"
+    },
+    "player_max_health": {
+        "kind": "constant",
+        "dtype": "float32"
+    },
+    "player_fp": {
+        "kind": "continuous",
+        "dtype": "float32"
+    },
+    "player_max_fp": {
+        "kind": "constant",
+        "dtype": "float32"
+    },
+    "player_stamina": {
+        "kind": "continuous",
+        "dtype": "float32"
+    },
+    "player_max_stamina": {
+        "kind": "constant",
+        "dtype": "float32"
+    },
+
+
+    "lock_on_active": {
+        "kind": "binary",
+        "dtype": "bool"
+    },
+
+
+    "location_id": {
+        "kind": "nominal",
+        "dtype": "int64",
+        "vocabulary": "location_id"
+    },
+    "player_x": {
+        "kind": "continuous",
+        "dtype": "int64"
+    },
+    "player_y": {
+        "kind": "continuous",
+        "dtype": "int64"
+    },
+    "player_z": {
+        "kind": "continuous",
+        "dtype": "int64"
+    },
+
+
+    "enemy_id": {
+        "kind": "nominal",
+        "dtype": "int64",
+        "vocabulary": "enemy_id",
+        "nullable": true,
+        "fill_value": -1
+    },
+    "enemy_health": {
+        "kind": "continuous",
+        "dtype": "float32",
+        "nullable": true,
+        "fill_value": 0.0
+    },
+    "enemy_max_health": {
+        "kind": "constant",
+        "dtype": "float32",
+        "nullable": true,
+        "fill_value": 0.0
+    },
+
+
+    "crimson_flask_count": {
+        "kind": "discrete",
+        "dtype": "int8"
+    },
+    "cerulean_flask_count": {
+        "kind": "discrete",
+        "dtype": "int8"
+    },
+
+
+    "player_hp_ratio": {
+        "kind": "continuous",
+        "dtype": "float32",
+        "derived": true
+    },
+    "player_fp_ratio": {
+        "kind": "continuous",
+        "dtype": "float32",
+        "derived": true
+    },
+    "player_stamina_ratio": {
+        "kind": "continuous",
+        "dtype": "float32",
+        "derived": true
+    },
+
+
+    "enemy_hp_ratio": {
+        "kind": "continuous",
+        "dtype": "float32",
+        "derived": true,
+        "nullable": true,
+        "fill_value": 0.0
+    }
+}

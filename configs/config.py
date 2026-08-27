@@ -11,6 +11,7 @@ from .models.model import ModelConfig
 from .models.paths import PathsConfig
 from .models.pipeline import DataPipelineConfig
 from .models.training import TrainingConfig
+from .models.game_state import ProcessedGameStateSchema
 
 
 class MimicTearConfig(BaseModel):
@@ -32,10 +33,11 @@ class MimicTearConfig(BaseModel):
         logging = LoggingSettings.load(settings["logging"])
         training = TrainingConfig.load(settings["training"])
         paths = PathsConfig.load(settings["paths"])
+        processed_game_state_schema = ProcessedGameStateSchema.from_json()
 
         model = ModelConfig.load(
             settings["model"],
-            game_state_features=len(game_state.fields),
+            game_state_features=processed_game_state_schema.required_feature_count,
         )
 
         data = DataPipelineConfig.load(
@@ -43,6 +45,7 @@ class MimicTearConfig(BaseModel):
             game_state=game_state,
             model=model,
             training=training,
+            processed_game_state_schema=processed_game_state_schema,
         )
 
         return cls(
