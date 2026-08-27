@@ -6,7 +6,6 @@ from .capture import CaptureConfig, Capture
 from .process import ProcessConfig, Process, SequenceDataset
 from .write import Writer, WriterConfig
 
-
 class DataPipeline:
     def __init__(
         self,
@@ -57,13 +56,19 @@ class DataPipeline:
             print(f"Recording for {seconds:.1f} seconds.")
 
         with (
-            Capture(config=self.capture_config) as capture,
-            Writer(config=self.writer_config, path=path) as writer,
+            Capture(
+                config=self.capture_config,
+            ) as capture,
+            Writer(
+                path=path,
+                schema=self.capture_config.game_state_profile.raw_schema,
+                config=self.writer_config,
+            ) as writer,
         ):
             try:
                 for sample in capture.capture_stream():
                     game_state = (
-                        sample.game_state.values
+                        sample.game_state.to_dict()
                         if sample.game_state is not None
                         else None
                     )

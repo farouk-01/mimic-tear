@@ -21,13 +21,14 @@ from .datasets import (
     ControllerDataset,
     GameStateDataset,
 )
-from .sequence import SequenceDataset
+from .sequence import SequenceDataset, SequenceSample
 from data.models.record import RecordingConfig, Recording
 
 __all__ = [
     "ProcessConfig",
     "Process",
     "SequenceDataset",
+    "SequenceSample",
 ]
 
 

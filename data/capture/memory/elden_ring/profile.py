@@ -1,6 +1,13 @@
 from typing import Annotated, Self
+from functools import cached_property
 
 from pydantic import BaseModel, Field, model_validator
+
+from data.capture.memory.game_state import (
+    RawGameStateField,
+    RawGameStateSchema,
+    to_raw_numpy_dtype,
+)
 
 from .locator import (
     CharacterHandleLocator,
@@ -36,6 +43,18 @@ class EldenRingMemoryProfile(BaseModel):
         self._validate_structure_references()
         self._validate_locator_references()
         return self
+
+    @cached_property
+    def raw_schema(self) -> RawGameStateSchema:
+        return RawGameStateSchema(
+            fields=tuple(
+                RawGameStateField(
+                    name=name,
+                    dtype=to_raw_numpy_dtype(field.type),
+                )
+                for name, field in self.fields.items()
+            )
+        )
 
     def _validate_field_references(self) -> None:
         for name, field in self.fields.items():

@@ -10,6 +10,7 @@ from pydantic import BaseModel, ConfigDict
 import numpy as np
 from numpy.typing import NDArray
 
+from data.capture.memory.game_state import RawGameStateSchema
 from data.models.record import RecordingConfig
 from .metadata import RecordingMetadata
 from .writers import (
@@ -39,10 +40,17 @@ class WriterConfig(BaseModel):
 
 
 class Writer:
-    def __init__(self, *, config: WriterConfig, path: str | Path) -> None:
+    def __init__(
+        self,
+        *,
+        path: str | Path,
+        schema: RawGameStateSchema,
+        config: WriterConfig,
+    ) -> None:
         self.config = config
         self.root = Path(path)
         self.root.mkdir(parents=True, exist_ok=True)
+        self.schema = schema
 
         self._validate_targets()
 
@@ -70,7 +78,7 @@ class Writer:
             self.game_state_writer = self._stack.enter_context(
                 GameStateWriter(
                     path=self.root / config.recording.game_state_file,
-                    schema=config.game_state.schema_,
+                    schema=schema,
                     flush_every=config.game_state.flush_every,
                     compression=config.game_state.compression,
                 )
@@ -118,7 +126,7 @@ class Writer:
             self.root / self.config.recording.metadata_file,
         ]
 
-        if self.config.game_state.schema_ is not None:
+        if self.schema is not None:
             targets.append(self.root / self.config.recording.game_state_file)
 
         existing = [path for path in targets if path.exists()]

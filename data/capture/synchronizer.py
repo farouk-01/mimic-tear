@@ -7,7 +7,7 @@ from time import perf_counter_ns, sleep
 
 from .gamepad.reader import GamepadReader
 from .screen import ScreenReader, CapturedFrame
-from .memory.game_state import GameStateReader, GameStateSnapshot
+from .memory.game_state import GameStateReader, RawGameStateSnapshot
 
 from data.models.gamepad import GamepadState
 
@@ -17,7 +17,7 @@ class CaptureSample:
     index: int
     frame: CapturedFrame
     controller: GamepadState
-    game_state: GameStateSnapshot | None
+    game_state: RawGameStateSnapshot | None
     completed_ns: int
 
     @property

@@ -7,10 +7,10 @@ from typing import Self
 from data.capture.memory.windows import MemoryReadError, ProcessMemory
 from data.capture.memory.game_state import (
     GameStateReader,
-    GameStateSnapshot,
-    GameStateSchema,
-    GameStateValue,
-    GameStateField,
+    RawGameStateSnapshot,
+    RawGameStateSchema,
+    RawGameStatePythonType,
+    RawGameStateValue,
 )
 
 from .locator import (
@@ -19,7 +19,12 @@ from .locator import (
     ModulePointerLocator,
 )
 from .profile import EldenRingMemoryProfile
-from .states import InventoryEntryField, InventoryField, PointerField, ENTRY_FORMATS
+from .states import (
+    InventoryEntryField,
+    InventoryField,
+    PointerField,
+    ENTRY_FORMATS,
+)
 
 
 class EldenRingReader(GameStateReader):
@@ -31,12 +36,6 @@ class EldenRingReader(GameStateReader):
         self.profile = profile
         self._memory = memory
         self._closed = False
-        self._schema = GameStateSchema(
-            fields=tuple(
-                GameStateField(name=name, type=field.type)
-                for name, field in profile.fields.items()
-            )
-        )
         self._static_locator_addresses = self._resolve_static_locators()
 
     @classmethod
@@ -57,36 +56,32 @@ class EldenRingReader(GameStateReader):
             raise
 
     @property
-    def schema(self) -> GameStateSchema:
-        return self._schema
+    def schema(self) -> RawGameStateSchema:
+        return self.profile.raw_schema
 
-    def read(self) -> GameStateSnapshot:
+    def read(self) -> RawGameStateSnapshot:
         if self._closed:
             raise RuntimeError("Elden Ring reader is closed")
 
-        values: dict[str, GameStateValue] = {}
+        values: list[RawGameStateValue] = []
         dynamic_locators: dict[str, int | None] = {}
         inventories: dict[str, dict[int, int] | None] = {}
 
         for name, field in self.profile.fields.items():
             if isinstance(field, PointerField):
-                base_address = self._locator_address(
-                    field.locator,
-                    dynamic_locators,
-                )
-                values[name] = (
+                base_address = self._locator_address(field.locator, dynamic_locators)
+
+                value = (
                     None
                     if base_address is None
                     else self._read_pointer_field(base_address, field)
                 )
             else:
-                values[name] = self._read_inventory_field(
-                    field,
-                    dynamic_locators,
-                    inventories,
-                )
+                value = self._read_inventory_field(field, dynamic_locators, inventories)
 
-        return GameStateSnapshot(values=values)
+            values.append(RawGameStateValue(name=name, value=value))
+
+        return RawGameStateSnapshot.from_schema(self.profile.raw_schema, values)
 
     def close(self) -> None:
         if self._closed:
@@ -132,7 +127,7 @@ class EldenRingReader(GameStateReader):
         self,
         base_address: int,
         field: PointerField,
-    ) -> GameStateValue:
+    ) -> RawGameStatePythonType:
         offsets = tuple(int(offset, 0) for offset in field.offsets)
         address = base_address
         if offsets:
@@ -219,7 +214,7 @@ class EldenRingReader(GameStateReader):
             list_address,
             (definition.max_index + 1) * entry_size,
         )
-        
+
         handle_field = definition.entry_fields["item_handle"]
         item_id_field = definition.entry_fields["item_id"]
         quantity_field = definition.entry_fields["quantity"]
@@ -248,9 +243,11 @@ class EldenRingReader(GameStateReader):
     ) -> int:
         format_string = ENTRY_FORMATS[field.type]
         return int(
+            # fmt: off
             struct.unpack_from(
                 format_string, raw, entry_offset + int(field.offset, 0)
             )[0]
+            # fmt: on
         )
 
     def __enter__(self) -> Self:

@@ -45,7 +45,6 @@ class DataPipelineConfig(BaseModel):
         game_state: EldenRingMemoryProfile,
         model: ModelConfig,
         training: TrainingConfig,
-        expected_game_state_schema: Mapping[str, str],
     ) -> Self:
         recording = RecordingConfig.model_validate(raw_pipeline["recording"]["files"])
 
@@ -62,7 +61,6 @@ class DataPipelineConfig(BaseModel):
         writer = cls._load_writer(
             raw_pipeline,
             recording=recording,
-            expected_game_state_schema=expected_game_state_schema,
         )
 
         return cls(capture=capture, process=process, writer=writer)
@@ -89,7 +87,6 @@ class DataPipelineConfig(BaseModel):
         raw: dict,
         *,
         recording: RecordingConfig,
-        expected_game_state_schema: Mapping[str, str],
     ) -> WriterConfig:
         video = VideoConfig.model_validate(raw["recording"]["video"])
 
@@ -98,10 +95,7 @@ class DataPipelineConfig(BaseModel):
         )
 
         game_state = GameStateWriterConfig.model_validate(
-            {
-                "schema_": expected_game_state_schema,
-                **raw["recording"]["game_state"],
-            }
+            raw["recording"]["game_state"]
         )
 
         return WriterConfig(

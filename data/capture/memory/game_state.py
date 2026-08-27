@@ -2,9 +2,59 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from pydantic import BaseModel, ConfigDict
+from typing import Literal, cast
 
-GameStateValue = int | float | bool | str | None
+from data.models.game_state import (
+    GameStateField,
+    GameStateSchema,
+    GameStateSnapshot,
+    GameStateValue,
+)
+
+RawGameStatePythonType = int | float | bool | str | None
+
+MemoryGameStateType = Literal[
+    "bool",
+    "int8",
+    "uint8",
+    "int16",
+    "uint16",
+    "int32",
+    "uint32",
+    "int64",
+    "uint64",
+    "float32",
+    "float64",
+    "utf8",
+    "utf16",
+    "utf8_string",
+    "utf16le_string",
+]
+
+RawGameStateNumpyType = Literal[
+    "bool",
+    "int8",
+    "uint8",
+    "int16",
+    "uint16",
+    "int32",
+    "uint32",
+    "int64",
+    "uint64",
+    "float32",
+    "float64",
+    "str",
+]
+
+MEMORY_DTYPE_OVERRIDES: dict[
+    MemoryGameStateType,
+    RawGameStateNumpyType,
+] = {
+    "utf8": "str",
+    "utf16": "str",
+    "utf8_string": "str",
+    "utf16le_string": "str",
+}
 
 
 class GameStateReader(ABC):
@@ -13,52 +63,30 @@ class GameStateReader(ABC):
     def schema(self) -> GameStateSchema: ...
 
     @abstractmethod
-    def read(self) -> GameStateSnapshot: ...
+    def read(self) -> RawGameStateSnapshot: ...
 
 
-class GameStateField(BaseModel):
-    model_config = ConfigDict(extra="forbid", frozen=True, strict=True)
-
+class RawGameStateField(GameStateField[RawGameStateNumpyType]):
     name: str
-    type: str
-    required: bool = False
-    scope: str | None = None
+    dtype: RawGameStateNumpyType
+
+
+class RawGameStateSchema(GameStateSchema[RawGameStateField]):
+    fields: tuple[RawGameStateField, ...]
 
 
 @dataclass(frozen=True, slots=True)
-class GameStateSchema:
-    fields: tuple[GameStateField, ...]
-
-    def index(self, name: str) -> int:
-        for index, field in enumerate(self.fields):
-            if field.name == name:
-                return index
-
-        raise KeyError(f"Unknown game-state field: {name}")
-
-    @property
-    def features(self) -> tuple[str, ...]:
-        return tuple(field.name for field in self.fields)
-
-    @property
-    def feature_count(self) -> int:
-        return len(self.fields)
-
-    def has_feature(self, name: str) -> bool:
-        return any(field.name == name for field in self.fields)
+class RawGameStateValue(GameStateValue[RawGameStatePythonType]):
+    pass
 
 
 @dataclass(frozen=True, slots=True)
-class GameStateSnapshot:
-    values: dict[str, GameStateValue]  # GameStateValue is the type of the value
+class RawGameStateSnapshot(GameStateSnapshot[RawGameStatePythonType]):
+    pass
 
-    def get(self, name: str) -> GameStateValue:
-        return self.values[name]
 
-    def ordered_values(self, schema: GameStateSchema) -> tuple[GameStateValue, ...]:
-        missing = [feature for feature in schema.features if feature not in self.values]
-
-        if missing:
-            raise ValueError(f"Snapshot is missing game-state features: {missing}")
-
-        return tuple(self.values[feature] for feature in schema.features)
+def to_raw_numpy_dtype(memory_dtype: MemoryGameStateType) -> RawGameStateNumpyType:
+    if memory_dtype not in MEMORY_DTYPE_OVERRIDES:
+        return cast(RawGameStateNumpyType, memory_dtype)
+    
+    return MEMORY_DTYPE_OVERRIDES[memory_dtype]

@@ -4,7 +4,7 @@ from pydantic import BaseModel, ConfigDict
 
 from data.capture import EldenRingMemoryProfile
 
-from .loader import load_raw_config, load_expected_game_state_schema
+from .loader import load_raw_config
 
 from .models.logging import LoggingSettings
 from .models.model import ModelConfig
@@ -17,11 +17,11 @@ class MimicTearConfig(BaseModel):
     model_config = ConfigDict(frozen=True, extra="forbid", strict=True)
 
     logging: LoggingSettings
+    paths: PathsConfig
     data: DataPipelineConfig
     model: ModelConfig
     training: TrainingConfig
     game_state: EldenRingMemoryProfile
-    paths: PathsConfig
 
     @classmethod
     def load(cls) -> Self:
@@ -43,7 +43,6 @@ class MimicTearConfig(BaseModel):
             game_state=game_state,
             model=model,
             training=training,
-            expected_game_state_schema=load_expected_game_state_schema(),
         )
 
         return cls(
