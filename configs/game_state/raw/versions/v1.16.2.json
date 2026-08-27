@@ -1,0 +1,218 @@
+{
+  "game_version": "1.16.2",
+  "steam_build_id": 22984413,
+  "process_name": "eldenring.exe",
+  "module_name": "eldenring.exe",
+  "pointer_size": 8,
+  "locators": {
+    "world_chr_man": {
+      "type": "module_pointer",
+      "offset": "0x3D65F88"
+    },
+    "game_data_man": {
+      "type": "module_pointer",
+      "offset": "0x3D5DF38"
+    },
+    "lock_tgt_man": {
+      "type": "fd4_singleton",
+      "offset": "0x3D6A208",
+      "class_name": "LockTgtMan"
+    },
+    "locked_on_enemy": {
+      "type": "character_handle",
+      "locator": "world_chr_man",
+      "player_offset": "0x1E508",
+      "target_handle_offset": "0x6B0",
+      "character_set_offset": "0x1DED8",
+      "entries_offset": "0x18",
+      "entry_size": "0x10",
+      "instance_handle_offset": "0x8",
+      "object_id_mask": "0xFFFFFFFF",
+      "set_index_shift": 20,
+      "set_index_mask": "0xFF",
+      "entry_index_mask": "0xFFFFF",
+      "invalid_handle": "0xFFFFFFFFFFFFFFFF"
+    }
+  },
+  "structures": {
+    "player_inventory": {
+      "locator": "game_data_man",
+      "player_data_offset": "0x8",
+      "inventory_data_offset": "0x5D0",
+      "list_offset": "0x10",
+      "count_offset": "0x18",
+      "max_index": 2688,
+      "entry_size": "0x18",
+      "entry_fields": {
+        "item_handle": {
+          "offset": "0x0",
+          "type": "uint32"
+        },
+        "item_id": {
+          "offset": "0x4",
+          "type": "uint32"
+        },
+        "quantity": {
+          "offset": "0x8",
+          "type": "int32"
+        }
+      }
+    }
+  },
+  "fields": {
+    "player_health": {
+      "locator": "world_chr_man",
+      "offsets": [
+        "0x10EF8",
+        "0x0",
+        "0x190",
+        "0x0",
+        "0x138"
+      ],
+      "type": "int32"
+    },
+    "player_max_health": {
+      "locator": "world_chr_man",
+      "offsets": [
+        "0x10EF8",
+        "0x0",
+        "0x190",
+        "0x0",
+        "0x13C"
+      ],
+      "type": "int32"
+    },
+    "player_fp": {
+      "locator": "world_chr_man",
+      "offsets": [
+        "0x10EF8",
+        "0x0",
+        "0x190",
+        "0x0",
+        "0x148"
+      ],
+      "type": "int32"
+    },
+    "player_max_fp": {
+      "locator": "world_chr_man",
+      "offsets": [
+        "0x10EF8",
+        "0x0",
+        "0x190",
+        "0x0",
+        "0x150"
+      ],
+      "type": "int32"
+    },
+    "player_stamina": {
+      "locator": "world_chr_man",
+      "offsets": [
+        "0x10EF8",
+        "0x0",
+        "0x190",
+        "0x0",
+        "0x154"
+      ],
+      "type": "int32"
+    },
+    "player_max_stamina": {
+      "locator": "world_chr_man",
+      "offsets": [
+        "0x10EF8",
+        "0x0",
+        "0x190",
+        "0x0",
+        "0x158"
+      ],
+      "type": "int32"
+    },
+    "lock_on_active": {
+      "locator": "lock_tgt_man",
+      "offsets": [
+        "0x2831"
+      ],
+      "type": "bool"
+    },
+    "location_id": {
+      "locator": "world_chr_man",
+      "offsets": [
+        "0x1E508",
+        "0x6D0"
+      ],
+      "type": "uint32"
+    },
+    "player_x": {
+      "locator": "world_chr_man",
+      "offsets": [
+        "0x1E508",
+        "0x6C0"
+      ],
+      "type": "float32"
+    },
+    "player_y": {
+      "locator": "world_chr_man",
+      "offsets": [
+        "0x1E508",
+        "0x6C4"
+      ],
+      "type": "float32"
+    },
+    "player_z": {
+      "locator": "world_chr_man",
+      "offsets": [
+        "0x1E508",
+        "0x6C8"
+      ],
+      "type": "float32"
+    },
+    "enemy_id": {
+      "locator": "locked_on_enemy",
+      "offsets": [
+        "0x28",
+        "0x124"
+      ],
+      "type": "int32"
+    },
+    "enemy_name": {
+      "locator": "locked_on_enemy",
+      "offsets": [
+        "0x580",
+        "0x9C"
+      ],
+      "type": "utf16le_string",
+      "max_length": 32
+    },
+    "enemy_health": {
+      "locator": "locked_on_enemy",
+      "offsets": [
+        "0x190",
+        "0x0",
+        "0x138"
+      ],
+      "type": "uint32"
+    },
+    "enemy_max_health": {
+      "locator": "locked_on_enemy",
+      "offsets": [
+        "0x190",
+        "0x0",
+        "0x13C"
+      ],
+      "type": "uint32"
+    },
+    "crimson_flask_count": {
+      "structure": "player_inventory",
+      "type": "int32",
+      "item_type_base": "0x40000000",
+      "item_id_min": 1000,
+      "item_id_max": 1025
+    },
+    "cerulean_flask_count": {
+      "structure": "player_inventory",
+      "type": "int32",
+      "item_type_base": "0x40000000",
+      "item_id_min": 1050,
+      "item_id_max": 1075
+    }
+  }
+}
