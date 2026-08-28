@@ -33,8 +33,7 @@
 
     "location_id": {
         "kind": "nominal",
-        "dtype": "int64",
-        "vocabulary": "location_id"
+        "dtype": "int64"
     },
     "player_x": {
         "kind": "continuous",
@@ -53,9 +52,8 @@
     "enemy_id": {
         "kind": "nominal",
         "dtype": "int64",
-        "vocabulary": "enemy_id",
         "nullable": true,
-        "fill_value": -1
+        "fill_value": 0
     },
     "enemy_health": {
         "kind": "continuous",

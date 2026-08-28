@@ -9,7 +9,7 @@ SCHEMA_VERSION = 1
 
 
 def _get_processed_schema_path(version: int = SCHEMA_VERSION) -> Path:
-    return Path(f"configs/game_state/processed/versions/v{version}.json")
+    return Path(f"configs/game_state/processed/v{version}/schema.json")
 
 
 type FieldKind = Literal[
@@ -73,7 +73,6 @@ class ProcessedGameStateField(GameStateField):
     dtype: DataType
     derived: bool = Field(default=False)
     required: bool = Field(default=True)
-    vocabulary: str | None = Field(default=None)
     is_metadata: bool = Field(default=False)
 
     @model_validator(mode="after")
@@ -163,17 +162,3 @@ class ProcessedGameStateSchema(GameStateSchema):
         fields = tuple({"name": name, **definition} for name, definition in data.items())
 
         return cls.model_validate({"version": version, "fields": fields})
-
-
-class VocabularyField(BaseModel):
-    model_config = ConfigDict(extra="forbid", frozen=True, strict=True)
-
-    lookup_key: str
-    value: str
-
-
-class Vocabulary(BaseModel):
-    model_config = ConfigDict(extra="forbid", frozen=True, strict=True)
-
-    name: str
-    fields: dict[str, VocabularyField]
