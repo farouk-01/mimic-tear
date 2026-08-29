@@ -12,7 +12,6 @@ def make_encoder() -> Callable[[dict[int, int]], GameStateEncoder]:
             encodings[key] = value
 
         return GameStateEncoder(
-            encoding="test",
             fields=("test_field",),
             get_encodings=encodings.copy,
             append_encoding=append_encoding,
