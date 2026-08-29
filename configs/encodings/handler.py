@@ -1,6 +1,5 @@
 from pathlib import Path
-import json
-
+from utils.files import load_json, dump_json
 
 class EncodingHandler:
     def __init__(self, path: Path) -> None:
@@ -11,8 +10,7 @@ class EncodingHandler:
         if not self.path.exists():
             return {}
                     
-        with self.path.open("r", encoding="utf-8") as f:
-            data = json.load(f)
+        data = load_json(self.path)
 
         # if later key are really strings -> abstract + dict[T, int]
         return {int(key): int(value) for key, value in data.items()}
@@ -28,5 +26,4 @@ class EncodingHandler:
 
         data[key] = value
 
-        with self.path.open("w", encoding="utf-8") as f:
-            json.dump(data, f)
+        dump_json(data, path=self.path, indent=4, sort_keys=True)

@@ -37,8 +37,11 @@ class MimicTearConfig(BaseModel):
 
         mem_path = paths.memory_schema(cd.GSTATE, version.gstate_memory_schema)
         proc_path = paths.processed_schema(cd.GSTATE, version.gstate_processed_schema)
+        enc_path = paths.encodings_for(cd.GSTATE)
         gstate_cfg = GameStateConfig.load(
-            memory_schema=mem_path, processed_schema=proc_path
+            memory_schema=mem_path,
+            processed_schema=proc_path,
+            encodings_path=enc_path,
         )
 
         training = TrainingConfig.load(cfg["training"])
@@ -83,7 +86,3 @@ def _load_config(
             _merge(cfg, override)
 
     return cfg
-
-
-test = MimicTearConfig.load()
-print(test)

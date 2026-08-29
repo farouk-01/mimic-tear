@@ -7,6 +7,8 @@ from .stores.controller import ParquetControllerStore
 from .stores.game_state import ParquetGameStateStoreConfig, ParquetGameStateStore
 from .stores.frames import TensorFrameStore, VideoDecoderConfig
 
+from .encoders.game_state import GameStateEncoder, GameStateEncoderConfig
+
 from .transforms import (
     ControllerTransformConfig,
     ControllerTransform,
@@ -39,6 +41,8 @@ class ProcessConfig(BaseModel):
 
     video_decoder: VideoDecoderConfig
     game_state_store: ParquetGameStateStoreConfig
+
+    encoders: tuple[GameStateEncoderConfig, ...] = ()
 
     controller_transform: ControllerTransformConfig
     frame_transform: FrameTransformConfig
@@ -141,6 +145,16 @@ class Process:
             path=source, features=self.config.game_state_store.features
         )
 
+        encoders: list[GameStateEncoder] = []
+        for cfg in self.config.encoders:
+            encoder = GameStateEncoder(
+                encoding=cfg.encoding,
+                fields=cfg.fields,
+                get_encodings=cfg.get_encodings,
+                append_encoding=cfg.append_encoding,
+            )
+            encoders.append(encoder)
+
         game_state_transform = GameStateTransform(
             generic_transforms=GAME_STATE_TRANSFORMS,
             **self.config.game_state_transform.model_dump(),
@@ -149,5 +163,6 @@ class Process:
         return GameStateDataset(
             store=game_state_store,
             schema=self.config.game_state_schema,
+            encoders=tuple(encoders),
             transform=game_state_transform,
         )

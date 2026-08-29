@@ -7,7 +7,7 @@ from pydantic import BaseModel, ConfigDict
 
 
 class ConfigDomain(StrEnum):
-    GSTATE = "gstate"
+    GSTATE = "game_state"
 
 
 class PathsConfig(BaseModel):

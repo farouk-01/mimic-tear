@@ -7,7 +7,7 @@ from torch.utils.data import Dataset
 
 from .datasets.controller import ControllerDataset
 from .datasets.frames import FramesDataset
-from .datasets.game_state import GameStateDataset
+from .datasets.game_state import GameStateDataset, GameStateTensors
 
 
 @dataclass(frozen=True, slots=True)
@@ -15,7 +15,7 @@ class SequenceSample:
     images: Tensor
     analog: Tensor
     buttons: Tensor
-    game_state: Tensor | None
+    game_state: GameStateTensors | None
 
 
 class SequenceDataset(Dataset[SequenceSample]):

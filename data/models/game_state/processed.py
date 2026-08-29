@@ -65,6 +65,7 @@ class ProcessedGameStateField(GameStateField):
     dtype: DataType
     derived: bool = Field(default=False)
     required: bool = Field(default=True)
+    encoding: str | None = Field(default=None)
     is_metadata: bool = Field(default=False)
 
     @model_validator(mode="after")
@@ -78,6 +79,16 @@ class ProcessedGameStateField(GameStateField):
     def validate_nullable(self) -> Self:
         if self.nullable and self.fill_value is None:
             raise ValueError("Nullable field must have a fill_value specified")
+
+        return self
+
+    @model_validator(mode="after")
+    def validate_nominal_encoding(self) -> Self:
+        if self.kind == "nominal" and self.encoding is None:
+            raise ValueError("Nominal fields must specify an encoding")
+
+        elif self.kind != "nominal" and self.encoding is not None:
+            raise ValueError("Only nominal fields can specify an encoding")
 
         return self
 
@@ -129,6 +140,19 @@ class ProcessedGameStateSchema(GameStateSchema):
             raise ValueError("No required derived fields found in schema")
 
         return required
+
+    def get_required_fields_by_kind(
+        self, kind: FieldKind
+    ) -> tuple[ProcessedGameStateField, ...]:
+        fields: tuple[ProcessedGameStateField, ...] = ()
+        for field in self.fields:
+            if field.kind == kind and field.required and not field.is_metadata:
+                fields += (field,)
+
+        if len(fields) == 0:
+            raise ValueError(f"No fields found with kind: {kind}")
+
+        return fields
 
     @property
     def required_feature_count(self) -> int:

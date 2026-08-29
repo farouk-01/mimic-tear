@@ -8,6 +8,7 @@ from torch import Tensor
 from torch.utils.data import Dataset
 
 from data.models.game_state.processed import ProcessedGameStateSchema, TORCH_DTYPES
+from data.process.encoders.game_state import GameStateEncoder, TensorGameStateEncoder
 from utils.registries import Registry
 
 type GameStateValue = int | float | bool | str | None
@@ -62,6 +63,7 @@ class GameStateDataset(Dataset[GameStateTensors]):
         *,
         store: GameStateStore,
         schema: ProcessedGameStateSchema,
+        encoders: tuple[GameStateEncoder, ...] = (),
         transform: Callable[[GameStateTensors], GameStateTensors] | None = None,
     ) -> None:
         if len(store) <= 0:
@@ -70,7 +72,7 @@ class GameStateDataset(Dataset[GameStateTensors]):
         if not store.features:
             raise ValueError("Game-state store must expose at least one feature")
 
-        self.store = store
+        self.store: GameStateStore = store
         self.schema = schema
         adapter_cls = game_state_store_adapters.resolve(type(store))
         self.adapter = adapter_cls()
@@ -85,6 +87,9 @@ class GameStateDataset(Dataset[GameStateTensors]):
             )
 
         self.features = store.features
+        self.encoders: tuple[TensorGameStateEncoder, ...] = tuple(
+            TensorGameStateEncoder(encoder) for encoder in encoders
+        )
         self.transform = transform
 
     def __len__(self) -> int:
@@ -93,6 +98,10 @@ class GameStateDataset(Dataset[GameStateTensors]):
     def __getitem__(self, index: int) -> GameStateTensors:
         state = self.store.get(index)
         tensors = self.adapter.get(state, self.schema)
+
+        for encoder in self.encoders:
+            for field_name in encoder.fields:
+                tensors[field_name] = encoder.encode(tensors[field_name])
 
         if self.transform is not None:
             tensors = self.transform(tensors)
@@ -103,6 +112,10 @@ class GameStateDataset(Dataset[GameStateTensors]):
     def get_range(self, start: int, end: int) -> GameStateTensors:
         states = self.store.get_range(start, end)
         tensors = self.adapter.get_range(states, self.schema)
+
+        for encoder in self.encoders:
+            for field_name in encoder.fields:
+                tensors[field_name] = encoder.encode(tensors[field_name])
 
         if self.transform is not None:
             tensors = self.transform(tensors)
