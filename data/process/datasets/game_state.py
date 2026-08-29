@@ -7,7 +7,11 @@ from typing import TypeVar, Generic
 from torch import Tensor
 from torch.utils.data import Dataset
 
-from data.models.game_state.processed import ProcessedGameStateSchema, TORCH_DTYPES
+from data.models.game_state.processed import (
+    ProcessedGameStateSchema,
+    TORCH_DTYPES,
+    ProcessedGameStateField,
+)
 from data.process.encoders.game_state import GameStateEncoder, TensorGameStateEncoder
 from utils.registries import Registry
 
@@ -15,11 +19,12 @@ type GameStateValue = int | float | bool | str | None
 
 RowT = TypeVar("RowT")
 RangeT = TypeVar("RangeT")
+ColT = TypeVar("ColT")
 
 type GameStateTensors = dict[str, Tensor]
 
 
-class GameStateStore(ABC, Generic[RowT, RangeT]):
+class GameStateStore(ABC, Generic[RowT, RangeT, ColT]):
     @property
     @abstractmethod
     def features(self) -> tuple[str, ...]: ...
@@ -41,8 +46,11 @@ class GameStateStore(ABC, Generic[RowT, RangeT]):
     @abstractmethod
     def timestamps_ns(self) -> Sequence[int]: ...
 
+    @abstractmethod
+    def get_feature(self, name: str) -> ColT: ...
 
-class GameStateStoreAdapter(ABC, Generic[RowT, RangeT]):
+
+class GameStateStoreAdapter(ABC, Generic[RowT, RangeT, ColT]):
     @abstractmethod
     def get(self, data: RowT, schema: ProcessedGameStateSchema) -> GameStateTensors: ...
 
@@ -50,6 +58,9 @@ class GameStateStoreAdapter(ABC, Generic[RowT, RangeT]):
     def get_range(
         self, data: RangeT, schema: ProcessedGameStateSchema
     ) -> GameStateTensors: ...
+
+    @abstractmethod
+    def get_feature(self, data: ColT, field: ProcessedGameStateField) -> Tensor: ...
 
 
 game_state_store_adapters = Registry[
@@ -122,6 +133,18 @@ class GameStateDataset(Dataset[GameStateTensors]):
             self._validate_transformed_tensors(tensors)
 
         return tensors
+
+    def discover_encodings(self) -> None:
+        for encoder in self.encoders:
+            for field_name in encoder.fields:
+                field_data = self.store.get_feature(field_name)
+                tensor = self.adapter.get_feature(
+                    field_data,
+                    self.schema.get_field(field_name),
+                )
+                encoder.discover(tensor)
+
+            encoder.freeze()
 
     def _validate_transformed_tensors(self, tensors: GameStateTensors) -> None:
         required_derived = self.schema.get_required_derived_fields()

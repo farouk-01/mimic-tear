@@ -38,7 +38,7 @@ class TestGameStateEncoder:
         self, make_encoder: Callable[[dict[int, int]], GameStateEncoder]
     ) -> None:
         encoder = make_encoder({1234: 1})
-        encoder.allow_new = False
+        encoder.freeze()
 
         assert encoder.encode(5678) == 0
 

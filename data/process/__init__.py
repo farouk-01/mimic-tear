@@ -168,9 +168,13 @@ class Process:
             **self.config.game_state_transform.model_dump(),
         )
 
-        return GameStateDataset(
+        dataset = GameStateDataset(
             store=game_state_store,
             schema=self.config.game_state_schema,
             encoders=tuple(encoders),
             transform=game_state_transform,
         )
+
+        dataset.discover_encodings()
+
+        return dataset

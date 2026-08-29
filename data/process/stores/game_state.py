@@ -8,7 +8,10 @@ import pyarrow as pa
 from pydantic import BaseModel, ConfigDict
 import torch
 
-from data.models.game_state.processed import ProcessedGameStateSchema
+from data.models.game_state.processed import (
+    ProcessedGameStateField,
+    ProcessedGameStateSchema,
+)
 
 from .validations import normalize_index, normalize_range
 
@@ -25,7 +28,7 @@ class ParquetGameStateStoreConfig(BaseModel):
     features: tuple[str, ...]
 
 
-class ParquetGameStateStore(GameStateStore[pa.Table, pa.Table]):
+class ParquetGameStateStore(GameStateStore[pa.Table, pa.Table, pa.ChunkedArray]):
     def __init__(
         self,
         path: str | Path,
@@ -80,10 +83,20 @@ class ParquetGameStateStore(GameStateStore[pa.Table, pa.Table]):
 
         return self._table.slice(start, end - start)
 
+    def get_feature(self, name: str) -> pa.ChunkedArray:
+        if name not in self._features:
+            raise ValueError(f"Feature not found in game-state store: {name}")
+
+        return self._table[name]
+
 
 @game_state_store_adapters.register(ParquetGameStateStore)
-class ParquetGameStateStoreAdapter(GameStateStoreAdapter[pa.Table, pa.Table]):
-    def get(self, data: pa.Table, schema: ProcessedGameStateSchema) -> dict[str, torch.Tensor]:
+class ParquetGameStateStoreAdapter(
+    GameStateStoreAdapter[pa.Table, pa.Table, pa.ChunkedArray]
+):
+    def get(
+        self, data: pa.Table, schema: ProcessedGameStateSchema
+    ) -> dict[str, torch.Tensor]:
         return self._to_tensors(data, schema)
 
     def get_range(
@@ -91,23 +104,26 @@ class ParquetGameStateStoreAdapter(GameStateStoreAdapter[pa.Table, pa.Table]):
     ) -> dict[str, torch.Tensor]:
         return self._to_tensors(data, schema)
 
+    def get_feature(
+        self, data: pa.ChunkedArray, field: ProcessedGameStateField
+    ) -> torch.Tensor: 
+        if field.fill_value is not None:
+            data = data.fill_null(field.fill_value)
+        elif data.null_count > 0:
+            raise ValueError(
+                f"Unexpected null values in non-nullable field: {field.name}"
+            )
+
+        return torch.from_numpy(data.to_numpy(zero_copy_only=False))
+
     def _to_tensors(
         self, data: pa.Table, schema: ProcessedGameStateSchema
     ) -> dict[str, torch.Tensor]:
         tensors = {}
 
         for field in schema.get_required_fields(include_derived=False):
-            array = data[field.name]
-
-            if field.fill_value is not None:
-                array = array.fill_null(field.fill_value)
-            elif array.null_count > 0:
-                raise ValueError(
-                    f"Unexpected null values in non-nullable field: {field.name}"
-                )
-
-            tensor = torch.from_numpy(array.to_numpy(zero_copy_only=False))
-
+            tensor = self.get_feature(data[field.name], field)
+            
             tensors[field.name] = tensor
 
         return tensors

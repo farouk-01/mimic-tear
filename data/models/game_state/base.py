@@ -38,6 +38,10 @@ class GameStateSchema(BaseModel, Generic[FieldT]):
         except ValueError:
             raise KeyError(f"Unknown game-state field: {name}")
 
+    def get_field(self, name: str) -> FieldT:
+        index = self.index(name)
+        return self.fields[index]
+
     def has_feature(self, name: str) -> bool:
         return name in self.feature_names
 
