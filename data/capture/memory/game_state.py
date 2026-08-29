@@ -1,19 +1,14 @@
-from __future__ import annotations
-
 from abc import ABC, abstractmethod
-from dataclasses import dataclass
 from typing import Literal, cast
 
-from data.models.game_state import (
-    GameStateField,
-    GameStateSchema,
-    GameStateSnapshot,
-    GameStateValue,
+from data.models.game_state.memory import (
+    MemoryGStateNumpyType,
+    MemoryGameStateSchema,
+    MemoryGameStateSnapshot,
 )
 
-RawGameStatePythonType = int | float | bool | str | None
 
-MemoryGameStateType = Literal[
+type MemoryGStateType = Literal[
     "bool",
     "int8",
     "uint8",
@@ -31,24 +26,10 @@ MemoryGameStateType = Literal[
     "utf16le_string",
 ]
 
-RawGameStateNumpyType = Literal[
-    "bool",
-    "int8",
-    "uint8",
-    "int16",
-    "uint16",
-    "int32",
-    "uint32",
-    "int64",
-    "uint64",
-    "float32",
-    "float64",
-    "str",
-]
 
 MEMORY_DTYPE_OVERRIDES: dict[
-    MemoryGameStateType,
-    RawGameStateNumpyType,
+    MemoryGStateType,
+    MemoryGStateNumpyType,
 ] = {
     "utf8": "str",
     "utf16": "str",
@@ -60,33 +41,14 @@ MEMORY_DTYPE_OVERRIDES: dict[
 class GameStateReader(ABC):
     @property
     @abstractmethod
-    def schema(self) -> GameStateSchema: ...
+    def schema(self) -> MemoryGameStateSchema: ...
 
     @abstractmethod
-    def read(self) -> RawGameStateSnapshot: ...
+    def read(self) -> MemoryGameStateSnapshot: ...
 
 
-class RawGameStateField(GameStateField[RawGameStateNumpyType]):
-    name: str
-    dtype: RawGameStateNumpyType
-
-
-class RawGameStateSchema(GameStateSchema[RawGameStateField]):
-    fields: tuple[RawGameStateField, ...]
-
-
-@dataclass(frozen=True, slots=True)
-class RawGameStateValue(GameStateValue[RawGameStatePythonType]):
-    pass
-
-
-@dataclass(frozen=True, slots=True)
-class RawGameStateSnapshot(GameStateSnapshot[RawGameStatePythonType]):
-    pass
-
-
-def to_raw_numpy_dtype(memory_dtype: MemoryGameStateType) -> RawGameStateNumpyType:
+def to_raw_numpy_dtype(memory_dtype: MemoryGStateType) -> MemoryGStateNumpyType:
     if memory_dtype not in MEMORY_DTYPE_OVERRIDES:
-        return cast(RawGameStateNumpyType, memory_dtype)
-    
+        return cast(MemoryGStateNumpyType, memory_dtype)
+
     return MEMORY_DTYPE_OVERRIDES[memory_dtype]

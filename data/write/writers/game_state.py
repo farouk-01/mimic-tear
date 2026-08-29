@@ -2,13 +2,12 @@ from __future__ import annotations
 
 from pathlib import Path
 from collections.abc import Mapping
-from typing import TypedDict
 
 from pydantic import BaseModel, ConfigDict
 import pyarrow as pa
 import pyarrow.parquet as pq
 
-from data.capture.memory.game_state import RawGameStateSchema
+from data.models.game_state.memory import MemoryGameStateSchema
 
 
 class GameStateWriterConfig(BaseModel):
@@ -23,7 +22,7 @@ class GameStateWriter:
         self,
         *,
         path: str | Path,
-        schema: RawGameStateSchema,
+        schema: MemoryGameStateSchema,
         flush_every: int,
         compression: str = "zstd",
     ) -> None:

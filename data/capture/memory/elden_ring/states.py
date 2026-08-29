@@ -3,7 +3,7 @@ from __future__ import annotations
 from pydantic import BaseModel
 from typing import Literal
 
-from ..game_state import MemoryGameStateType
+from ..game_state import MemoryGStateType
 
 type InventoryEntryType = Literal[
     "int8",
@@ -46,13 +46,13 @@ class InventoryStructure(BaseModel):
 class PointerField(BaseModel):
     locator: str
     offsets: list[str]
-    type: MemoryGameStateType
+    type: MemoryGStateType
     max_length: int | None = None
 
 
 class InventoryField(BaseModel):
     structure: str
-    type: MemoryGameStateType
+    type: MemoryGStateType
     item_type_base: str
     item_id_min: int
     item_id_max: int

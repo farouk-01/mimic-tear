@@ -7,7 +7,7 @@ from typing import TypeVar, Generic
 from torch import Tensor
 from torch.utils.data import Dataset
 
-from configs.models.game_state import ProcessedGameStateSchema, TORCH_DTYPES
+from data.models.game_state.processed import ProcessedGameStateSchema, TORCH_DTYPES
 from utils.registries import Registry
 
 type GameStateValue = int | float | bool | str | None

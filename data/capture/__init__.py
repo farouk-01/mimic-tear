@@ -8,7 +8,7 @@ from typing import Self
 from .synchronizer import CaptureSynchronizer, CaptureSample
 from .gamepad import GamepadReader, GamepadReaderConfig
 from .screen import ScreenReader, CapturedFrame, ScreenCaptureConfig
-from .memory import EldenRingReader, EldenRingMemoryProfile, RawGameStateSnapshot
+from .memory import EldenRingReader, EldenRingMemoryProfile, MemoryGameStateSnapshot
 
 
 from data.models.gamepad import GamepadState
@@ -64,7 +64,7 @@ class Capture:
         self._ensure_open()
         return self._gamepad.read()
 
-    def capture_one_game_state(self) -> RawGameStateSnapshot:
+    def capture_one_game_state(self) -> MemoryGameStateSnapshot:
         self._ensure_open()
         return self._game_state.read()
 

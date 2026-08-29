@@ -28,7 +28,8 @@ from data.write import (
 
 from .model import ModelConfig
 from .training import TrainingConfig
-from .game_state import ProcessedGameStateSchema
+from .game_state import GameStateConfig
+from data.models.game_state.processed import ProcessedGameStateSchema
 
 
 class DataPipelineConfig(BaseModel):
@@ -43,19 +44,18 @@ class DataPipelineConfig(BaseModel):
         cls,
         raw_pipeline: dict,
         *,
-        game_state: EldenRingMemoryProfile,
         model: ModelConfig,
+        gstate: GameStateConfig,
         training: TrainingConfig,
-        processed_game_state_schema: ProcessedGameStateSchema,
     ) -> Self:
         recording = RecordingConfig.model_validate(raw_pipeline["recording"]["files"])
 
-        capture = cls._load_capture(raw_pipeline, game_state=game_state)
+        capture = cls._load_capture(raw_pipeline, game_state=gstate.memory_profile)
 
         process = cls._load_process(
             raw_pipeline,
             recording=recording,
-            game_state_schema=processed_game_state_schema,
+            game_state_schema=gstate.processed_schema,
             model=model,
             training=training,
         )

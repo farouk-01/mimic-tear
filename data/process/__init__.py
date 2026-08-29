@@ -1,7 +1,7 @@
 from pydantic import ConfigDict, BaseModel
 from pathlib import Path
 
-from configs.models.game_state import ProcessedGameStateSchema
+from data.models.game_state.processed import ProcessedGameStateSchema
 
 from .stores.controller import ParquetControllerStore
 from .stores.game_state import ParquetGameStateStoreConfig, ParquetGameStateStore

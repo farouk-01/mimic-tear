@@ -3,11 +3,11 @@ from functools import cached_property
 
 from pydantic import BaseModel, Field, model_validator
 
-from data.capture.memory.game_state import (
-    RawGameStateField,
-    RawGameStateSchema,
-    to_raw_numpy_dtype,
+from data.models.game_state.memory import (
+    MemoryGameStateField,
+    MemoryGameStateSchema,
 )
+from data.capture.memory.game_state import to_raw_numpy_dtype
 
 from .locator import (
     CharacterHandleLocator,
@@ -45,10 +45,10 @@ class EldenRingMemoryProfile(BaseModel):
         return self
 
     @cached_property
-    def raw_schema(self) -> RawGameStateSchema:
-        return RawGameStateSchema(
+    def raw_schema(self) -> MemoryGameStateSchema:
+        return MemoryGameStateSchema(
             fields=tuple(
-                RawGameStateField(
+                MemoryGameStateField(
                     name=name,
                     dtype=to_raw_numpy_dtype(field.type),
                 )

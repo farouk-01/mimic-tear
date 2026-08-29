@@ -5,12 +5,12 @@ from types import TracebackType
 from typing import Self
 
 from data.capture.memory.windows import MemoryReadError, ProcessMemory
-from data.capture.memory.game_state import (
-    GameStateReader,
-    RawGameStateSnapshot,
-    RawGameStateSchema,
-    RawGameStatePythonType,
-    RawGameStateValue,
+from data.capture.memory.game_state import GameStateReader
+from data.models.game_state.memory import (
+    MemoryGameStateSnapshot,
+    MemoryGameStateSchema,
+    MemoryGStatePythonType,
+    MemoryGameStateValue,
 )
 
 from .locator import (
@@ -56,14 +56,14 @@ class EldenRingReader(GameStateReader):
             raise
 
     @property
-    def schema(self) -> RawGameStateSchema:
+    def schema(self) -> MemoryGameStateSchema:
         return self.profile.raw_schema
 
-    def read(self) -> RawGameStateSnapshot:
+    def read(self) -> MemoryGameStateSnapshot:
         if self._closed:
             raise RuntimeError("Elden Ring reader is closed")
 
-        values: list[RawGameStateValue] = []
+        values: list[MemoryGameStateValue] = []
         dynamic_locators: dict[str, int | None] = {}
         inventories: dict[str, dict[int, int] | None] = {}
 
@@ -79,9 +79,9 @@ class EldenRingReader(GameStateReader):
             else:
                 value = self._read_inventory_field(field, dynamic_locators, inventories)
 
-            values.append(RawGameStateValue(name=name, value=value))
+            values.append(MemoryGameStateValue(name=name, value=value))
 
-        return RawGameStateSnapshot.from_schema(self.profile.raw_schema, values)
+        return MemoryGameStateSnapshot.from_schema(self.profile.raw_schema, values)
 
     def close(self) -> None:
         if self._closed:
@@ -127,7 +127,7 @@ class EldenRingReader(GameStateReader):
         self,
         base_address: int,
         field: PointerField,
-    ) -> RawGameStatePythonType:
+    ) -> MemoryGStatePythonType:
         offsets = tuple(int(offset, 0) for offset in field.offsets)
         address = base_address
         if offsets:

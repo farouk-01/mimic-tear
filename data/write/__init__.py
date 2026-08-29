@@ -10,7 +10,7 @@ from pydantic import BaseModel, ConfigDict
 import numpy as np
 from numpy.typing import NDArray
 
-from data.capture.memory.game_state import RawGameStateSchema
+from data.models.game_state.memory import MemoryGameStateSchema
 from data.models.record import RecordingConfig
 from .metadata import RecordingMetadata
 from .writers import (
@@ -44,7 +44,7 @@ class Writer:
         self,
         *,
         path: str | Path,
-        schema: RawGameStateSchema,
+        schema: MemoryGameStateSchema,
         config: WriterConfig,
     ) -> None:
         self.config = config

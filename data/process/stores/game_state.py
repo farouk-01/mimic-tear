@@ -8,7 +8,7 @@ import pyarrow as pa
 from pydantic import BaseModel, ConfigDict
 import torch
 
-from configs.models.game_state import ProcessedGameStateSchema
+from data.models.game_state.processed import ProcessedGameStateSchema
 
 from .validations import normalize_index, normalize_range
 
