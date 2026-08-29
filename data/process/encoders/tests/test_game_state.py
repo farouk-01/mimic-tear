@@ -66,6 +66,15 @@ class TestGameStateEncoder:
 
         assert encoder.encode([1234, 1234]) == [1, 1]
 
+    def test_sequence_with_one_unknown_then_one_zero_encoding(
+        self,
+        make_encoder: Callable[[dict[int, int]], GameStateEncoder],
+    ) -> None:
+        encoder = make_encoder({1234: 1})
+        encoder.freeze()
+
+        assert encoder.encode([1234, 5678]) == [1, 0]
+
 
 class TestTensorGameStateEncoder:
 

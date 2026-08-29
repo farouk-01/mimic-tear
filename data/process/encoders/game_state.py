@@ -46,18 +46,15 @@ class GameStateEncoder:
 
         index = max(data.values(), default=0) + 1
         for value in values:
-            if value not in data:
-                if not self._allow_new:
-                    return 0
-
+            if value not in data and self._allow_new:
                 self.append_encoding(value, index)
                 data[value] = index
                 index += 1
 
         if is_scalar:
-            return data[values[0]]
+            return data.get(values[0], 0)
 
-        return [data[value] for value in values]
+        return [data.get(value, 0) for value in values]
 
     def discover(self, tensor: Tensor) -> None:
         unique = tensor.unique().tolist()
