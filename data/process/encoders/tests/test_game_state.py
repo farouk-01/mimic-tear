@@ -1,6 +1,6 @@
 import pytest
 import torch
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 
 from data.process.encoders import GameStateEncoder, TensorGameStateEncoder
 
@@ -8,8 +8,16 @@ from data.process.encoders import GameStateEncoder, TensorGameStateEncoder
 @pytest.fixture
 def make_encoder() -> Callable[[dict[int, int]], GameStateEncoder]:
     def create(encodings: dict[int, int]) -> GameStateEncoder:
-        def append_encoding(key: int, value: int) -> None:
-            encodings[key] = value
+        def append_encoding(
+            keys: Sequence[int] | int, values: Sequence[int] | int
+        ) -> None:
+            if isinstance(keys, int):
+                keys = (keys,)
+            if isinstance(values, int):
+                values = (values,)
+
+            for k, v in zip(keys, values):
+                encodings[k] = v
 
         return GameStateEncoder(
             fields=("test_field",),
@@ -25,6 +33,7 @@ class TestGameStateEncoder:
     def test_when_gap_then_no_overwrite(self, make_encoder) -> None:
         encoder = make_encoder({1234: 1, 5678: 3})
 
+        encoder.discover(9810)
         assert encoder.encode(9810) == 4
 
     def test_first_value_is_not_zero(
@@ -32,15 +41,8 @@ class TestGameStateEncoder:
     ) -> None:
         encoder = make_encoder({})
 
+        encoder.discover(1234)
         assert encoder.encode(1234) != 0
-
-    def test_if_allow_new_is_false_return_zero_for_new_value(
-        self, make_encoder: Callable[[dict[int, int]], GameStateEncoder]
-    ) -> None:
-        encoder = make_encoder({1234: 1})
-        encoder.freeze()
-
-        assert encoder.encode(5678) == 0
 
     def test_existing_value_existing_encoding(
         self,
@@ -56,6 +58,7 @@ class TestGameStateEncoder:
     ) -> None:
         encoder = make_encoder({1234: 1})
 
+        encoder.discover([1234, 5678, 9810])
         assert encoder.encode([1234, 5678, 9810]) == [1, 2, 3]
 
     def test_same_new_value_same_encoding(
@@ -64,6 +67,7 @@ class TestGameStateEncoder:
     ) -> None:
         encoder = make_encoder({})
 
+        encoder.discover([1234, 1234])
         assert encoder.encode([1234, 1234]) == [1, 1]
 
     def test_sequence_with_one_unknown_then_one_zero_encoding(
@@ -71,7 +75,6 @@ class TestGameStateEncoder:
         make_encoder: Callable[[dict[int, int]], GameStateEncoder],
     ) -> None:
         encoder = make_encoder({1234: 1})
-        encoder.freeze()
 
         assert encoder.encode([1234, 5678]) == [1, 0]
 

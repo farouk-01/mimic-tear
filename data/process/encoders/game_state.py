@@ -20,16 +20,11 @@ class GameStateEncoder:
         fields: tuple[str, ...],
         *,
         get_encodings: Callable[[], dict[int, int]],
-        append_encoding: Callable[[int, int], None],
-        allow_new: bool = True,
+        append_encoding: Callable[[Sequence[int] | int, Sequence[int] | int], None],
     ) -> None:
         self.fields = fields
         self.encodings_data = get_encodings()
         self.append_encoding = append_encoding
-        self._allow_new = allow_new
-
-    def freeze(self) -> None:
-        self._allow_new = False
 
     @overload
     def encode(self, values: int) -> int: ...
@@ -40,33 +35,27 @@ class GameStateEncoder:
     def encode(self, values: int | Sequence[int]) -> int | list[int]:
         data = self.encodings_data
 
-        is_scalar = isinstance(values, int)
-        if is_scalar:
-            values = (values,)
-
-        index = max(data.values(), default=0) + 1
-        for value in values:
-            if value not in data and self._allow_new:
-                self.append_encoding(value, index)
-                data[value] = index
-                index += 1
-
-        if is_scalar:
-            return data.get(values[0], 0)
+        if isinstance(values, int):
+            return data.get(values, 0)
 
         return [data.get(value, 0) for value in values]
 
-    def discover(self, tensor: Tensor) -> None:
-        unique = tensor.unique().tolist()
+    def discover(self, values: Sequence[int] | int) -> None:
+        data = self.encodings_data
 
-        unseen = [value for value in unique if value not in self.encodings_data]
+        if isinstance(values, int):
+            values = (values,)
 
-        index = max(self.encodings_data.values(), default=0) + 1
+        unseen = list(dict.fromkeys(value for value in values if value not in data))
 
-        for value in unseen:
-            self.append_encoding(value, index)
-            self.encodings_data[value] = index
-            index += 1
+        if not unseen:
+            return
+
+        start = max(data.values(), default=0) + 1
+        indices = list(range(start, start + len(unseen)))
+
+        self.append_encoding(unseen, indices)
+        data.update(zip(unseen, indices))
 
 
 class TensorGameStateEncoder:
@@ -88,7 +77,5 @@ class TensorGameStateEncoder:
         )
 
     def discover(self, tensor: Tensor) -> None:
-        self.encoder.discover(tensor)
-
-    def freeze(self) -> None:
-        self.encoder.freeze()
+        unique = tensor.unique().tolist()
+        self.encoder.discover(unique)
