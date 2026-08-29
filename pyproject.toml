@@ -13,7 +13,7 @@ dependencies = [
     "grad-cam>=1.5.5",
     "numpy",
     "opencv-python",
-    "pyarrow>=20",
+    "pyarrow>=25",
     "pyyaml>=6",
     "torch",
     "torchcodec",
