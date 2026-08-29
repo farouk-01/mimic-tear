@@ -10,7 +10,7 @@ class GameStateEncoderConfig(BaseModel):
     load_encodings: Callable[[], dict[int, int]]
     append_encoding: Callable[[int, int], None]
 
-    @validate_call
+    @validate_call(config=ConfigDict(strict=True), validate_return=True)
     def get_encodings(self) -> dict[int, int]:
         data = self.load_encodings()
         return data
