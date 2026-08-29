@@ -6,6 +6,7 @@ from data.models.game_state.processed import ProcessedGameStateSchema
 from .stores.controller import ParquetControllerStore
 from .stores.game_state import ParquetGameStateStoreConfig, ParquetGameStateStore
 from .stores.frames import TensorFrameStore, VideoDecoderConfig
+from .stores.encoding import EncodingStore, EncodingStoreConfig
 
 from .encoders.game_state import GameStateEncoder, GameStateEncoderConfig
 
@@ -42,6 +43,7 @@ class ProcessConfig(BaseModel):
     video_decoder: VideoDecoderConfig
     game_state_store: ParquetGameStateStoreConfig
 
+    encoding_stores: tuple[EncodingStoreConfig, ...] = ()
     encoders: tuple[GameStateEncoderConfig, ...] = ()
 
     controller_transform: ControllerTransformConfig
@@ -145,13 +147,19 @@ class Process:
             path=source, features=self.config.game_state_store.features
         )
 
+        encoders_stores: dict[str, EncodingStore] = {}
+        for cfg in self.config.encoding_stores:
+            store = EncodingStore(path=cfg.path)
+            encoders_stores[cfg.encoding] = store
+
         encoders: list[GameStateEncoder] = []
         for cfg in self.config.encoders:
+            store = encoders_stores[cfg.encoding]
+
             encoder = GameStateEncoder(
-                encoding=cfg.encoding,
                 fields=cfg.fields,
-                get_encodings=cfg.get_encodings,
-                append_encoding=cfg.append_encoding,
+                get_encodings=store.load,
+                append_encoding=store.append,
             )
             encoders.append(encoder)
 

@@ -55,7 +55,7 @@ class DataPipelineConfig(BaseModel):
         process = cls._load_process(
             raw_pipeline,
             recording=recording,
-            game_state_schema=gstate.processed_schema,
+            gstate=gstate,
             model=model,
             training=training,
         )
@@ -112,7 +112,7 @@ class DataPipelineConfig(BaseModel):
         raw: dict,
         *,
         recording: RecordingConfig,
-        game_state_schema: ProcessedGameStateSchema,
+        gstate: GameStateConfig,
         model: ModelConfig,
         training: TrainingConfig,
     ) -> ProcessConfig:
@@ -147,7 +147,9 @@ class DataPipelineConfig(BaseModel):
         )
 
         game_state_store = ParquetGameStateStoreConfig(
-            features=game_state_schema.get_required_fields_names(include_derived=False),
+            features=gstate.processed_schema.get_required_fields_names(
+                include_derived=False
+            ),
         )
 
         return ProcessConfig(
@@ -155,9 +157,11 @@ class DataPipelineConfig(BaseModel):
             video_decoder=video_decoder,
             game_state_store=game_state_store,
             controller_transform=controller_transform,
+            encoding_stores=gstate.encoding_stores, 
+            encoders=gstate.encoders,
             frame_transform=frame_transform,
             game_state_transform=game_state_transform,
-            game_state_schema=game_state_schema,
+            game_state_schema=gstate.processed_schema,
             sequence_length=training.hyperparameters.sequence_length,
             drop_incomplete=True,
         )

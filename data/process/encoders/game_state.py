@@ -1,7 +1,8 @@
 from collections.abc import Callable, Sequence
+from pathlib import Path
 from typing import overload
 
-from pydantic import BaseModel, ConfigDict, validate_call
+from pydantic import BaseModel, ConfigDict
 from torch import Tensor
 import torch
 
@@ -10,26 +11,16 @@ class GameStateEncoderConfig(BaseModel):
 
     encoding: str
     fields: tuple[str, ...]
-    load_encodings: Callable[[], dict[int, int]]
-    append_encoding: Callable[[int, int], None]
-
-    @validate_call(config=ConfigDict(strict=True), validate_return=True)
-    def get_encodings(self) -> dict[int, int]:
-        data = self.load_encodings()
-        return data
-
 
 class GameStateEncoder:
     def __init__(
         self,
-        encoding: str,
         fields: tuple[str, ...],
         *,
         get_encodings: Callable[[], dict[int, int]],
         append_encoding: Callable[[int, int], None],
         allow_new: bool = True,
     ) -> None:
-        self.encoding = encoding
         self.fields = fields
         self.encodings_data = get_encodings()
         self.append_encoding = append_encoding
