@@ -2,10 +2,12 @@ from datetime import datetime
 from functools import cached_property
 from pathlib import Path
 from typing import Literal
+from collections.abc import Iterator
 
 from .capture import CaptureConfig, Capture
 from .process import ProcessConfig, Process, SequenceDataset
 from .write import Writer, WriterConfig
+
 
 class DataPipeline:
     def __init__(
@@ -110,14 +112,35 @@ class DataPipeline:
 
         return path
 
-    def process_recording(
+    def prepare_recordings(
+        self,
+        *,
+        root: str | Path,
+        encoding_mode: Literal["discover", "frozen"] = "discover",
+    ) -> Iterator[SequenceDataset]:
+        root_path = Path(root).resolve()
+
+        if not root_path.is_dir():
+            raise ValueError(f"Recording root path is not a directory: {root_path}")
+
+        for metadata in sorted(root_path.rglob("metadata.json")):
+            recording = metadata.parent
+
+            yield self.prepare_one_recording(
+                source=recording, encoding_mode=encoding_mode
+            )
+
+    def prepare_one_recording(
         self,
         *,
         source: str | Path,
         encoding_mode: Literal["discover", "frozen"] = "discover",
     ) -> SequenceDataset:
         recording_path = Path(source).resolve()
-        return self.processor.process_sequence(source=recording_path)
+
+        return self.processor.process_sequence(
+            source=recording_path, encoding_mode=encoding_mode
+        )
 
     @staticmethod
     def _validate_config_compatibility(
