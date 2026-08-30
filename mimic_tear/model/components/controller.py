@@ -1,16 +1,17 @@
 from dataclasses import dataclass
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 import torch
 from torch import Tensor, nn
 
 from utils import profile
 
+
 class ControllerConfig(BaseModel):
     model_config = ConfigDict(frozen=True, extra="forbid", strict=True)
 
-    input_features: int
-    button_outputs: int
+    input_features: int = Field(gt=0)
+    button_outputs: int = Field(gt=0)
 
 
 @dataclass(frozen=True, slots=True)
@@ -71,49 +72,20 @@ class Controller(nn.Module):
 
     @profile
     def forward(self, features: Tensor) -> ControllerOutput:
-        """
-        Args:
-            features:
-                [B, T, input_features]
-
-        Returns:
-            ControllerOutput:
-                analog:
-                    [B, T, 6]
-
-                button_logits:
-                    [B, T, button_outputs]
-        """
-        if features.ndim != 3:
-            raise ValueError(
-                "Expected features with shape [B, T, F], "
-                f"received {tuple(features.shape)}"
-            )
-
         if features.shape[-1] != self.input_features:
             raise ValueError(
                 f"Expected {self.input_features} features, "
                 f"received {features.shape[-1]}"
             )
 
-        left_stick = torch.tanh(
-            self.left_stick(features)
-        )
+        left_stick = torch.tanh(self.left_stick(features))
 
-        right_stick = torch.tanh(
-            self.right_stick(features)
-        )
+        right_stick = torch.tanh(self.right_stick(features))
 
-        bumpers = torch.sigmoid(
-            self.bumpers(features)
-        )
+        bumpers = torch.sigmoid(self.bumpers(features))
 
         analog = torch.cat(
-            (
-                left_stick,
-                right_stick,
-                bumpers,
-            ),
+            (left_stick, right_stick, bumpers),
             dim=-1,
         )
 
