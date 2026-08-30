@@ -2,6 +2,8 @@ from pydantic import ConfigDict, BaseModel
 from pathlib import Path
 
 from data.models.game_state.processed import ProcessedGameStateSchema
+from graph.base import Plan
+from graph.types.tensor import TensorGraphExecutor
 
 from .stores.controller import ParquetControllerStore
 from .stores.game_state import ParquetGameStateStoreConfig, ParquetGameStateStore
@@ -15,8 +17,6 @@ from .transforms import (
     ControllerTransform,
     FrameTransformConfig,
     FrameTransform,
-    GameStateTransform,
-    GameStateTransformConfig,
 )
 
 from .datasets import (
@@ -48,8 +48,8 @@ class ProcessConfig(BaseModel):
 
     controller_transform: ControllerTransformConfig
     frame_transform: FrameTransformConfig
-    game_state_transform: GameStateTransformConfig
 
+    processing_plan: Plan
     game_state_schema: ProcessedGameStateSchema
 
     sequence_length: int
@@ -142,12 +142,8 @@ class Process:
         self,
         source: str | Path,
     ) -> GameStateDataset:
-        from .transforms.definitions import GAME_STATE_TRANSFORMS
-
-        # note : only the required features are passed
-        game_state_store = ParquetGameStateStore(
-            path=source, features=self.config.game_state_store.features
-        )
+        features = tuple(value.name for value in self.config.processing_plan.inputs)
+        game_state_store = ParquetGameStateStore(path=source, features=features)
 
         encoders_stores: dict[str, EncodingStore] = {}
         for cfg in self.config.encoding_stores:
@@ -165,16 +161,12 @@ class Process:
             )
             encoders.append(encoder)
 
-        game_state_transform = GameStateTransform(
-            generic_transforms=GAME_STATE_TRANSFORMS,
-            **self.config.game_state_transform.model_dump(),
-        )
-
         dataset = GameStateDataset(
             store=game_state_store,
             schema=self.config.game_state_schema,
             encoders=tuple(encoders),
-            transform=game_state_transform,
+            plan=self.config.processing_plan,
+            executor=TensorGraphExecutor(),
         )
 
         return dataset

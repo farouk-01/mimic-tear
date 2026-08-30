@@ -1,5 +1,4 @@
 from typing import Self
-from collections.abc import Mapping
 
 from pydantic import BaseModel, ConfigDict
 from torchvision.models import ResNet18_Weights
@@ -14,7 +13,6 @@ from data.models.record import RecordingConfig
 from data.process import (
     ControllerTransformConfig,
     FrameTransformConfig,
-    GameStateTransformConfig,
     ParquetGameStateStoreConfig,
     ProcessConfig,
     VideoDecoderConfig,
@@ -29,7 +27,6 @@ from data.write import (
 from .model import ModelConfig
 from .training import TrainingConfig
 from .game_state import GameStateConfig
-from data.models.game_state.processed import ProcessedGameStateSchema
 
 
 class DataPipelineConfig(BaseModel):
@@ -134,10 +131,6 @@ class DataPipelineConfig(BaseModel):
             }
         )
 
-        game_state_transform = GameStateTransformConfig.model_validate(
-            raw["data"]["transforms"]["game_state"]
-        )
-
         controller_transform = ControllerTransformConfig.model_validate(
             raw["data"]["transforms"]["controller"]
         )
@@ -147,9 +140,7 @@ class DataPipelineConfig(BaseModel):
         )
 
         game_state_store = ParquetGameStateStoreConfig(
-            features=gstate.processed_schema.get_required_fields_names(
-                include_derived=False
-            ),
+            features=tuple(value.name for value in gstate.plan.inputs),
         )
 
         return ProcessConfig(
@@ -157,11 +148,11 @@ class DataPipelineConfig(BaseModel):
             video_decoder=video_decoder,
             game_state_store=game_state_store,
             controller_transform=controller_transform,
-            encoding_stores=gstate.encoding_stores, 
+            encoding_stores=gstate.encoding_stores,
             encoders=gstate.encoders,
             frame_transform=frame_transform,
-            game_state_transform=game_state_transform,
             game_state_schema=gstate.processed_schema,
+            processing_plan=gstate.plan,
             sequence_length=training.hyperparameters.sequence_length,
             drop_incomplete=True,
         )

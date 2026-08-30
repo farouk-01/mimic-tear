@@ -63,9 +63,10 @@ class ProcessedGameStateField(GameStateField):
     fill_value: GameStateNullValue | None = Field(default=None)
     kind: FieldKind
     dtype: DataType
-    derived: bool = Field(default=False)
-    required: bool = Field(default=True)
     encoding: str | None = Field(default=None)
+    
+    is_derived: bool = Field(default=False)
+    is_model_input: bool = Field(default=True)
     is_metadata: bool = Field(default=False)
 
     @model_validator(mode="after")
@@ -96,69 +97,11 @@ class ProcessedGameStateField(GameStateField):
 class ProcessedGameStateSchema(GameStateSchema):
     fields: tuple[ProcessedGameStateField, ...]
 
-    def get_required_fields_names(
-        self, include_derived: bool = True
-    ) -> tuple[str, ...]:
-        required: tuple[str, ...] = ()
-        for field in self.fields:
-            if include_derived:
-                if not field.is_metadata and field.required:
-                    required += (field.name,)
-            else:
-                if not (field.is_metadata or field.derived) and field.required:
-                    required += (field.name,)
-
-        if len(required) == 0:
-            raise ValueError("No required fields found in schema")
-
-        return required
-
-    def get_required_fields(
-        self, include_derived: bool = True
-    ) -> tuple[ProcessedGameStateField, ...]:
-        required: tuple[ProcessedGameStateField, ...] = ()
-        for field in self.fields:
-            if include_derived:
-                if not field.is_metadata and field.required:
-                    required += (field,)
-            else:
-                if not (field.is_metadata or field.derived) and field.required:
-                    required += (field,)
-
-        if len(required) == 0:
-            raise ValueError("No required fields found in schema")
-
-        return required
-
-    def get_required_derived_fields(self) -> tuple[ProcessedGameStateField, ...]:
-        required: tuple[ProcessedGameStateField, ...] = ()
-        for field in self.fields:
-            if not field.is_metadata and field.derived and field.required:
-                required += (field,)
-
-        if len(required) == 0:
-            raise ValueError("No required derived fields found in schema")
-
-        return required
-
-    def get_required_fields_by_kind(
-        self, kind: FieldKind
-    ) -> tuple[ProcessedGameStateField, ...]:
-        fields: tuple[ProcessedGameStateField, ...] = ()
-        for field in self.fields:
-            if field.kind == kind and field.required and not field.is_metadata:
-                fields += (field,)
-
-        if len(fields) == 0:
-            raise ValueError(f"No fields found with kind: {kind}")
-
-        return fields
-
     @property
     def required_feature_count(self) -> int:
         count = 0
         for field in self.fields:
-            if not field.is_metadata and field.required:
+            if not field.is_metadata and field.is_model_input:
                 count += 1
 
         if count == 0:

@@ -4,17 +4,49 @@ from typing import Self
 from pydantic import BaseModel, ConfigDict
 
 from utils.files import load_json
+from graph.base import Graph, Value, Plan
+
 from data.capture.memory import EldenRingMemoryProfile
 from data.models.game_state.processed import ProcessedGameStateSchema
 from data.process.encoders.game_state import GameStateEncoderConfig
 from data.process.stores.encoding import EncodingStoreConfig
+from data.process.transforms.types.tensor import Ratio, TensorTransform, TransformNode
+
+GAME_STATE_TRANSFORMS: tuple[TensorTransform, ...] = (
+    Ratio(
+        output="player_hp_ratio",
+        numerator="player_health",
+        denominator="player_max_health",
+    ),
+    Ratio(
+        output="player_fp_ratio",
+        numerator="player_fp",
+        denominator="player_max_fp",
+    ),
+    Ratio(
+        output="player_stamina_ratio",
+        numerator="player_stamina",
+        denominator="player_max_stamina",
+    ),
+    Ratio(
+        output="enemy_hp_ratio",
+        numerator="enemy_health",
+        denominator="enemy_max_health",
+    ),
+)
 
 
 class GameStateConfig(BaseModel):
-    model_config = ConfigDict(frozen=True, extra="forbid", strict=True)
+    model_config = ConfigDict(
+        frozen=True,
+        extra="forbid",
+        strict=True,
+        arbitrary_types_allowed=True,
+    )
 
     memory_profile: EldenRingMemoryProfile
     processed_schema: ProcessedGameStateSchema
+    plan: Plan
 
     encoding_stores: tuple[EncodingStoreConfig, ...] = ()
     encoders: tuple[GameStateEncoderConfig, ...] = ()
@@ -36,11 +68,24 @@ class GameStateConfig(BaseModel):
             {"name": name, **definition} for name, definition in proc_data.items()
         )
 
-        proc_schema = ProcessedGameStateSchema.model_validate(
-            {"fields": processed_fields}
+        schema = ProcessedGameStateSchema.model_validate({"fields": processed_fields})
+
+        graph = Graph()
+        for t in GAME_STATE_TRANSFORMS:
+            graph.add(TransformNode(transform=t))
+
+        outputs = tuple(
+            Value(field.name) for field in schema.fields if field.is_model_input
         )
 
-        nominal_fields = proc_schema.get_required_fields_by_kind("nominal")
+        plan = graph.resolve(outputs)
+
+        input_names = {v.name for v in plan.inputs}
+        nominal_fields = [
+            field
+            for field in schema.fields
+            if field.name in input_names and field.kind == "nominal"
+        ]
 
         grouped: dict[str, set[str]] = {}
         encoders_cfg: list[GameStateEncoderConfig] = []
@@ -68,7 +113,8 @@ class GameStateConfig(BaseModel):
 
         return cls(
             memory_profile=mem_schema,
-            processed_schema=proc_schema,
+            processed_schema=schema,
+            plan=plan,
             encoders=tuple(encoders_cfg),
             encoding_stores=tuple(encoding_stores_cfg),
         )

@@ -11,7 +11,7 @@ class TensorNode(Node, ABC):
         ...
 
 
-type TensorValues = dict[Value, Tensor]
+type TensorValues = dict[str, Tensor]
 
 
 class TensorGraphExecutor:
@@ -28,7 +28,7 @@ class TensorGraphExecutor:
                     f"Expected TensorNode, got {type(node).__name__}"
                 )
 
-            args = tuple(values[value] for value in node.inputs)
+            args = tuple(values[value.name] for value in node.inputs)
             results = node.execute(*args)
 
             if len(results) != len(node.outputs):
@@ -38,9 +38,9 @@ class TensorGraphExecutor:
                 )
 
             for output, result in zip(node.outputs, results):
-                values[output] = result
+                values[output.name] = result
 
         return {
-            output: values[output]
+            output.name: values[output.name]
             for output in plan.outputs
         }

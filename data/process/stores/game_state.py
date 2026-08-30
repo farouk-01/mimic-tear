@@ -106,7 +106,7 @@ class ParquetGameStateStoreAdapter(
 
     def get_feature(
         self, data: pa.ChunkedArray, field: ProcessedGameStateField
-    ) -> torch.Tensor: 
+    ) -> torch.Tensor:
         if field.fill_value is not None:
             data = data.fill_null(field.fill_value)
         elif data.null_count > 0:
@@ -117,13 +117,14 @@ class ParquetGameStateStoreAdapter(
         return torch.from_numpy(data.to_numpy(zero_copy_only=False))
 
     def _to_tensors(
-        self, data: pa.Table, schema: ProcessedGameStateSchema
+        self,
+        data: pa.Table,
+        schema: ProcessedGameStateSchema,
     ) -> dict[str, torch.Tensor]:
-        tensors = {}
+        tensors: dict[str, torch.Tensor] = {}
 
-        for field in schema.get_required_fields(include_derived=False):
-            tensor = self.get_feature(data[field.name], field)
-            
-            tensors[field.name] = tensor
+        for name in data.column_names:
+            field = schema.get_field(name)
+            tensors[name] = self.get_feature(data[name], field)
 
         return tensors

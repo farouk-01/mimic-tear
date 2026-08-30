@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from collections.abc import Callable, Sequence
+from collections.abc import Sequence
 from typing import TypeVar, Generic
 
 from torch import Tensor
@@ -13,6 +13,8 @@ from data.models.game_state.processed import (
     ProcessedGameStateField,
 )
 from data.process.encoders.game_state import GameStateEncoder, TensorGameStateEncoder
+from graph.base import Plan
+from graph.types.tensor import TensorGraphExecutor
 from utils.registries import Registry
 
 type GameStateValue = int | float | bool | str | None
@@ -75,7 +77,8 @@ class GameStateDataset(Dataset[GameStateTensors]):
         store: GameStateStore,
         schema: ProcessedGameStateSchema,
         encoders: tuple[GameStateEncoder, ...] = (),
-        transform: Callable[[GameStateTensors], GameStateTensors] | None = None,
+        plan: Plan,
+        executor: TensorGraphExecutor,
     ) -> None:
         if len(store) <= 0:
             raise ValueError("Game-state store cannot be empty")
@@ -88,7 +91,7 @@ class GameStateDataset(Dataset[GameStateTensors]):
         adapter_cls = game_state_store_adapters.resolve(type(store))
         self.adapter = adapter_cls()
 
-        expected = schema.get_required_fields_names(include_derived=False)
+        expected = tuple(value.name for value in plan.inputs)
 
         missing = [feature for feature in expected if feature not in store.features]
 
@@ -101,7 +104,8 @@ class GameStateDataset(Dataset[GameStateTensors]):
         self.encoders: tuple[TensorGameStateEncoder, ...] = tuple(
             TensorGameStateEncoder(encoder) for encoder in encoders
         )
-        self.transform = transform
+        self.plan = plan
+        self.executor = executor
 
     def __len__(self) -> int:
         return len(self.store)
@@ -110,29 +114,13 @@ class GameStateDataset(Dataset[GameStateTensors]):
         state = self.store.get(index)
         tensors = self.adapter.get(state, self.schema)
 
-        for encoder in self.encoders:
-            for field_name in encoder.fields:
-                tensors[field_name] = encoder.encode(tensors[field_name])
-
-        if self.transform is not None:
-            tensors = self.transform(tensors)
-            self._validate_transformed_tensors(tensors)
-
-        return tensors
+        return self._process_tensors(tensors)
 
     def get_range(self, start: int, end: int) -> GameStateTensors:
         states = self.store.get_range(start, end)
         tensors = self.adapter.get_range(states, self.schema)
 
-        for encoder in self.encoders:
-            for field_name in encoder.fields:
-                tensors[field_name] = encoder.encode(tensors[field_name])
-
-        if self.transform is not None:
-            tensors = self.transform(tensors)
-            self._validate_transformed_tensors(tensors)
-
-        return tensors
+        return self._process_tensors(tensors)
 
     def discover_encodings(self) -> dict[str, int]:
         cardinalities: dict[str, int] = {}
@@ -153,43 +141,50 @@ class GameStateDataset(Dataset[GameStateTensors]):
 
         return cardinalities
 
-    def _validate_transformed_tensors(self, tensors: GameStateTensors) -> None:
-        required_derived = self.schema.get_required_derived_fields()
-        required_derived_names = {field.name for field in required_derived}
-        non_derived_names = set(
-            self.schema.get_required_fields_names(include_derived=False)
-        )
-        expected_names = required_derived_names | non_derived_names
+    def _process_tensors(self, tensors: GameStateTensors) -> GameStateTensors:
+        for encoder in self.encoders:
+            for field_name in encoder.fields:
+                tensors[field_name] = encoder.encode(tensors[field_name])
+
+        tensors = self.executor.execute(self.plan, tensors)
+        self._validate_transformed_tensors(tensors)
+
+        return tensors
+
+    def _validate_transformed_tensors(
+        self,
+        tensors: GameStateTensors,
+    ) -> None:
+        expected_names = {value.name for value in self.plan.outputs}
 
         errors: list[Exception] = []
 
-        missing = [name for name in required_derived_names if name not in tensors]
+        missing = [name for name in expected_names if name not in tensors]
         unexpected = [name for name in tensors if name not in expected_names]
 
         if missing:
-            errors.append(ValueError(f"Missing required derived features: {missing}"))
+            errors.append(ValueError(f"Missing model input features: {missing}"))
 
         if unexpected:
-            errors.append(
-                ValueError(f"Unexpected features in transformed tensors: {unexpected}")
-            )
+            errors.append(ValueError(f"Unexpected model input features: {unexpected}"))
 
-        for field in required_derived:
-            if field.name not in tensors:
+        for name in expected_names:
+            if name not in tensors:
                 continue
 
-            tensor = tensors[field.name]
+            field = self.schema.get_field(name)
+            tensor = tensors[name]
 
             if tensor.dtype != TORCH_DTYPES[field.dtype]:
                 errors.append(
                     TypeError(
-                        f"Feature '{field.name}' has unexpected dtype: "
+                        f"Feature '{name}' has unexpected dtype: "
                         f"expected {field.dtype}, got {tensor.dtype}"
                     )
                 )
 
         if errors:
             raise ExceptionGroup(
-                "Game-state dataset transform validation failed",
+                "Game-state dataset processing validation failed",
                 errors,
             )
