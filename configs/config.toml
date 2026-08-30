@@ -46,9 +46,9 @@ east = 1.0
 west = 1.0
 north = 1.0
 left_bumper = 1.0
-right_bumper = 3.0
+right_bumper = 1.0
 left_stick = 1.0
-right_stick = 5.0
+right_stick = 1.0
 
 left_x = 1.0
 left_y = 1.0
@@ -82,8 +82,9 @@ pin_memory = false
 # =============================================================================
 
 [paths]
-recordings = "recordings"
 artifacts = "artifacts"
+training_recordings = "recordings/train"
+validation_recordings = "recordings/val"
 
 # =============================================================================
 # Data

@@ -13,7 +13,8 @@ class ConfigDomain(StrEnum):
 class PathsConfig(BaseModel):
     model_config = ConfigDict(frozen=True, extra="forbid", strict=True)
 
-    recordings: Path
+    training_recordings: Path
+    validation_recordings: Path
     artifacts: Path
 
     schemas: Path = Path("configs/schemas")

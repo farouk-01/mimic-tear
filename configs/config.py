@@ -24,6 +24,7 @@ class MimicTearConfig(BaseModel):
     raw_cfg: Mapping[str, Any]
 
     logging: LoggingSettings
+    paths: PathsConfig
     data: DataPipelineConfig
     training: TrainingConfig
     gstate: GameStateConfig
@@ -50,18 +51,24 @@ class MimicTearConfig(BaseModel):
         weights_name = cfg["model"]["vision"]["weights_name"]
 
         data = DataPipelineConfig.load(
-            cfg, resnet_weights_name=weights_name, gstate=gstate_cfg, training=training
+            cfg,
+            resnet_weights_name=weights_name,
+            gstate=gstate_cfg,
+            training=training,
         )
 
         return cls(
             raw_cfg=cfg,
             logging=logging,
+            paths=paths,
             data=data,
             training=training,
             gstate=gstate_cfg,
         )
 
-    def load_model_config(self, *, encoding_cardinalities: dict[str, int]) -> ModelConfig:
+    def load_model_config(
+        self, *, encoding_cardinalities: dict[str, int]
+    ) -> ModelConfig:
         return ModelConfig.load(
             self.raw_cfg["model"],
             gstate_schema=self.gstate.processed_schema,
