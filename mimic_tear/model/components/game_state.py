@@ -1,57 +1,94 @@
 from __future__ import annotations
-from dataclasses import dataclass
 
-from pydantic import BaseModel, ConfigDict, Field
+from typing import Literal
+
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 from torch import Tensor, nn
+import torch
 
 from utils import profile
+
+type GameStateFieldKind = Literal["numeric", "categorical"]
+
+
+class GameStateFieldConfig(BaseModel):
+    model_config = ConfigDict(frozen=True, extra="forbid", strict=True)
+
+    name: str
+    kind: GameStateFieldKind
+    cardinality: int | None = None
+
+    @model_validator(mode="before")
+    def validate_cardinality(cls, values: dict) -> dict:
+        kind = values.get("kind")
+        cardinality = values.get("cardinality")
+
+        if kind == "categorical" and cardinality is None:
+            raise ValueError(
+                f"Missing cardinality for categorical field {values.get('name')}"
+            )
+
+        if kind == "numeric" and cardinality is not None:
+            raise ValueError(
+                f"Unexpected cardinality for numeric field {values.get('name')}"
+            )
+
+        return values
+
 
 class GameStateConfig(BaseModel):
     model_config = ConfigDict(frozen=True, extra="forbid", strict=True)
 
-    input_features: int = Field(gt=0)
-    hidden_features: int = Field(gt=0)
-    output_features: int = Field(gt=0)
+    fields: tuple[GameStateFieldConfig, ...] = Field(
+        default_factory=tuple,
+        min_length=1,
+    )
+    d_model: int = Field(gt=0)
 
 
 class GameState(nn.Module):
     def __init__(
         self,
         *,
-        input_features: int,
-        hidden_features: int,
-        output_features: int,
+        fields: tuple[GameStateFieldConfig, ...],
+        d_model: int,
     ) -> None:
         super().__init__()
-        self.input_features = input_features
-        self.output_features = output_features
+        self.fields = fields
+        self.d_model = d_model
 
-        self.encoder = nn.Sequential(
-            nn.Linear(input_features, hidden_features),
-            nn.ReLU(inplace=True),
-            nn.Linear(hidden_features, output_features),
-            nn.ReLU(inplace=True),
+        self.embeddings = nn.ModuleDict(
+            {
+                field.name: nn.Embedding(
+                    num_embeddings=field.cardinality,
+                    embedding_dim=d_model,
+                )
+                for field in fields
+                if field.kind == "categorical" and field.cardinality is not None
+            }
+        )
+
+        self.projections = nn.ModuleDict(
+            {
+                field.name: nn.Linear(1, d_model)
+                for field in fields
+                if field.kind == "numeric"
+            }
         )
 
     @profile
-    def forward(self, state: Tensor) -> Tensor:
-        """
-        Args:
-            state: [B, T, input_features]
+    def forward(self, state: dict[str, Tensor]) -> Tensor:
+        tokens: list[Tensor] = []
 
-        Returns:
-            features: [B, T, output_features]
-        """
-        if state.ndim != 3:
-            raise ValueError(
-                "Expected game state with shape [B, T, F], "
-                f"received {tuple(state.shape)}"
-            )
+        for field in self.fields:
+            tensor = state[field.name]
 
-        if state.shape[2] != self.input_features:
-            raise ValueError(
-                f"Expected {self.input_features} game-state features, "
-                f"received {state.shape[2]}"
-            )
+            if field.kind == "categorical":
+                token = self.embeddings[field.name](tensor.long())
 
-        return self.encoder(state)
+            else:
+                token = self.projections[field.name](tensor.unsqueeze(-1).float())
+
+            tokens.append(token)
+
+        return torch.stack(tokens, dim=-2)
