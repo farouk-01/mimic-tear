@@ -96,15 +96,3 @@ class ProcessedGameStateField(GameStateField):
 
 class ProcessedGameStateSchema(GameStateSchema):
     fields: tuple[ProcessedGameStateField, ...]
-
-    @property
-    def required_feature_count(self) -> int:
-        count = 0
-        for field in self.fields:
-            if not field.is_metadata and field.is_model_input:
-                count += 1
-
-        if count == 0:
-            raise ValueError("No required raw fields found in schema")
-
-        return count
