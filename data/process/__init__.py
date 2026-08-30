@@ -1,5 +1,6 @@
 from pydantic import ConfigDict, BaseModel
 from pathlib import Path
+from typing import Literal
 
 from data.models.game_state.processed import ProcessedGameStateSchema
 from graph.base import Plan
@@ -66,7 +67,11 @@ class Process:
         self.sequence_length = config.sequence_length
         self.drop_incomplete = config.drop_incomplete
 
-    def process_sequence(self, source: str | Path) -> SequenceDataset:
+    def process_sequence(
+        self,
+        source: str | Path,
+        encoding_mode: Literal["discover", "frozen"] = "discover",
+    ) -> SequenceDataset:
         recording = Recording.from_directory(root=source, config=self.config.recording)
 
         if recording.game_state is None:
@@ -77,7 +82,11 @@ class Process:
         frame_dataset = self._load_frames_dataset(source=recording.video)
         controller_dataset = self._load_controller_dataset(source=recording.controller)
         game_state_dataset = self._load_game_state_dataset(source=recording.game_state)
-        encoding_cardinalities = game_state_dataset.discover_encodings()
+
+        if encoding_mode == "discover":
+            game_state_dataset.discover_encodings()
+
+        encoding_cardinalities = game_state_dataset.get_encoding_cardinalities()
 
         self._validate_recording_integrity(
             frames=frame_dataset,

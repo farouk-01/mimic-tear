@@ -1,6 +1,7 @@
 from datetime import datetime
 from functools import cached_property
 from pathlib import Path
+from typing import Literal
 
 from .capture import CaptureConfig, Capture
 from .process import ProcessConfig, Process, SequenceDataset
@@ -113,6 +114,7 @@ class DataPipeline:
         self,
         *,
         source: str | Path,
+        encoding_mode: Literal["discover", "frozen"] = "discover",
     ) -> SequenceDataset:
         recording_path = Path(source).resolve()
         return self.processor.process_sequence(source=recording_path)
