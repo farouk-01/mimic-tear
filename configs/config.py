@@ -1,4 +1,4 @@
-from typing import Any, Self
+from typing import Any, Mapping, Self
 from pathlib import Path
 import copy
 
@@ -21,9 +21,10 @@ DEFAULT_OVERRIDE_PATH = Path("configs/config.override.toml")
 class MimicTearConfig(BaseModel):
     model_config = ConfigDict(frozen=True, extra="forbid", strict=True)
 
+    raw_cfg: Mapping[str, Any]
+
     logging: LoggingSettings
     data: DataPipelineConfig
-    model: ModelConfig
     training: TrainingConfig
     gstate: GameStateConfig
 
@@ -46,21 +47,25 @@ class MimicTearConfig(BaseModel):
 
         training = TrainingConfig.load(cfg["training"])
 
-        model = ModelConfig.load(
-            cfg["model"],
-            game_state_features=gstate_cfg.processed_schema.required_feature_count,
-        )
+        weights_name = cfg["model"]["vision"]["weights_name"]
 
         data = DataPipelineConfig.load(
-            cfg, model=model, gstate=gstate_cfg, training=training
+            cfg, resnet_weights_name=weights_name, gstate=gstate_cfg, training=training
         )
 
         return cls(
+            raw_cfg=cfg,
             logging=logging,
             data=data,
-            model=model,
             training=training,
             gstate=gstate_cfg,
+        )
+
+    def load_model_config(self, *, encoding_cardinalities: dict[str, int]) -> ModelConfig:
+        return ModelConfig.load(
+            self.raw_cfg["model"],
+            gstate_schema=self.gstate.processed_schema,
+            encoding_cardinalities=encoding_cardinalities,
         )
 
 

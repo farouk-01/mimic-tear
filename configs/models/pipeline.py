@@ -24,7 +24,6 @@ from data.write import (
     WriterConfig,
 )
 
-from .model import ModelConfig
 from .training import TrainingConfig
 from .game_state import GameStateConfig
 
@@ -41,7 +40,7 @@ class DataPipelineConfig(BaseModel):
         cls,
         raw_pipeline: dict,
         *,
-        model: ModelConfig,
+        resnet_weights_name: str,
         gstate: GameStateConfig,
         training: TrainingConfig,
     ) -> Self:
@@ -53,7 +52,7 @@ class DataPipelineConfig(BaseModel):
             raw_pipeline,
             recording=recording,
             gstate=gstate,
-            model=model,
+            resnet_weights_name=resnet_weights_name,
             training=training,
         )
 
@@ -110,7 +109,7 @@ class DataPipelineConfig(BaseModel):
         *,
         recording: RecordingConfig,
         gstate: GameStateConfig,
-        model: ModelConfig,
+        resnet_weights_name: str,
         training: TrainingConfig,
     ) -> ProcessConfig:
         frame_transform_raw = dict(raw["data"]["transforms"]["frames"])
@@ -118,8 +117,8 @@ class DataPipelineConfig(BaseModel):
         mean: tuple[float, ...] | None = None
         std: tuple[float, ...] | None = None
 
-        if model.vision.weights_name is not None:
-            presets = ResNet18_Weights[model.vision.weights_name].transforms()
+        if resnet_weights_name is not None:
+            presets = ResNet18_Weights[resnet_weights_name].transforms()
             mean = tuple(presets.mean)
             std = tuple(presets.std)
 

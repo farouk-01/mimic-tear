@@ -84,24 +84,24 @@
     "player_hp_ratio": {
         "kind": "continuous",
         "dtype": "float32",
-        "derived": true
+        "is_derived": true
     },
     "player_fp_ratio": {
         "kind": "continuous",
         "dtype": "float32",
-        "derived": true
+        "is_derived": true
     },
     "player_stamina_ratio": {
         "kind": "continuous",
         "dtype": "float32",
-        "derived": true
+        "is_derived": true
     },
 
 
     "enemy_hp_ratio": {
         "kind": "continuous",
         "dtype": "float32",
-        "derived": true,
+        "is_derived": true,
         "nullable": true,
         "fill_value": 0.0
     }

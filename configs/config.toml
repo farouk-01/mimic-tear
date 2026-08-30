@@ -8,6 +8,8 @@ gstate_memory_schema = "1.16.2"
 # =============================================================================
 # Model
 # =============================================================================
+[model]
+d_model = 256
 
 [model.vision]
 output_features = 512
@@ -19,8 +21,6 @@ num_layers = 2
 dropout = 0.1
 
 [model.game_state]
-hidden_features = 128
-output_features = 128
 
 [model.fusion]
 output_features = 512
@@ -93,8 +93,6 @@ artifacts = "artifacts"
 width = 480
 height = 270
 scale = true
-
-[data.transforms.game_state]
 
 [data.transforms.controller]
 clamp_sticks = true
