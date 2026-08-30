@@ -134,7 +134,9 @@ class GameStateDataset(Dataset[GameStateTensors]):
 
         return tensors
 
-    def discover_encodings(self) -> None:
+    def discover_encodings(self) -> dict[str, int]:
+        cardinalities: dict[str, int] = {}
+
         for encoder in self.encoders:
             for field_name in encoder.fields:
                 field_data = self.store.get_feature(field_name)
@@ -144,7 +146,12 @@ class GameStateDataset(Dataset[GameStateTensors]):
                 )
                 encoder.discover(tensor)
 
-            encoder.freeze()
+            # a encoder can be used for multiple fields
+            # so need to process all fields before
+            for field_name in encoder.fields:
+                cardinalities[field_name] = encoder.cardinality
+
+        return cardinalities
 
     def _validate_transformed_tensors(self, tensors: GameStateTensors) -> None:
         required_derived = self.schema.get_required_derived_fields()

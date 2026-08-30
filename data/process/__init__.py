@@ -77,6 +77,7 @@ class Process:
         frame_dataset = self._load_frames_dataset(source=recording.video)
         controller_dataset = self._load_controller_dataset(source=recording.controller)
         game_state_dataset = self._load_game_state_dataset(source=recording.game_state)
+        encoding_cardinalities = game_state_dataset.discover_encodings()
 
         self._validate_recording_integrity(
             frames=frame_dataset,
@@ -89,6 +90,7 @@ class Process:
             controller=controller_dataset,
             game_state=game_state_dataset,
             sequence_length=self.sequence_length,
+            encoding_cardinalities=encoding_cardinalities,
             drop_incomplete=self.drop_incomplete,
         )
 
@@ -174,7 +176,5 @@ class Process:
             encoders=tuple(encoders),
             transform=game_state_transform,
         )
-
-        dataset.discover_encodings()
 
         return dataset

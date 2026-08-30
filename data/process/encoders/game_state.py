@@ -26,6 +26,10 @@ class GameStateEncoder:
         self.encodings_data = get_encodings()
         self.append_encoding = append_encoding
 
+    @property
+    def cardinality(self) -> int:
+        return max(self.encodings_data.values(), default=0) + 1
+
     @overload
     def encode(self, values: int) -> int: ...
 
@@ -51,7 +55,7 @@ class GameStateEncoder:
         if not unseen:
             return
 
-        start = max(data.values(), default=0) + 1
+        start = self.cardinality
         indices = list(range(start, start + len(unseen)))
 
         self.append_encoding(unseen, indices)
@@ -65,6 +69,10 @@ class TensorGameStateEncoder:
     @property
     def fields(self) -> tuple[str, ...]:
         return self.encoder.fields
+
+    @property
+    def cardinality(self) -> int:
+        return self.encoder.cardinality
 
     # TODO : Tensor -> list -> Tensor (not ideal)
     def encode(self, values: Tensor) -> Tensor:
