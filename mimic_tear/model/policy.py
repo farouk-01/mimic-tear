@@ -1,60 +1,58 @@
 from __future__ import annotations
+from typing import Self
 
-from dataclasses import dataclass
-from pathlib import Path
-
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, model_validator
 from torch import Tensor, nn
-import yaml
+import torch
 
-from mimic_tear.model.components import (
-    Controller,
-    ControllerConfig,
-    ControllerOutput,
-    Fusion,
-    FusionConfig,
-    GameState,
-    GameStateConfig,
-    LSTMState,
-    Temporal,
-    TemporalConfig,
-    Vision,
-    VisionConfig,
-)
+from mimic_tear.model.components import *
+
 from utils import profile
 
 
-class PolicyConfig(BaseModel):
+class LSTMPolicyConfig(BaseModel):
     model_config = ConfigDict(frozen=True, extra="forbid", strict=True)
 
     vision: VisionConfig
     temporal: TemporalConfig
     game_state: GameStateConfig | None
-    fusion: FusionConfig | None
+    fusion: VectorFusionConfig | None
     controller: ControllerConfig
 
+    @model_validator(mode="after")
+    def validate_fusion(self) -> Self:
+        if self.game_state is not None and self.fusion is None:
+            raise ValueError(
+                "Fusion config must be provided when game-state config is present"
+            )
 
-class EldenRingPolicy(nn.Module):
+        if self.game_state is None and self.fusion is not None:
+            raise ValueError(
+                "Game-state config must be provided when fusion config is present"
+            )
+
+        return self
+
+
+class LSTMPolicy(nn.Module):
     def __init__(
         self,
         *,
-        config: PolicyConfig,
+        config: LSTMPolicyConfig,
     ) -> None:
         super().__init__()
+        self.config = config
 
         self.vision = Vision(**config.vision.model_dump())
-
-        # important that input_feature of temporal is
-        # equal to output_feature of vision
         self.temporal = Temporal(**config.temporal.model_dump())
 
         self.game_state: GameState | None = None
         if config.game_state is not None:
             self.game_state = GameState(**config.game_state.model_dump())
 
-        self.fusion: Fusion | None = None
+        self.fusion: VectorFusion | None = None
         if config.fusion is not None:
-            self.fusion = Fusion(**config.fusion.model_dump())
+            self.fusion = VectorFusion(**config.fusion.model_dump())
 
         self.controller = Controller(**config.controller.model_dump())
 
@@ -62,7 +60,7 @@ class EldenRingPolicy(nn.Module):
     def forward(
         self,
         images: Tensor,
-        game_state: Tensor | None = None,
+        game_state: dict[str, Tensor] | None = None,
         state: LSTMState | None = None,
     ) -> tuple[ControllerOutput, LSTMState]:
         if images.ndim != 5:
@@ -71,7 +69,7 @@ class EldenRingPolicy(nn.Module):
                 f"received {tuple(images.shape)}"
             )
 
-        batch_size, sequence_length, channels, height, width = images.shape
+        batch_size, sequence_length, channels, _, _ = images.shape
 
         if channels != 3:
             raise ValueError(f"Expected 3 RGB channels, received {channels}")
@@ -79,11 +77,10 @@ class EldenRingPolicy(nn.Module):
         if sequence_length <= 0:
             raise ValueError("Sequence length must be greater than zero")
 
-        # combine dim 0 through 1 into one dimension
         # [B, T, 3, H, W] -> [B*T, 3, H, W]
         frames = images.flatten(0, 1)
 
-        # [B*T, 3, H, W] -> [B*T, 3*H*W]
+        # [B*T, 3, H, W] -> [B*T, F]
         visual_features = self.vision(frames)
 
         # [B*T, F] -> [B, T, F]
@@ -93,47 +90,38 @@ class EldenRingPolicy(nn.Module):
             self.vision.output_features,
         )
 
-        # [B, T, F] --LSTM--> [B, T, temporal_features]
-        temporal_features, next_state = self.temporal(
-            visual_features,
-            state,
-        )
-
-        features = temporal_features
+        # [B, T, F] -> [B, T, H]
+        temporal_features, next_state = self.temporal(visual_features, state)
 
         if self.game_state is not None:
             if game_state is None:
                 raise ValueError("This policy requires game-state input")
 
-            if game_state.ndim != 3:
-                raise ValueError(
-                    "Expected game state with shape [B, T, F], "
-                    f"received {tuple(game_state.shape)}"
+            if self.fusion is None:
+                raise RuntimeError(
+                    "Fusion must be configured when game-state support is enabled"
                 )
 
-            if game_state.shape[:2] != (
-                batch_size,
-                sequence_length,
-            ):
+            state_tokens = self.game_state(game_state)
+
+            if state_tokens.shape[:2] != (batch_size, sequence_length):
                 raise ValueError(
-                    "Image and game-state batch/sequence dimensions " "must match"
+                    "Image and game-state batch/sequence dimensions must match"
                 )
 
-            # [B, T, raw_state_features] -> [B, T, state_features]
-            state_features = self.game_state(game_state)
+            # [B, T, N, D] -> [B, T, D]
+            state_features = state_tokens.mean(dim=-2)
 
-            assert self.fusion is not None
+            features = self.fusion(temporal_features, state_features)
 
-            features = self.fusion(
-                temporal_features,
-                state_features,
-            )
+        else:
+            if game_state is not None:
+                raise ValueError(
+                    "Game-state input was provided, but this policy "
+                    "was created without game-state support"
+                )
 
-        elif game_state is not None:
-            raise ValueError(
-                "Game-state input was provided, but this policy "
-                "was created without game-state support"
-            )
+            features = temporal_features
 
         output = self.controller(features)
 

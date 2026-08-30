@@ -7,13 +7,13 @@ from torch import Tensor, nn
 from utils import profile
 
 
-class FusionConfig(BaseModel):
+class TokenFusionConfig(BaseModel):
     model_config = ConfigDict(frozen=True, extra="forbid", strict=True)
 
     d_model: int = Field(gt=0)
 
 
-class Fusion(nn.Module):
+class TokenFusion(nn.Module):
     def __init__(self, *, d_model: int) -> None:
         super().__init__()
         self.d_model = d_model
