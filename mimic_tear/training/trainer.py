@@ -7,10 +7,9 @@ import torch
 from torch.nn.utils import clip_grad_norm_
 from torch.utils.data import DataLoader
 
-from data.sequence import SequenceDataset, SequenceSample
+from data.process import SequenceDataset, SequenceSample
 from mimic_tear.model.loss import PolicyLoss
-from mimic_tear.model.policy import PolicyConfig, EldenRingPolicy
-from .hyperparameters import Hyperparameters
+from mimic_tear.model.policy import LSTMPolicy
 from utils import profile
 
 
@@ -61,33 +60,48 @@ class TrainingBatch:
         images: torch.Tensor,
         analog: torch.Tensor,
         buttons: torch.Tensor,
-        game_state: torch.Tensor | None,
+        game_state: dict[str, torch.Tensor] | None,
     ) -> None:
         self.images = images
         self.analog = analog
         self.buttons = buttons
         self.game_state = game_state
 
+    def to(self, device: torch.device, *, non_blocking: bool = False) -> TrainingBatch:
+        return TrainingBatch(
+            images=self.images.to(device, non_blocking=non_blocking),
+            analog=self.analog.to(device, non_blocking=non_blocking),
+            buttons=self.buttons.to(device, non_blocking=non_blocking),
+            game_state=(
+                {
+                    name: tensor.to(device, non_blocking=non_blocking)
+                    for name, tensor in self.game_state.items()
+                }
+                if self.game_state is not None
+                else None
+            ),
+        )
+
 
 class Sampler:
-    @classmethod
-    def prepare(cls, device: torch.device, sample: SequenceSample) -> TrainingBatch:
+    @staticmethod
+    def prepare(sample: SequenceSample) -> TrainingBatch:
         # images: [T, 3, H, W]
         #
         # Policy expects:
         # images: [B, T, 3, H, W]
         #
-        # For now B=1 
+        # For now B=1
         # B = batch
-        # B1 -> B2 -> B3 
+        # B1 -> B2 -> B3
         #
         # T = sequence length
         # [T1, T2, T3] -> [T1, T2, T3] -> [T1, T2, T3]
-        images = sample.images.unsqueeze(0).to(device, non_blocking=True)
-        analog = sample.analog.unsqueeze(0).to(device, non_blocking=True)
-        buttons = sample.buttons.unsqueeze(0).to(device, non_blocking=True)
+        images = sample.images.unsqueeze(0)
+        analog = sample.analog.unsqueeze(0)
+        buttons = sample.buttons.unsqueeze(0)
         game_state = (
-            sample.game_state.unsqueeze(0).to(device, non_blocking=True)
+            {name: tensor.unsqueeze(0) for name, tensor in sample.game_state.items()}
             if sample.game_state is not None
             else None
         )
@@ -104,32 +118,35 @@ class Trainer:
     def __init__(
         self,
         *,
-        config: PolicyConfig,
-        hyperparameters: Hyperparameters,
-        device: torch.device | str,
-        optimizer: torch.optim.Optimizer | None = None,
+        model: LSTMPolicy,
+        optimizer: torch.optim.Optimizer,
+        loss: PolicyLoss,
+        device: str | torch.device,
+        gradient_clip_norm: float | None,
+        use_amp: bool,
         data_loader_config: DataLoaderConfig,
     ) -> None:
-        self.device = torch.device(device)
-        self.hyperparams = hyperparameters
-        self.model = EldenRingPolicy(config=config).to(self.device)
-
-        self.optimizer = (
-            optimizer
-            if optimizer is not None
-            else torch.optim.AdamW(
-                self.model.parameters(),
-                lr=hyperparameters.learning_rate,
-                weight_decay=hyperparameters.weight_decay,
+        if data_loader_config.batch_size is not None:
+            raise NotImplementedError(
+                "Batched training is not supported yet, batch_size must be None"
             )
-        )
 
-        self.use_amp = hyperparameters.use_amp and self.device.type == "cuda"
+        if data_loader_config.shuffle:
+            raise NotImplementedError(
+                "Shuffled training is not supported yet, shuffle must be False"
+            )
+
+        self.model = model
+        self.optimizer = optimizer
+        self.loss = loss
+
+        self.device = torch.device(device)
+
+        self.gradient_clip_norm = gradient_clip_norm
+
+        self.use_amp = use_amp and self.device.type == "cuda"
         self.scaler = torch.GradScaler(self.device.type, enabled=self.use_amp)
 
-        btn_weight = hyperparameters.controller_weights.button_weights
-        analog_weight = hyperparameters.controller_weights.analog_weights
-        self.loss = PolicyLoss(button_weight=btn_weight, analog_weight=analog_weight).to(self.device)
         self.data_loader_config = data_loader_config
 
     def _loader(self, recording: SequenceDataset) -> DataLoader:
@@ -147,7 +164,7 @@ class Trainer:
             state = None
 
             for sample in self._loader(recording):
-                batch = Sampler.prepare(self.device, sample)
+                batch = Sampler.prepare(sample).to(self.device, non_blocking=True)
 
                 self.optimizer.zero_grad(set_to_none=True)
 
@@ -170,11 +187,11 @@ class Trainer:
 
                 self.scaler.scale(loss_output.total).backward()
 
-                if self.hyperparams.gradient_clip_norm is not None:
+                if self.gradient_clip_norm is not None:
                     self.scaler.unscale_(self.optimizer)
                     clip_grad_norm_(
                         self.model.parameters(),
-                        self.hyperparams.gradient_clip_norm,
+                        self.gradient_clip_norm,
                     )
 
                 self.scaler.step(self.optimizer)
@@ -198,7 +215,7 @@ class Trainer:
                 state = None
 
                 for sample in self._loader(recording):
-                    batch = Sampler.prepare(self.device, sample)
+                    batch = Sampler.prepare(sample).to(self.device, non_blocking=True)
 
                     with torch.autocast(
                         device_type=self.device.type,
