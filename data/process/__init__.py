@@ -5,15 +5,18 @@ from pydantic import ConfigDict, BaseModel
 from pathlib import Path
 
 from data.models.game_state.processed import ProcessedGameStateSchema
+from data.models.gamepad import ANALOG_INPUTS, BUTTON_INPUTS
+from data.models.tensor import TensorSchema
 from graph.base import Plan
 from graph.types.tensor import TensorGraphExecutor
 
 from .stores.controller import ParquetControllerStore
 from .stores.game_state import ParquetGameStateStoreConfig, ParquetGameStateStore
+from .stores.parquet import ParquetStore
 from .stores.frames import TensorFrameStore, VideoDecoderConfig
 from .stores.encoding import EncodingStore, EncodingStoreConfig
 
-from .encoders.game_state import GameStateEncoder, GameStateEncoderConfig
+from .encoders.encoder import GameStateEncoder, GameStateEncoderConfig
 
 from .transforms import (
     ControllerTransformConfig,
@@ -51,9 +54,10 @@ class ProcessConfig(BaseModel):
 
     controller_transform: ControllerTransformConfig
     frame_transform: FrameTransformConfig
+    controller_schema: TensorSchema
 
     processing_plan: Plan
-    game_state_schema: ProcessedGameStateSchema
+    game_state_schema: TensorSchema
 
     sequence_length: int
     drop_incomplete: bool = True
@@ -159,10 +163,10 @@ class Process:
 
         expected_indices = list(range(len(frames)))
 
-        if list(controller.store.indices) != expected_indices:
+        if list(controller.store.frame_indices) != expected_indices:
             raise ValueError("Controller indices are not sequential")
 
-        if list(controller.store.indices) != list(game_state.store.indices):
+        if list(controller.store.frame_indices) != list(game_state.store.frame_indices):
             raise ValueError("Controller and game-state indices do not match")
 
         if list(controller.store.timestamps_ns) != list(game_state.store.timestamps_ns):
@@ -176,7 +180,7 @@ class Process:
         return FramesDataset(store=frame_store, transform=frame_transform)
 
     def _load_controller_dataset(self, source: str | Path) -> ControllerDataset:
-        controller_store = ParquetControllerStore(path=source)
+        controller_store = ParquetStore(path=source, columns=(*ANALOG_INPUTS, *BUTTON_INPUTS))
         controller_transform = ControllerTransform(
             **self.config.controller_transform.model_dump()
         )
@@ -187,7 +191,10 @@ class Process:
         source: str | Path,
     ) -> GameStateDataset:
         features = tuple(value.name for value in self.config.processing_plan.inputs)
-        game_state_store = ParquetGameStateStore(path=source, features=features)
+        game_state_store = ParquetStore(
+            path=source, 
+            columns=features, 
+        )
 
         dataset = GameStateDataset(
             store=game_state_store,

@@ -7,14 +7,14 @@ from torch import Tensor
 import torch
 
 
-class GameStateEncoderConfig(BaseModel):
+class EncoderConfig(BaseModel):
     model_config = ConfigDict(frozen=True, extra="forbid", strict=True)
 
     encoding: str
     fields: tuple[str, ...]
 
 
-class GameStateEncoder:
+class Encoder:
     def __init__(
         self,
         fields: tuple[str, ...],
@@ -62,8 +62,8 @@ class GameStateEncoder:
         data.update(zip(unseen, indices))
 
 
-class TensorGameStateEncoder:
-    def __init__(self, encoder: GameStateEncoder) -> None:
+class TensorEncoder:
+    def __init__(self, encoder: Encoder) -> None:
         self.encoder = encoder
 
     @property

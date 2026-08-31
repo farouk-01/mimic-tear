@@ -13,7 +13,13 @@ class SampleColumns:
     timestamp_ns: str
 
 
-class Store[Row, Column](ABC):
+DEFAULT_SAMPLE_COLUMNS = SampleColumns(
+    frame_index="frame_index",
+    timestamp_ns="timestamp_ns",
+)
+
+
+class Store[Row](ABC):
     @abstractmethod
     def __len__(self) -> int: ...
 
@@ -22,9 +28,6 @@ class Store[Row, Column](ABC):
 
     @abstractmethod
     def get_range(self, start: int, end: int) -> Row: ...
-
-    @abstractmethod
-    def get_column(self, name: str) -> Column: ...
 
     @property
     @abstractmethod
@@ -44,18 +47,12 @@ class TensorColumn:
 type TensorTable = dict[str, TensorColumn]
 
 
-class StoreAdapter[Row, Column](ABC):
+class StoreAdapter[Row](ABC):
     @abstractmethod
     def get(
         self,
         data: Row,
     ) -> TensorTable: ...
-
-    @abstractmethod
-    def get_column(
-        self,
-        data: Column,
-    ) -> TensorColumn: ...
 
 
 STORE_ADAPTERS = Registry[type[Store], type[StoreAdapter]]()

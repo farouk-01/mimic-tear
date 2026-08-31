@@ -1,5 +1,6 @@
 from pathlib import Path
 from collections.abc import Sequence
+from functools import cached_property
 
 import pyarrow.parquet as pq
 import pyarrow as pa
@@ -17,7 +18,7 @@ from data.process.stores.base import (
 from data.process.stores.validations import normalize_index, normalize_range
 
 
-class ParquetStore(Store[pa.Table, pa.ChunkedArray]):
+class ParquetStore(Store[pa.Table]):
     def __init__(
         self,
         path: str | Path,
@@ -58,6 +59,10 @@ class ParquetStore(Store[pa.Table, pa.ChunkedArray]):
     def __len__(self) -> int:
         return self._length
 
+    @cached_property
+    def column_indices(self) -> dict[str, int]:
+        return {name: i for i, name in enumerate(self._table.column_names)}
+
     @property
     def frame_indices(self) -> Sequence[int]:
         return self._frame_indices
@@ -79,20 +84,17 @@ class ParquetStore(Store[pa.Table, pa.ChunkedArray]):
         start, end = normalize_range(start, end, len(self))
 
         return self._table.slice(start, end - start)
-
-    def get_column(self, name: str) -> pa.ChunkedArray:
-        if name not in self._table.column_names:
-            raise ValueError(f"Column '{name}' does not exist in the store")
-
-        return self._table[name]
-
+    
 
 @STORE_ADAPTERS.register(ParquetStore)
-class ParquetStoreAdapter(StoreAdapter[pa.Table, pa.ChunkedArray]):
+class ParquetStoreAdapter(StoreAdapter[pa.Table]):
     def get(self, data: pa.Table) -> TensorTable:
-        return {name: self.get_column(data[name]) for name in data.column_names}
+        return {
+            name: self._to_tensor_column(data[name])
+            for name in data.column_names
+        }
 
-    def get_column(self, data: pa.ChunkedArray) -> TensorColumn:
+    def _to_tensor_column(self, data: pa.ChunkedArray) -> TensorColumn:
         validity = None
 
         if data.null_count > 0:

@@ -1,7 +1,7 @@
-from .game_state import GameStateEncoder, GameStateEncoderConfig, TensorGameStateEncoder
+from .encoder import Encoder, TensorEncoder, EncoderConfig
 
 __all__ = [
-    "GameStateEncoder",
-    "GameStateEncoderConfig",
-    "TensorGameStateEncoder",
+    "Encoder",
+    "TensorEncoder",
+    "EncoderConfig",
 ]
