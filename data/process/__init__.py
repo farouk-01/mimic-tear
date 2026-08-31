@@ -1,6 +1,5 @@
 from pydantic import ConfigDict, BaseModel
 from pathlib import Path
-from typing import Literal
 
 from data.models.game_state.processed import ProcessedGameStateSchema
 from graph.base import Plan
@@ -70,7 +69,6 @@ class Process:
     def process_sequence(
         self,
         source: str | Path,
-        encoding_mode: Literal["discover", "frozen"] = "discover",
     ) -> SequenceDataset:
         recording = Recording.from_directory(root=source, config=self.config.recording)
 
@@ -82,9 +80,6 @@ class Process:
         frame_dataset = self._load_frames_dataset(source=recording.video)
         controller_dataset = self._load_controller_dataset(source=recording.controller)
         game_state_dataset = self._load_game_state_dataset(source=recording.game_state)
-
-        if encoding_mode == "discover":
-            game_state_dataset.discover_encodings()
 
         encoding_cardinalities = game_state_dataset.get_encoding_cardinalities()
 
@@ -102,6 +97,17 @@ class Process:
             encoding_cardinalities=encoding_cardinalities,
             drop_incomplete=self.drop_incomplete,
         )
+
+    def discover_encodings(self, recording_root: str | Path) -> None:
+        recording = Recording.from_directory(root=recording_root, config=self.config.recording)
+
+        if recording.game_state is None:
+            raise ValueError(
+                f"Missing game-state data in recording at {recording.root}"
+            )
+
+        game_state_dataset = self._load_game_state_dataset(source=recording.game_state)
+        game_state_dataset.discover_encodings()
 
     @staticmethod
     def _validate_recording_integrity(
