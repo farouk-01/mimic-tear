@@ -91,6 +91,10 @@ class Graph:
 
         inputs: list[Value] = []
 
+        for output in outputs:
+            if self.get_producer(output) is None and output not in inputs:
+                inputs.append(output)
+
         for node in ordered_nodes:
             for input_ in node.inputs:
                 producer = self.get_producer(input_)
