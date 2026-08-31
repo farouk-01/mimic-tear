@@ -3,13 +3,13 @@ from typing import Any
 
 import torch
 
-from mimic_tear.model.policy import EldenRingPolicy
+from mimic_tear.model.policy import LSTMPolicy
 
 
 def save_checkpoint(
     path: str | Path,
     *,
-    model: EldenRingPolicy,
+    model: LSTMPolicy,
     optimizer: torch.optim.Optimizer,
     epoch: int,
     metadata: dict[str, Any] | None = None,
@@ -34,7 +34,7 @@ def save_checkpoint(
 def load_checkpoint(
     path: str | Path,
     *,
-    model: EldenRingPolicy,
+    model: LSTMPolicy,
     optimizer: torch.optim.Optimizer | None = None,
 ) -> dict[str, Any]:
     checkpoint = torch.load(

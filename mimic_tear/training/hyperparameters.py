@@ -35,7 +35,7 @@ class ControllerInputsWeights(BaseModel):
 
     @model_validator(mode="before")
     def validate_number_of_fields(self) -> ControllerInputsWeights:
-        from controller.inputs import BUTTON_INPUTS, ANALOG_INPUTS
+        from data.models.gamepad import BUTTON_INPUTS, ANALOG_INPUTS
 
         expected_fields = set(BUTTON_INPUTS) | set(ANALOG_INPUTS)
         received_fields = ControllerInputsWeights.model_fields.keys()
@@ -56,7 +56,7 @@ class ControllerInputsWeights(BaseModel):
     def global_weights(
         cls, btn_weight: float = 1.0, analog_weight: float = 1.0
     ) -> ControllerInputsWeights:
-        from controller.inputs import BUTTON_INPUTS, ANALOG_INPUTS
+        from data.models.gamepad import BUTTON_INPUTS, ANALOG_INPUTS
 
         weights = {name: btn_weight for name in BUTTON_INPUTS}
         weights.update({name: analog_weight for name in ANALOG_INPUTS})
@@ -65,7 +65,7 @@ class ControllerInputsWeights(BaseModel):
 
     @property
     def button_weights(self) -> torch.Tensor:
-        from controller.inputs import BUTTON_INPUTS
+        from data.models.gamepad import BUTTON_INPUTS
 
         return torch.tensor(
             [getattr(self, name) for name in BUTTON_INPUTS], dtype=torch.float32
@@ -73,7 +73,7 @@ class ControllerInputsWeights(BaseModel):
 
     @property
     def analog_weights(self) -> torch.Tensor:
-        from controller.inputs import ANALOG_INPUTS
+        from data.models.gamepad import ANALOG_INPUTS
 
         return torch.tensor(
             [getattr(self, name) for name in ANALOG_INPUTS], dtype=torch.float32
