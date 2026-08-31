@@ -1,0 +1,104 @@
+{
+    "fields": [
+        {
+            "name": "left_x",
+            "dtype": "float32",
+            "kind": "continuous"
+        },
+        {
+            "name": "left_y",
+            "dtype": "float32",
+            "kind": "continuous"
+        },
+        {
+            "name": "right_x",
+            "dtype": "float32",
+            "kind": "continuous"
+        },
+        {
+            "name": "right_y",
+            "dtype": "float32",
+            "kind": "continuous"
+        },
+        {
+            "name": "left_trigger",
+            "dtype": "float32",
+            "kind": "continuous"
+        },
+        {
+            "name": "right_trigger",
+            "dtype": "float32",
+            "kind": "continuous"
+        },
+        {
+            "name": "south",
+            "dtype": "bool",
+            "kind": "binary"
+        },
+        {
+            "name": "east",
+            "dtype": "bool",
+            "kind": "binary"
+        },
+        {
+            "name": "west",
+            "dtype": "bool",
+            "kind": "binary"
+        },
+        {
+            "name": "north",
+            "dtype": "bool",
+            "kind": "binary"
+        },
+        {
+            "name": "left_bumper",
+            "dtype": "bool",
+            "kind": "binary"
+        },
+        {
+            "name": "right_bumper",
+            "dtype": "bool",
+            "kind": "binary"
+        },
+        {
+            "name": "left_stick",
+            "dtype": "bool",
+            "kind": "binary"
+        },
+        {
+            "name": "right_stick",
+            "dtype": "bool",
+            "kind": "binary"
+        },
+        {
+            "name": "dpad_up",
+            "dtype": "bool",
+            "kind": "binary"
+        },
+        {
+            "name": "dpad_down",
+            "dtype": "bool",
+            "kind": "binary"
+        },
+        {
+            "name": "dpad_left",
+            "dtype": "bool",
+            "kind": "binary"
+        },
+        {
+            "name": "dpad_right",
+            "dtype": "bool",
+            "kind": "binary"
+        },
+        {
+            "name": "start",
+            "dtype": "bool",
+            "kind": "binary"
+        },
+        {
+            "name": "back",
+            "dtype": "bool",
+            "kind": "binary"
+        }
+    ]
+}

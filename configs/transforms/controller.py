@@ -1,0 +1,40 @@
+from data.process.transforms.types.tensor import Clamp, TensorTransform
+
+GAMEPAD_TRANSFORMS: tuple[TensorTransform, ...] = (
+    Clamp(
+        output="left_x",
+        input="left_x",
+        min=-1.0,
+        max=1.0,
+    ),
+    Clamp(
+        output="left_y",
+        input="left_y",
+        min=-1.0,
+        max=1.0,
+    ),
+    Clamp(
+        output="right_x",
+        input="right_x",
+        min=-1.0,
+        max=1.0,
+    ),
+    Clamp(
+        output="right_y",
+        input="right_y",
+        min=-1.0,
+        max=1.0,
+    ),
+    Clamp(
+        output="left_trigger",
+        input="left_trigger",
+        min=0.0,
+        max=1.0,
+    ),
+    Clamp(
+        output="right_trigger",
+        input="right_trigger",
+        min=0.0,
+        max=1.0,
+    ),
+)
