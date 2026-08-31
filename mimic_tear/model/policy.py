@@ -48,7 +48,10 @@ class LSTMPolicy(nn.Module):
 
         self.game_state: GameState | None = None
         if config.game_state is not None:
-            self.game_state = GameState(**config.game_state.model_dump())
+            self.game_state = GameState(
+                fields=config.game_state.fields,
+                d_model=config.game_state.d_model,
+            )
 
         self.fusion: VectorFusion | None = None
         if config.fusion is not None:
