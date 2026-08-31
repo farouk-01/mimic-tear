@@ -132,17 +132,6 @@ class GameStateDataset(Dataset[GameStateTensors]):
                 )
                 encoder.discover(tensor)
 
-    def get_encoding_cardinalities(self) -> dict[str, int]:
-        cardinalities: dict[str, int] = {}
-
-        # a encoder can be used for multiple fields
-        # so need to process all fields before
-        for encoder in self.encoders:
-            for field_name in encoder.fields:
-                cardinalities[field_name] = encoder.cardinality
-
-        return cardinalities
-
     def _process_tensors(self, tensors: GameStateTensors) -> GameStateTensors:
         for encoder in self.encoders:
             for field_name in encoder.fields:

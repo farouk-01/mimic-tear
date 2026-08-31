@@ -1,3 +1,6 @@
+from types import MappingProxyType
+from collections.abc import Mapping
+
 from pydantic import ConfigDict, BaseModel
 from pathlib import Path
 
@@ -66,6 +69,24 @@ class Process:
         self.sequence_length = config.sequence_length
         self.drop_incomplete = config.drop_incomplete
 
+        encoders_stores: dict[str, EncodingStore] = {}
+        for cfg in self.config.encoding_stores:
+            store = EncodingStore(path=cfg.path)
+            encoders_stores[cfg.encoding] = store
+
+        encoders: list[GameStateEncoder] = []
+        for cfg in self.config.encoders:
+            store = encoders_stores[cfg.encoding]
+
+            encoder = GameStateEncoder(
+                fields=cfg.fields,
+                get_encodings=store.load,
+                append_encoding=store.append,
+            )
+            encoders.append(encoder)
+
+        self.encoders = tuple(encoders)
+
     def process_sequence(
         self,
         source: str | Path,
@@ -81,8 +102,6 @@ class Process:
         controller_dataset = self._load_controller_dataset(source=recording.controller)
         game_state_dataset = self._load_game_state_dataset(source=recording.game_state)
 
-        encoding_cardinalities = game_state_dataset.get_encoding_cardinalities()
-
         self._validate_recording_integrity(
             frames=frame_dataset,
             controller=controller_dataset,
@@ -94,7 +113,6 @@ class Process:
             controller=controller_dataset,
             game_state=game_state_dataset,
             sequence_length=self.sequence_length,
-            encoding_cardinalities=encoding_cardinalities,
             drop_incomplete=self.drop_incomplete,
         )
 
@@ -108,6 +126,17 @@ class Process:
 
         game_state_dataset = self._load_game_state_dataset(source=recording.game_state)
         game_state_dataset.discover_encodings()
+
+    def get_encoding_cardinalities(self) -> Mapping[str, int]:
+        cardinalities: dict[str, int] = {}
+
+        # a encoder can be used for multiple fields
+        # so need to process all fields
+        for encoder in self.encoders:
+            for field_name in encoder.fields:
+                cardinalities[field_name] = encoder.cardinality
+
+        return MappingProxyType(cardinalities)
 
     @staticmethod
     def _validate_recording_integrity(
@@ -160,26 +189,10 @@ class Process:
         features = tuple(value.name for value in self.config.processing_plan.inputs)
         game_state_store = ParquetGameStateStore(path=source, features=features)
 
-        encoders_stores: dict[str, EncodingStore] = {}
-        for cfg in self.config.encoding_stores:
-            store = EncodingStore(path=cfg.path)
-            encoders_stores[cfg.encoding] = store
-
-        encoders: list[GameStateEncoder] = []
-        for cfg in self.config.encoders:
-            store = encoders_stores[cfg.encoding]
-
-            encoder = GameStateEncoder(
-                fields=cfg.fields,
-                get_encodings=store.load,
-                append_encoding=store.append,
-            )
-            encoders.append(encoder)
-
         dataset = GameStateDataset(
             store=game_state_store,
             schema=self.config.game_state_schema,
-            encoders=tuple(encoders),
+            encoders=self.encoders,
             plan=self.config.processing_plan,
             executor=TensorGraphExecutor(),
         )

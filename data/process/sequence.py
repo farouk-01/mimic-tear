@@ -28,7 +28,6 @@ class SequenceDataset(Dataset[SequenceSample]):
         controller: ControllerDataset,
         game_state: GameStateDataset | None = None,
         sequence_length: int,
-        encoding_cardinalities: dict[str, int],
         drop_incomplete: bool = True,
     ) -> None:
         if sequence_length <= 0:
@@ -40,22 +39,12 @@ class SequenceDataset(Dataset[SequenceSample]):
         if game_state is not None and len(game_state) != len(frames):
             raise ValueError("Game-state and frames datasets must have the same length")
 
-        if game_state is None and encoding_cardinalities:
-            raise ValueError(
-                "encoding_cardinalities cannot be provided when game_state is None"
-            )
-
         self.frames = frames
         self.controller = controller
         self.game_state = game_state
 
         self.sequence_length = sequence_length
-        self._encoding_cardinalities = MappingProxyType(dict(encoding_cardinalities))
         self.drop_incomplete = drop_incomplete
-
-    @property
-    def encoding_cardinalities(self) -> Mapping[str, int]:
-        return self._encoding_cardinalities
 
     def __len__(self) -> int:
         sample_count = len(self.frames)

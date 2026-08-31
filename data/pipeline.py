@@ -1,7 +1,7 @@
 from datetime import datetime
 from functools import cached_property
 from pathlib import Path
-from collections.abc import Iterator
+from collections.abc import Iterator, Mapping
 
 from .capture import CaptureConfig, Capture
 from .process import ProcessConfig, Process, SequenceDataset
@@ -149,6 +149,10 @@ class DataPipeline:
             recording = metadata.parent
 
             self.processor.discover_encodings(recording_root=recording)
+
+    @property
+    def encoding_cardinalities(self) -> Mapping[str, int]:
+        return self.processor.get_encoding_cardinalities()
 
     @staticmethod
     def _validate_config_compatibility(
