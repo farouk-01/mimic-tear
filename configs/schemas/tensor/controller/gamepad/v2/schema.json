@@ -1,0 +1,104 @@
+{
+    "fields": [
+        {
+            "name": "left_x",
+            "dtype": "float32",
+            "kind": "continuous"
+        },
+        {
+            "name": "left_y",
+            "dtype": "float32",
+            "kind": "continuous"
+        },
+        {
+            "name": "right_x",
+            "dtype": "float32",
+            "kind": "continuous"
+        },
+        {
+            "name": "right_y",
+            "dtype": "float32",
+            "kind": "continuous"
+        },
+        {
+            "name": "left_trigger",
+            "dtype": "float32",
+            "kind": "continuous"
+        },
+        {
+            "name": "right_trigger",
+            "dtype": "float32",
+            "kind": "continuous"
+        },
+        {
+            "name": "south",
+            "dtype": "float32",
+            "kind": "binary"
+        },
+        {
+            "name": "east",
+            "dtype": "float32",
+            "kind": "binary"
+        },
+        {
+            "name": "west",
+            "dtype": "float32",
+            "kind": "binary"
+        },
+        {
+            "name": "north",
+            "dtype": "float32",
+            "kind": "binary"
+        },
+        {
+            "name": "left_bumper",
+            "dtype": "float32",
+            "kind": "binary"
+        },
+        {
+            "name": "right_bumper",
+            "dtype": "float32",
+            "kind": "binary"
+        },
+        {
+            "name": "left_stick",
+            "dtype": "float32",
+            "kind": "binary"
+        },
+        {
+            "name": "right_stick",
+            "dtype": "float32",
+            "kind": "binary"
+        },
+        {
+            "name": "dpad_up",
+            "dtype": "float32",
+            "kind": "binary"
+        },
+        {
+            "name": "dpad_down",
+            "dtype": "float32",
+            "kind": "binary"
+        },
+        {
+            "name": "dpad_left",
+            "dtype": "float32",
+            "kind": "binary"
+        },
+        {
+            "name": "dpad_right",
+            "dtype": "float32",
+            "kind": "binary"
+        },
+        {
+            "name": "start",
+            "dtype": "float32",
+            "kind": "binary"
+        },
+        {
+            "name": "back",
+            "dtype": "float32",
+            "kind": "binary"
+        }
+    ]
+}
