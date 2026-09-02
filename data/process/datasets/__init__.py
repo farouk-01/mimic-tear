@@ -1,9 +1,5 @@
-from .controller import ControllerDataset
-from .frames import FramesDataset
-from .game_state import GameStateDataset
+from .tensor import TensorDataset
 
 __all__ = [
-    "ControllerDataset",
-    "FramesDataset",
-    "GameStateDataset",
+    "TensorDataset"
 ]

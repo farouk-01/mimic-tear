@@ -1,15 +1,16 @@
 from torch import Tensor
 import torch
 from torch.utils.data import Dataset
+from tensordict import TensorDict
 
 from data.models.tensor import TORCH_DTYPES, TensorSchema
 from data.process.stores.base import Store, STORE_ADAPTERS, TensorColumn, TensorTable
 from graph.base import Plan
-from graph.types.tensor import TensorGraphExecutor, TensorValues
+from graph.types.tensor import TensorGraphExecutor
 from data.process.encoders.encoder import Encoder, TensorEncoder
 
 
-class TensorDataset(Dataset[TensorValues]):
+class TensorDataset(Dataset[TensorDict]):
     def __init__(
         self,
         *,
@@ -35,36 +36,44 @@ class TensorDataset(Dataset[TensorValues]):
     def __len__(self) -> int:
         return len(self.store)
 
-    def __getitem__(self, index: int) -> TensorValues:
+    def __getitem__(self, index: int) -> TensorDict:
         data = self.store.get(index)
         table = self.adapter.get(data)
 
-        return self._process_table(table)
+        return self._process_table(table, batch_size=[])
 
-    def get_range(self, start: int, end: int) -> TensorValues:
+    def get_range(self, start: int, end: int) -> TensorDict:
         data = self.store.get_range(start, end)
         table = self.adapter.get(data)
 
-        return self._process_table(table)
+        return self._process_table(table, batch_size=[end - start])
 
     def discover_encodings(self) -> None:
         if not self.encoders:
             return
 
         data = self.store.get_range(0, len(self.store))
-        tensors = self.adapter.get(data)
+        table = self.adapter.get(data)
 
         for encoder in self.encoders:
             for field_name in encoder.fields:
-                col = tensors[field_name]
+                col = table[field_name]
                 tensor = self._materialize_column(field_name, col)
                 encoder.discover(tensor)
 
-    def _process_table(self, table: TensorTable) -> TensorValues:
-        tensors = {
-            name: self._materialize_column(name, column)
-            for name, column in table.items()
-        }
+    def _process_table(
+        self,
+        table: TensorTable,
+        *,
+        batch_size: list[int],
+    ) -> TensorDict:
+        tensors = TensorDict(
+            {
+                name: self._materialize_column(name, column)
+                for name, column in table.items()
+            },
+            batch_size=batch_size,
+        )
 
         for encoder in self.encoders:
             for field_name in encoder.fields:
@@ -81,10 +90,13 @@ class TensorDataset(Dataset[TensorValues]):
         name: str,
         column: TensorColumn,
     ) -> Tensor:
-        if column.validity is None:
-            return column.values
-
         field = self.schema.get_field(name)
+        dtype = TORCH_DTYPES[field.dtype]
+
+        values = column.values.to(dtype)
+
+        if column.validity is None:
+            return values
 
         if not field.nullable:
             raise ValueError(f"Non-nullable feature '{name}' contains null values")
@@ -92,14 +104,10 @@ class TensorDataset(Dataset[TensorValues]):
         return torch.where(
             column.validity,
             column.values,
-            torch.as_tensor(
-                field.fill_value,
-                dtype=column.values.dtype,
-                device=column.values.device,
-            ),
+            torch.as_tensor(field.fill_value, dtype=dtype, device=values.device),
         )
 
-    def _validate_tensors(self, tensors: TensorValues) -> None:
+    def _validate_tensors(self, tensors: TensorDict) -> None:
         expected = {value.name for value in self.plan.outputs}
 
         errors: list[Exception] = []
