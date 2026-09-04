@@ -2,7 +2,8 @@ from __future__ import annotations
 
 from pydantic import BaseModel, ConfigDict
 
-from mimic_tear.training.trainer import DataLoaderConfig, Hyperparameters
+from mimic_tear.training.trainer import DataLoaderConfig
+from mimic_tear.training import Hyperparameters
 
 
 class TrainingConfig(BaseModel):

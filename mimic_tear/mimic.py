@@ -120,7 +120,7 @@ class MimicTear:
                     encoders.model_dump() for encoders in self.config.gstate.encoders
                 ],
                 "encoding_cardinalities": dict(cardinalities),
-                "game_state_schema": self.config.gstate.processed_schema.model_dump(),
+                "game_state_schema": self.config.gstate.tensor_gstate_schema.model_dump(),
             }
 
             save_checkpoint(

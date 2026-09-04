@@ -4,8 +4,9 @@ from uuid import UUID, uuid4
 from graphlib import TopologicalSorter
 
 
-@dataclass(frozen=True, slots=True)
-class Value(ABC):
+@dataclass(frozen=True, slots=True, kw_only=True)
+class Value:
+    id: UUID = field(default_factory=uuid4)
     name: str
 
 
@@ -15,50 +16,70 @@ class Node(ABC):
 
     @property
     @abstractmethod
-    def inputs(self) -> tuple[Value, ...]: ...
+    def input_names(self) -> tuple[str, ...]: ...
 
     @property
     @abstractmethod
-    def outputs(self) -> tuple[Value, ...]: ...
-    
+    def output_names(self) -> tuple[str, ...]: ...
+
+    @abstractmethod
+    def execute(self, *inputs: object) -> tuple[object, ...]: ...
+
 
 @dataclass(frozen=True, slots=True)
-class Plan[N: Node, V: Value]:
-    inputs: tuple[V, ...]
-    outputs: tuple[V, ...]
-    nodes: tuple[N, ...]
+class BoundNode:
+    node: Node
+    inputs: tuple[Value, ...]
+    outputs: tuple[Value, ...]
+
+
+@dataclass(frozen=True, slots=True)
+class Plan:
+    inputs: tuple[Value, ...]
+    outputs: tuple[Value, ...]
+    nodes: tuple[BoundNode, ...]
 
 
 class Graph:
     def __init__(self) -> None:
-        self._nodes: list[Node] = []
-        self._producers: dict[Value, Node] = {}
-        self._consumers: dict[Value, set[Node]] = {}
+        self._nodes: list[BoundNode] = []
+        self._producers: dict[Value, BoundNode] = {}
+        self._consumers: dict[Value, set[BoundNode]] = {}
+        self._latest: dict[str, Value] = {}
 
     def add(self, node: Node) -> None:
-        for output in node.outputs:
-            if output in self._producers:
-                raise ValueError(f"Value already has a producer: {output.name}")
+        inputs = tuple(
+            self._latest.setdefault(name, Value(name=name)) for name in node.input_names
+        )
 
-        self._nodes.append(node)
+        outputs = tuple(Value(name=name) for name in node.output_names)
 
-        for output in node.outputs:
-            self._producers[output] = node
+        bound = BoundNode(node=node, inputs=inputs, outputs=outputs)
 
-        for input_ in node.inputs:
-            self._consumers.setdefault(input_, set()).add(node)
+        self._nodes.append(bound)
 
-    def get_producer(self, value: Value) -> Node | None:
+        for output in outputs:
+            self._producers[output] = bound
+            self._latest[output.name] = output
+
+        for input_ in inputs:
+            self._consumers.setdefault(input_, set()).add(bound)
+
+    def value(self, name: str) -> Value:
+        return self._latest.setdefault(name, Value(name=name))
+
+    def get_producer(self, value: Value) -> BoundNode | None:
         return self._producers.get(value)
 
-    def get_consumers(self, value: Value) -> tuple[Node, ...]:
+    def get_consumers(self, value: Value) -> tuple[BoundNode, ...]:
         return tuple(self._consumers.get(value, ()))
 
-    def get_required_nodes(self, outputs: tuple[Value, ...]) -> set[Node]:
-        required: set[Node] = set()
+    def get_required_nodes(self, outputs: tuple[Value, ...]) -> set[BoundNode]:
+        required: set[BoundNode] = set()
 
         def visit(value: Value) -> None:
             producer = self.get_producer(value)
+
             if producer is None or producer in required:
                 return
 
@@ -72,8 +93,8 @@ class Graph:
 
         return required
 
-    def topological_sort(self, nodes: set[Node]) -> tuple[Node, ...]:
-        dependencies: dict[Node, set[Node]] = {}
+    def topological_sort(self, nodes: set[BoundNode]) -> tuple[BoundNode, ...]:
+        dependencies: dict[BoundNode, set[BoundNode]] = {}
 
         for node in nodes:
             dependencies[node] = {
@@ -97,9 +118,7 @@ class Graph:
 
         for node in ordered_nodes:
             for input_ in node.inputs:
-                producer = self.get_producer(input_)
-
-                if producer is None and input_ not in inputs:
+                if self.get_producer(input_) is None and input_ not in inputs:
                     inputs.append(input_)
 
         return Plan(
@@ -107,3 +126,28 @@ class Graph:
             outputs=outputs,
             nodes=ordered_nodes,
         )
+
+
+class GraphExecutor:
+    def execute(
+        self,
+        plan: Plan,
+        inputs: dict[Value, object],
+    ) -> dict[Value, object]:
+        values = inputs.copy()
+
+        for bound in plan.nodes:
+            args = tuple(values[value] for value in bound.inputs)
+
+            results = bound.node.execute(*args)
+
+            if len(results) != len(bound.outputs):
+                raise ValueError(
+                    "Node returned a different number of values "
+                    "than its declared outputs"
+                )
+
+            for output, result in zip(bound.outputs, results):
+                values[output] = result
+
+        return {output: values[output] for output in plan.outputs}

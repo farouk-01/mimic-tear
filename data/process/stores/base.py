@@ -10,12 +10,12 @@ from utils.registries import Registry
 @dataclass(frozen=True, slots=True)
 class SampleColumns:
     frame_index: str
-    timestamp_ns: str
+    capture_timestamp_ns: str
 
 
 DEFAULT_SAMPLE_COLUMNS = SampleColumns(
     frame_index="frame_index",
-    timestamp_ns="timestamp_ns",
+    capture_timestamp_ns="frame_timestamp_ns",
 )
 
 
@@ -35,7 +35,7 @@ class Store[Row](ABC):
 
     @property
     @abstractmethod
-    def timestamps_ns(self) -> Sequence[int]: ...
+    def capture_timestamp_ns(self) -> Sequence[int]: ...
 
 
 @dataclass(frozen=True, slots=True)

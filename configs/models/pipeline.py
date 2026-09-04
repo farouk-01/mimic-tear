@@ -1,8 +1,8 @@
 from typing import Self
 
 from pydantic import BaseModel, ConfigDict
-from torchvision.models import ResNet18_Weights
 
+from graph.base import Plan
 from data.capture import (
     CaptureConfig,
     EldenRingMemoryProfile,
@@ -10,13 +10,8 @@ from data.capture import (
     ScreenCaptureConfig,
 )
 from data.models.record import RecordingConfig
-from data.process import (
-    ControllerTransformConfig,
-    FrameTransformConfig,
-    ParquetGameStateStoreConfig,
-    ProcessConfig,
-    VideoDecoderConfig,
-)
+from data.models.tensor import TensorSchema
+from data.process import ProcessConfig
 from data.write import (
     ControllerWriterConfig,
     GameStateWriterConfig,
@@ -26,6 +21,8 @@ from data.write import (
 
 from .training import TrainingConfig
 from .game_state import GameStateConfig
+from .frame import FrameConfig
+from .frame import VideoStoreConfig
 
 
 class DataPipelineConfig(BaseModel):
@@ -40,8 +37,12 @@ class DataPipelineConfig(BaseModel):
         cls,
         raw_pipeline: dict,
         *,
-        resnet_weights_name: str,
         gstate: GameStateConfig,
+        video_store_cfg: VideoStoreConfig,
+        frame_schema: TensorSchema,
+        frame_plan: Plan,
+        controller_schema: TensorSchema,
+        controller_plan: Plan,
         training: TrainingConfig,
     ) -> Self:
         recording = RecordingConfig.model_validate(raw_pipeline["recording"]["files"])
@@ -52,14 +53,15 @@ class DataPipelineConfig(BaseModel):
             raw_pipeline,
             recording=recording,
             gstate=gstate,
-            resnet_weights_name=resnet_weights_name,
+            video_store_cfg=video_store_cfg,
+            frame_schema=frame_schema,
+            frame_plan=frame_plan,
+            controller_schema=controller_schema,
+            controller_plan=controller_plan,
             training=training,
         )
 
-        writer = cls._load_writer(
-            raw_pipeline,
-            recording=recording,
-        )
+        writer = cls._load_writer(raw_pipeline, recording=recording)
 
         return cls(capture=capture, process=process, writer=writer)
 
@@ -109,49 +111,24 @@ class DataPipelineConfig(BaseModel):
         *,
         recording: RecordingConfig,
         gstate: GameStateConfig,
-        resnet_weights_name: str,
+        video_store_cfg: VideoStoreConfig,
+        frame_schema: TensorSchema,
+        frame_plan: Plan,
+        controller_schema: TensorSchema,
+        controller_plan: Plan,
         training: TrainingConfig,
     ) -> ProcessConfig:
-        frame_transform_raw = dict(raw["data"]["transforms"]["frames"])
-
-        mean: tuple[float, ...] | None = None
-        std: tuple[float, ...] | None = None
-
-        if resnet_weights_name is not None:
-            presets = ResNet18_Weights[resnet_weights_name].transforms()
-            mean = tuple(presets.mean)
-            std = tuple(presets.std)
-
-        frame_transform = FrameTransformConfig.model_validate(
-            {
-                **frame_transform_raw,
-                "mean": mean,
-                "std": std,
-            }
-        )
-
-        controller_transform = ControllerTransformConfig.model_validate(
-            raw["data"]["transforms"]["controller"]
-        )
-
-        video_decoder = VideoDecoderConfig.model_validate(
-            raw["data"]["stores"]["frames"]
-        )
-
-        game_state_store = ParquetGameStateStoreConfig(
-            features=tuple(value.name for value in gstate.plan.inputs),
-        )
-
         return ProcessConfig(
             recording=recording,
-            video_decoder=video_decoder,
-            game_state_store=game_state_store,
-            controller_transform=controller_transform,
             encoding_stores=gstate.encoding_stores,
             encoders=gstate.encoders,
-            frame_transform=frame_transform,
-            game_state_schema=gstate.processed_schema,
-            processing_plan=gstate.plan,
+            video_store_cfg=video_store_cfg,
+            frame_schema=frame_schema,
+            frame_plan=frame_plan,
+            controller_schema=controller_schema,
+            controller_plan=controller_plan,
+            game_state_schema=gstate.tensor_gstate_schema,
+            game_state_plan=gstate.plan,
             sequence_length=training.hyperparameters.sequence_length,
             drop_incomplete=True,
         )

@@ -1,0 +1,9 @@
+{
+    "fields": [
+        {
+            "name": "frames",
+            "dtype": "float32",
+            "kind": "continuous"
+        }
+    ]
+}

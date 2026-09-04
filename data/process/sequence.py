@@ -1,63 +1,45 @@
-from __future__ import annotations
-
 from collections.abc import Mapping
-from dataclasses import dataclass
 from types import MappingProxyType
 
-from torch import Tensor
+from tensordict import TensorDict
 from torch.utils.data import Dataset
 
-from .datasets.controller import ControllerDataset
-from .datasets.frames import FramesDataset
-from .datasets.game_state import GameStateDataset, GameStateTensors
+from .datasets.tensor import TensorDataset
+from utils import profile
 
-
-@dataclass(frozen=True, slots=True)
-class SequenceSample:
-    images: Tensor
-    analog: Tensor
-    buttons: Tensor
-    game_state: GameStateTensors | None
-
-
-class SequenceDataset(Dataset[SequenceSample]):
+class SequenceDataset(Dataset[TensorDict]):
     def __init__(
         self,
         *,
-        frames: FramesDataset,
-        controller: ControllerDataset,
-        game_state: GameStateDataset | None = None,
+        datasets: Mapping[str, TensorDataset],
         sequence_length: int,
         drop_incomplete: bool = True,
     ) -> None:
+        if not datasets:
+            raise ValueError("Datasets cannot be empty")
+
         if sequence_length <= 0:
             raise ValueError("sequence_length must be greater than zero")
 
-        if len(frames) != len(controller):
-            raise ValueError("Frames and controller datasets must have the same length")
+        lengths = {len(dataset) for dataset in datasets.values()}
 
-        if game_state is not None and len(game_state) != len(frames):
-            raise ValueError("Game-state and frames datasets must have the same length")
+        if len(lengths) != 1:
+            raise ValueError("All datasets must have the same length")
 
-        self.frames = frames
-        self.controller = controller
-        self.game_state = game_state
-
+        self.datasets = dict(datasets)
         self.sequence_length = sequence_length
         self.drop_incomplete = drop_incomplete
 
+        self._sample_count = next(iter(lengths))
+
     def __len__(self) -> int:
-        sample_count = len(self.frames)
-
         if self.drop_incomplete:
-            return sample_count // self.sequence_length
+            return self._sample_count // self.sequence_length
 
-        return (sample_count + self.sequence_length - 1) // self.sequence_length
+        return (self._sample_count + self.sequence_length - 1) // self.sequence_length
 
-    def __getitem__(
-        self,
-        index: int,
-    ) -> SequenceSample:
+    @profile
+    def __getitem__(self, index: int) -> TensorDict:
         if index < 0:
             index += len(self)
 
@@ -65,21 +47,13 @@ class SequenceDataset(Dataset[SequenceSample]):
             raise IndexError(index)
 
         start = index * self.sequence_length
-        end = min(start + self.sequence_length, len(self.frames))
+        end = min(start + self.sequence_length, self._sample_count)
 
-        images = self.frames.get_range(start, end)
-
-        controller = self.controller.get_range(start, end)
-
-        game_state = (
-            self.game_state.get_range(start, end)
-            if self.game_state is not None
-            else None
-        )
-
-        return SequenceSample(
-            images=images,
-            analog=controller.analog,
-            buttons=controller.buttons,
-            game_state=game_state,
-        )
+        return TensorDict(
+            {
+                name: dataset.get_range(start, end)
+                for name, dataset in self.datasets.items()
+            },
+            batch_size=[end - start],
+            # device="cuda",
+        ).lock_()

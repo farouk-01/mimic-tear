@@ -1,4 +1,4 @@
-from .policy import EldenRingPolicy, PolicyConfig
+from .policy import LSTMPolicy, LSTMPolicyConfig
 from .loss import PolicyLoss, PolicyLossOutput
 from .components import (
     ControllerOutput,
@@ -6,8 +6,8 @@ from .components import (
 )
 
 __all__ = [
-    "EldenRingPolicy",
-    "PolicyConfig",
+    "LSTMPolicy",
+    "LSTMPolicyConfig",
     "PolicyLoss",
     "PolicyLossOutput",
     "ControllerOutput",

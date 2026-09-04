@@ -54,9 +54,9 @@ class Controller(nn.Module):
             nn.Linear(256, 2),
         )
 
-        # Bumpers:
+        # Triggers:
         # left, right in [0, 1]
-        self.bumpers = nn.Sequential(
+        self.triggers = nn.Sequential(
             nn.Linear(input_features, 128),
             nn.ReLU(inplace=True),
             nn.Linear(128, 2),
@@ -82,16 +82,10 @@ class Controller(nn.Module):
 
         right_stick = torch.tanh(self.right_stick(features))
 
-        bumpers = torch.sigmoid(self.bumpers(features))
+        triggers = torch.sigmoid(self.triggers(features))
 
-        analog = torch.cat(
-            (left_stick, right_stick, bumpers),
-            dim=-1,
-        )
+        analog = torch.cat((left_stick, right_stick, triggers), dim=-1)
 
         button_logits = self.buttons(features)
 
-        return ControllerOutput(
-            analog=analog,
-            button_logits=button_logits,
-        )
+        return ControllerOutput(analog=analog, button_logits=button_logits)

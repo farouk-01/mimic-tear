@@ -4,6 +4,7 @@ from typing import ClassVar
 import torch
 from torch import Tensor
 from torchvision.transforms import v2
+from pydantic import ConfigDict
 
 from graph.base import Value
 from graph.types.tensor import TensorNode
@@ -19,12 +20,12 @@ class TransformNode(TensorNode):
     transform: TensorTransform
 
     @property
-    def inputs(self) -> tuple[Value, ...]:
-        return tuple(Value(name) for name in self.transform.inputs)
+    def input_names(self) -> tuple[str, ...]:
+        return self.transform.inputs
 
     @property
-    def outputs(self) -> tuple[Value, ...]:
-        return (Value(self.transform.output),)
+    def output_names(self) -> tuple[str, ...]:
+        return (self.transform.output,)
 
     def execute(self, *inputs: Tensor) -> tuple[Tensor, ...]:
         return (self.transform(*inputs),)
@@ -104,6 +105,9 @@ class Normalize(TensorTransform):
 
 
 class ToDtype(TensorTransform):
+    model_config = ConfigDict(
+        arbitrary_types_allowed=True,
+    )
     name: ClassVar[str] = "to_dtype"
 
     input: str

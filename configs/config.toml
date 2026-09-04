@@ -2,8 +2,9 @@
 # Version
 # =============================================================================
 [version]
-gstate_processed_schema = "1"
+gstate_tensor_schema = "1.1"
 gstate_memory_schema = "1.16.2"
+controller_tensor_schema = "2"
 
 # =============================================================================
 # Model
@@ -34,7 +35,7 @@ button_outputs = 14
 
 [training.hyperparameters]
 sequence_length = 120
-epochs = 20
+epochs = 1
 learning_rate = 0.0001
 weight_decay = 0.0001
 use_amp = true
@@ -196,9 +197,9 @@ stick_deadzone = 0.12
 enabled = true
 timer = true
 cuda_timer = true
-cpu = true
-ram = true
-cuda = true
+cpu = false
+ram = false
+cuda = false
 aggregate = false
 flush = true
 
@@ -206,9 +207,9 @@ flush = true
 enabled = true
 timer = true
 cuda_timer = true
-cpu = true
-ram = true
-cuda = true
+cpu = false
+ram = false
+cuda = false
 aggregate = false
 flush = true
 
@@ -222,7 +223,7 @@ cuda = false
 aggregate = true
 flush = false
 
-[logging.profiling.profiles."TensorFrameStore.get"]
+[logging.profiling.profiles."ParquetStore.get_range"]
 enabled = false
 timer = true
 cuda_timer = true
@@ -232,7 +233,7 @@ cuda = false
 aggregate = true
 flush = false
 
-[logging.profiling.profiles."FramesDataset.get_range"]
+[logging.profiling.profiles."TensorDataset.get_range"]
 enabled = false
 timer = true
 cuda_timer = true
@@ -242,7 +243,17 @@ cuda = false
 aggregate = true
 flush = false
 
-[logging.profiling.profiles."TensorFrameStore.get_range"]
+[logging.profiling.profiles."VideoStore.get_range"]
+enabled = false
+timer = false
+cuda_timer = true
+cpu = false
+ram = false
+cuda = false
+aggregate = true
+flush = false
+
+[logging.profiling.profiles."DataPipeline.prepare_recordings"]
 enabled = false
 timer = true
 cuda_timer = true
@@ -252,7 +263,17 @@ cuda = false
 aggregate = true
 flush = false
 
-[logging.profiling.profiles."EldenRingPolicy.forward"]
+[logging.profiling.profiles."Process.process_sequence"]
+enabled = false
+timer = true
+cuda_timer = true
+cpu = false
+ram = false
+cuda = false
+aggregate = true
+flush = false
+
+[logging.profiling.profiles."LSTMPolicy.forward"]
 enabled = false
 timer = true
 cuda_timer = true

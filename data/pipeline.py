@@ -1,12 +1,13 @@
+from collections.abc import Iterator, Mapping
 from datetime import datetime
 from functools import cached_property
 from pathlib import Path
-from collections.abc import Iterator, Mapping
 
-from .capture import CaptureConfig, Capture
-from .process import ProcessConfig, Process, SequenceDataset
+from .capture import Capture, CaptureConfig
+from .process import Process, ProcessConfig, SequenceDataset
 from .write import Writer, WriterConfig
 
+from utils import profile
 
 class DataPipeline:
     def __init__(
@@ -57,15 +58,11 @@ class DataPipeline:
         if seconds is not None:
             print(f"Recording for {seconds:.1f} seconds.")
 
+        schema = self.capture_config.game_state_profile.raw_schema
+        write_cfg = self.writer_config
         with (
-            Capture(
-                config=self.capture_config,
-            ) as capture,
-            Writer(
-                path=path,
-                schema=self.capture_config.game_state_profile.raw_schema,
-                config=self.writer_config,
-            ) as writer,
+            Capture(config=self.capture_config) as capture,
+            Writer(path=path, schema=schema, config=write_cfg) as writer,
         ):
             try:
                 for sample in capture.capture_stream():
@@ -111,48 +108,30 @@ class DataPipeline:
 
         return path
 
-    def prepare_recordings(
-        self,
-        *,
-        root: str | Path,
-    ) -> Iterator[SequenceDataset]:
+    def prepare_recordings(self, *, root: str | Path) -> Iterator[SequenceDataset]:
         root_path = Path(root).resolve()
 
         if not root_path.is_dir():
             raise ValueError(f"Recording root path is not a directory: {root_path}")
 
         for metadata in sorted(root_path.rglob("metadata.json")):
-            recording = metadata.parent
+            yield self.prepare_one_recording(source=metadata.parent)
+    
+    def prepare_one_recording(self, *, source: str | Path) -> SequenceDataset:
+        return self.processor.process_sequence(source=Path(source).resolve())
 
-            yield self.prepare_one_recording(source=recording)
-
-    def prepare_one_recording(
-        self,
-        *,
-        source: str | Path,
-    ) -> SequenceDataset:
-        recording_path = Path(source).resolve()
-
-        return self.processor.process_sequence(source=recording_path)
-
-    def discover_encodings(
-        self,
-        *,
-        root: str | Path,
-    ) -> None:
+    def discover_encodings(self, *, root: str | Path) -> None:
         root_path = Path(root).resolve()
 
         if not root_path.is_dir():
             raise ValueError(f"Recording root path is not a directory: {root_path}")
 
         for metadata in sorted(root_path.rglob("metadata.json")):
-            recording = metadata.parent
-
-            self.processor.discover_encodings(recording_root=recording)
+            self.processor.discover_encodings(recording_root=metadata.parent)
 
     @property
     def encoding_cardinalities(self) -> Mapping[str, int]:
-        return self.processor.get_encoding_cardinalities()
+        return self.processor.encoding_cardinalities
 
     @staticmethod
     def _validate_config_compatibility(

@@ -1,8 +1,17 @@
 
+# =============================================================================
+# Paths
+# =============================================================================
 
+[paths]
+artifacts = "artifacts"
+training_recordings = "recordings/train"
+validation_recordings = "recordings/val"
 
+# =============================================================================
+# Logging
+# =============================================================================
 
-# logging settings
 [logging.regular]
 enabled = true
 level = "DEBUG"
@@ -18,3 +27,51 @@ name = "mimic_tear.performance"
 log_file = "logs/mimic_tear_perf.log"
 
 
+# =============================================================================
+# Function profiles
+# =============================================================================
+
+[logging.profiling.profiles."Trainer.train_epoch"]
+enabled = true
+
+[logging.profiling.profiles."Trainer.validate"]
+enabled = true
+
+[logging.profiling.profiles."SequenceDataset.__getitem__"]
+enabled = true
+
+[logging.profiling.profiles."DataPipeline.prepare_recordings"]
+enabled = true
+
+[logging.profiling.profiles."Process.process_sequence"]
+enabled = true
+
+[logging.profiling.profiles."ParquetStore.get_range"]
+enabled = true
+
+[logging.profiling.profiles."TensorDataset.get_range"]
+enabled = true
+
+[logging.profiling.profiles."VideoStore.get_range"]
+enabled = true
+
+[logging.profiling.profiles."LSTMPolicy.forward"]
+enabled = true
+
+[logging.profiling.profiles."PolicyLoss.forward"]
+enabled = true
+
+[logging.profiling.profiles."Vision.forward"]
+enabled = true
+
+[logging.profiling.profiles."Temporal.forward"]
+enabled = true
+
+[logging.profiling.profiles."GameState.forward"]
+enabled = true
+
+[logging.profiling.profiles."Fusion.forward"]
+enabled = true
+
+[logging.profiling.profiles."Controller.forward"]
+enabled = true

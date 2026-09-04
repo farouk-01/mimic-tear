@@ -1,6 +1,7 @@
-from typing import Any, Mapping, Self
+from typing import Any, Self
 from pathlib import Path
 import copy
+from collections.abc import Mapping
 
 from pydantic import BaseModel, ConfigDict
 
@@ -9,10 +10,13 @@ from utils.files import load_toml
 from .models.version import VersionConfig
 from .models.logging import LoggingSettings
 from .models.model import ModelConfig
-from .models.paths import PathsConfig, ConfigDomain as cd
+from .models.paths import PathsConfig
+from .models.schema import Schemas
 from .models.pipeline import DataPipelineConfig
 from .models.training import TrainingConfig
 from .models.game_state import GameStateConfig
+from .models.frame import FrameConfig
+from .models.controller import ControllerConfig
 
 DEFAULT_CONFIG_PATH = Path("configs/config.toml")
 DEFAULT_OVERRIDE_PATH = Path("configs/config.override.toml")
@@ -37,23 +41,38 @@ class MimicTearConfig(BaseModel):
         paths = PathsConfig.load(cfg["paths"])
         logging = LoggingSettings.load(cfg["logging"])
 
-        mem_path = paths.memory_schema(cd.GSTATE, version.gstate_memory_schema)
-        proc_path = paths.processed_schema(cd.GSTATE, version.gstate_processed_schema)
-        enc_path = paths.encodings_for(cd.GSTATE)
+        schemas = Schemas()
+
+        tensor_gstate_schema = schemas.tensor.game_state(version.gstate_tensor_schema)
+        memory_gstate_profile = schemas.memory.game_state(version.gstate_memory_schema)
+        enc_gstate_path = paths.encodings.game_state
+
         gstate_cfg = GameStateConfig.load(
-            memory_schema=mem_path,
-            processed_schema=proc_path,
-            encodings_path=enc_path,
+            memory_profile=memory_gstate_profile,
+            tensor_gstate_schema=tensor_gstate_schema,
+            encodings_path=enc_gstate_path,
         )
 
         training = TrainingConfig.load(cfg["training"])
 
-        weights_name = cfg["model"]["vision"]["weights_name"]
+        frame = FrameConfig.load(
+            schema=schemas.tensor.frame(),
+            video_store_cfg=cfg["data"]["stores"]["frames"],
+            transform_cfg=cfg["data"]["transforms"]["frames"],
+            weights_name=cfg["model"]["vision"]["weights_name"],
+        )
+
+        controller_version = version.controller_tensor_schema
+        controller = ControllerConfig.load(schema=schemas.tensor.controller("gamepad", controller_version))
 
         data = DataPipelineConfig.load(
             cfg,
-            resnet_weights_name=weights_name,
             gstate=gstate_cfg,
+            video_store_cfg=frame.video_store_cfg,
+            frame_schema=frame.tensor_frame_schema,
+            frame_plan=frame.plan,
+            controller_schema=controller.tensor_controller_schema,
+            controller_plan=controller.plan,
             training=training,
         )
 
@@ -67,11 +86,13 @@ class MimicTearConfig(BaseModel):
         )
 
     def load_model_config(
-        self, *, encoding_cardinalities: dict[str, int]
+        self,
+        *,
+        encoding_cardinalities: Mapping[str, int],
     ) -> ModelConfig:
         return ModelConfig.load(
             self.raw_cfg["model"],
-            gstate_schema=self.gstate.processed_schema,
+            gstate_schema=self.gstate.tensor_gstate_schema,
             encoding_cardinalities=encoding_cardinalities,
         )
 

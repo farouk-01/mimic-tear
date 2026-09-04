@@ -9,6 +9,8 @@ from graph.base import Plan
 from graph.types.tensor import TensorGraphExecutor
 from data.process.encoders.encoder import Encoder, TensorEncoder
 
+from utils import profile
+
 
 class TensorDataset(Dataset[TensorDict]):
     def __init__(
@@ -40,8 +42,9 @@ class TensorDataset(Dataset[TensorDict]):
         data = self.store.get(index)
         table = self.adapter.get(data)
 
-        return self._process_table(table, batch_size=[])
+        return self._process_table(table, batch_size=[1])
 
+    @profile
     def get_range(self, start: int, end: int) -> TensorDict:
         data = self.store.get_range(start, end)
         table = self.adapter.get(data)
@@ -73,6 +76,7 @@ class TensorDataset(Dataset[TensorDict]):
                 for name, column in table.items()
             },
             batch_size=batch_size,
+            # device="cuda",
         )
 
         for encoder in self.encoders:
@@ -85,16 +89,11 @@ class TensorDataset(Dataset[TensorDict]):
 
         return tensors
 
-    def _materialize_column(
-        self,
-        name: str,
-        column: TensorColumn,
-    ) -> Tensor:
+    def _materialize_column(self, name: str, column: TensorColumn) -> Tensor:
         field = self.schema.get_field(name)
         dtype = TORCH_DTYPES[field.dtype]
 
         values = column.values.to(dtype)
-
         if column.validity is None:
             return values
 
@@ -108,37 +107,24 @@ class TensorDataset(Dataset[TensorDict]):
         )
 
     def _validate_tensors(self, tensors: TensorDict) -> None:
-        expected = {value.name for value in self.plan.outputs}
+        expected = {field.name for field in self.schema.fields}
 
-        errors: list[Exception] = []
+        actual = set(tensors.keys())
 
-        missing = [name for name in expected if name not in tensors]
-        unexpected = [name for name in tensors if name not in expected]
-
+        missing = expected - actual
         if missing:
-            errors.append(ValueError(f"Missing expected tensor features: {missing}"))
+            raise ValueError(f"Missing features: {sorted(missing)}")
 
+        unexpected = actual - expected
         if unexpected:
-            errors.append(ValueError(f"Unexpected tensor features: {unexpected}"))
+            raise ValueError(f"Unexpected features: {sorted(unexpected)}")
 
-        for name in expected:
-            if name not in tensors:
-                continue
-
-            field = self.schema.get_field(name)
-            tensor = tensors[name]
+        for field in self.schema.fields:
+            tensor = tensors[field.name]
             expected_dtype = TORCH_DTYPES[field.dtype]
 
             if tensor.dtype != expected_dtype:
-                errors.append(
-                    TypeError(
-                        f"Feature '{name}' has unexpected dtype: "
-                        f"expected {expected_dtype}, got {tensor.dtype}"
-                    )
+                raise TypeError(
+                    f"Feature '{field.name}' has dtype {tensor.dtype}, "
+                    f"expected {expected_dtype}"
                 )
-
-        if errors:
-            raise ExceptionGroup(
-                "Tensor dataset validation failed",
-                errors,
-            )

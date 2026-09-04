@@ -4,7 +4,6 @@ import math
 from collections.abc import Sequence
 from dataclasses import dataclass
 
-
 ANALOG_INPUTS: tuple[str, ...] = (
     "left_x",
     "left_y",
@@ -31,6 +30,19 @@ BUTTON_INPUTS: tuple[str, ...] = (
     "back",
 )
 
+type AnalogInputs = tuple[str, ...]
+type ButtonInputs = tuple[str, ...]
+
+
+def get_inputs_names_classified() -> tuple[AnalogInputs, ButtonInputs]:
+    analogs = [input_ for input_ in ANALOG_INPUTS]
+    buttons = [input_ for input_ in BUTTON_INPUTS]
+
+    analogs = tuple(analogs)
+    buttons = tuple(buttons)
+
+    return (analogs, buttons)
+
 
 @dataclass(frozen=True, slots=True)
 class AnalogState:
@@ -50,10 +62,7 @@ class AnalogState:
         _validate_range("right_trigger", self.right_trigger, 0.0, 1.0)
 
     def values(self) -> tuple[float, ...]:
-        return tuple(
-            float(getattr(self, name))
-            for name in ANALOG_INPUTS
-        )
+        return tuple(float(getattr(self, name)) for name in ANALOG_INPUTS)
 
     @classmethod
     def from_values(
@@ -97,10 +106,7 @@ class ButtonState:
     back: bool = False
 
     def values(self) -> tuple[bool, ...]:
-        return tuple(
-            bool(getattr(self, name))
-            for name in BUTTON_INPUTS
-        )
+        return tuple(bool(getattr(self, name)) for name in BUTTON_INPUTS)
 
     @classmethod
     def from_values(
@@ -159,6 +165,4 @@ def _validate_range(
     high: float,
 ) -> None:
     if not math.isfinite(value) or not low <= value <= high:
-        raise ValueError(
-            f"{name} must be finite and in [{low}, {high}]"
-        )
+        raise ValueError(f"{name} must be finite and in [{low}, {high}]")

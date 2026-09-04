@@ -1,5 +1,5 @@
-from pathlib import Path
 from typing import Self
+from collections.abc import Mapping
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -13,8 +13,7 @@ from mimic_tear.model.components.game_state import (
 )
 from mimic_tear.model.components.temporal import TemporalConfig
 from mimic_tear.model.components.vision import VisionConfig
-
-from data.models.game_state.processed import FieldKind, ProcessedGameStateSchema
+from data.models.tensor import TensorSchema, FieldKind
 
 MODEL_FIELD_KINDS: dict[FieldKind, GameStateFieldKind] = {
     "binary": "numeric",
@@ -53,8 +52,8 @@ class ModelConfig(BaseModel):
         cls,
         raw_model: dict,
         *,
-        gstate_schema: ProcessedGameStateSchema,
-        encoding_cardinalities: dict[str, int],
+        gstate_schema: TensorSchema,
+        encoding_cardinalities: Mapping[str, int],
     ) -> Self:
         vision = VisionConfig.model_validate(raw_model["vision"])
 

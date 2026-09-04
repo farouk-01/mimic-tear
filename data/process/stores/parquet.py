@@ -1,6 +1,5 @@
 from pathlib import Path
 from collections.abc import Sequence
-from functools import cached_property
 
 import pyarrow.parquet as pq
 import pyarrow as pa
@@ -16,6 +15,7 @@ from data.process.stores.base import (
     STORE_ADAPTERS,
 )
 from data.process.stores.validations import normalize_index, normalize_range
+from utils import profile
 
 
 class ParquetStore(Store[pa.Table]):
@@ -31,37 +31,32 @@ class ParquetStore(Store[pa.Table]):
         if not self.path.is_file():
             raise FileNotFoundError(f"Parquet file does not exist: {self.path}")
 
-        if not columns:
-            raise ValueError("Columns cannot be empty")
-
         self._columns = tuple(columns)
 
         frame_index = sample_columns.frame_index
-        timestamp_ns = sample_columns.timestamp_ns
+        capture_timestamp_ns = sample_columns.capture_timestamp_ns
 
-        if frame_index in self._columns or timestamp_ns in self._columns:
+        if frame_index in self._columns or capture_timestamp_ns in self._columns:
             raise ValueError("Sample columns cannot also be payload columns")
 
         table = pq.read_table(
             self.path,
-            columns=[frame_index, timestamp_ns, *self._columns],
+            columns=[frame_index, capture_timestamp_ns, *self._columns],
         )
 
         if table.num_rows <= 0:
             raise ValueError("Parquet file cannot be empty")
 
         self._frame_indices = table[frame_index].to_numpy(zero_copy_only=False)
-        self._timestamps_ns = table[timestamp_ns].to_numpy(zero_copy_only=False)
+        self._capture_timestamps_ns = table[capture_timestamp_ns].to_numpy(
+            zero_copy_only=False
+        )
 
         self._length = table.num_rows
         self._table = table.select(self._columns)
 
     def __len__(self) -> int:
         return self._length
-
-    @cached_property
-    def column_indices(self) -> dict[str, int]:
-        return {name: i for i, name in enumerate(self._table.column_names)}
 
     @property
     def frame_indices(self) -> Sequence[int]:
@@ -72,27 +67,26 @@ class ParquetStore(Store[pa.Table]):
         return self._columns
 
     @property
-    def timestamps_ns(self) -> Sequence[int]:
-        return self._timestamps_ns
+    def capture_timestamp_ns(self) -> Sequence[int]:
+        return self._capture_timestamps_ns
 
+    @profile
     def get(self, index: int) -> pa.Table:
         index = normalize_index(index, len(self))
 
         return self._table.slice(index, 1)
 
+    @profile
     def get_range(self, start: int, end: int) -> pa.Table:
         start, end = normalize_range(start, end, len(self))
 
         return self._table.slice(start, end - start)
-    
+
 
 @STORE_ADAPTERS.register(ParquetStore)
 class ParquetStoreAdapter(StoreAdapter[pa.Table]):
     def get(self, data: pa.Table) -> TensorTable:
-        return {
-            name: self._to_tensor_column(data[name])
-            for name in data.column_names
-        }
+        return {name: self._to_tensor_column(data[name]) for name in data.column_names}
 
     def _to_tensor_column(self, data: pa.ChunkedArray) -> TensorColumn:
         validity = None

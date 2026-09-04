@@ -75,21 +75,25 @@ class Schema[F: Field](BaseModel):
     @classmethod
     def from_json(cls, source: str | Path | dict) -> Self:
         if isinstance(source, dict):
-            return cls.model_validate(source)
+            schema_dict = source
+        elif isinstance(source, (str, Path)):
+            from utils.files import load_json
 
-        from utils.files import load_json
-
-        if isinstance(source, (str, Path)):
             schema_path = Path(source)
 
             if not schema_path.is_file():
                 raise FileNotFoundError(f"Schema file does not exist: {schema_path}")
 
             schema_dict = load_json(schema_path)
+        else:
+            raise TypeError(
+                f"Invalid schema source type: {type(source)}. "
+                "Expected dict, str, or Path."
+            )
 
-            return cls.model_validate(schema_dict)
-
-        raise TypeError(
-            f"Invalid schema source type: {type(source)}. "
-            "Expected dict, str, or Path."
+        return cls.model_validate(
+            {
+                **schema_dict,
+                "fields": tuple(schema_dict["fields"]),
+            }
         )

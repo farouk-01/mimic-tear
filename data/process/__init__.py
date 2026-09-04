@@ -1,43 +1,27 @@
-from types import MappingProxyType
-from collections.abc import Mapping
-
-from pydantic import ConfigDict, BaseModel
+from collections.abc import Mapping, Sequence
 from pathlib import Path
+from types import MappingProxyType
 
-from data.models.game_state.processed import ProcessedGameStateSchema
+from pydantic import BaseModel, ConfigDict
+
 from data.models.gamepad import ANALOG_INPUTS, BUTTON_INPUTS
+from data.models.record import Recording, RecordingConfig
 from data.models.tensor import TensorSchema
 from graph.base import Plan
-from graph.types.tensor import TensorGraphExecutor
 
-from .stores.controller import ParquetControllerStore
-from .stores.game_state import ParquetGameStateStoreConfig, ParquetGameStateStore
-from .stores.parquet import ParquetStore
-from .stores.frames import TensorFrameStore, VideoDecoderConfig
+from .datasets.tensor import TensorDataset
+from .encoders.encoder import Encoder, EncoderConfig
+from .sequence import SequenceDataset
 from .stores.encoding import EncodingStore, EncodingStoreConfig
+from .stores.parquet import ParquetStore
+from .stores.video import VideoStore, VideoStoreConfig
 
-from .encoders.encoder import GameStateEncoder, GameStateEncoderConfig
-
-from .transforms import (
-    ControllerTransformConfig,
-    ControllerTransform,
-    FrameTransformConfig,
-    FrameTransform,
-)
-
-from .datasets import (
-    FramesDataset,
-    ControllerDataset,
-    GameStateDataset,
-)
-from .sequence import SequenceDataset, SequenceSample
-from data.models.record import RecordingConfig, Recording
+from utils import profile
 
 __all__ = [
+    "SequenceDataset",
     "ProcessConfig",
     "Process",
-    "SequenceDataset",
-    "SequenceSample",
 ]
 
 
@@ -46,162 +30,152 @@ class ProcessConfig(BaseModel):
 
     recording: RecordingConfig
 
-    video_decoder: VideoDecoderConfig
-    game_state_store: ParquetGameStateStoreConfig
-
     encoding_stores: tuple[EncodingStoreConfig, ...] = ()
-    encoders: tuple[GameStateEncoderConfig, ...] = ()
+    encoders: tuple[EncoderConfig, ...] = ()
 
-    controller_transform: ControllerTransformConfig
-    frame_transform: FrameTransformConfig
+    video_store_cfg: VideoStoreConfig
+    frame_schema: TensorSchema
+    frame_plan: Plan
+
     controller_schema: TensorSchema
+    controller_plan: Plan
 
-    processing_plan: Plan
     game_state_schema: TensorSchema
+    game_state_plan: Plan
 
     sequence_length: int
     drop_incomplete: bool = True
 
 
 class Process:
-    def __init__(
-        self,
-        *,
-        config: ProcessConfig,
-    ) -> None:
+    def __init__(self, *, config: ProcessConfig) -> None:
         self.config = config
-        self.sequence_length = config.sequence_length
-        self.drop_incomplete = config.drop_incomplete
+        self.encoders = self._build_encoders()
 
-        encoders_stores: dict[str, EncodingStore] = {}
-        for cfg in self.config.encoding_stores:
-            store = EncodingStore(path=cfg.path)
-            encoders_stores[cfg.encoding] = store
-
-        encoders: list[GameStateEncoder] = []
-        for cfg in self.config.encoders:
-            store = encoders_stores[cfg.encoding]
-
-            encoder = GameStateEncoder(
-                fields=cfg.fields,
-                get_encodings=store.load,
-                append_encoding=store.append,
-            )
-            encoders.append(encoder)
-
-        self.encoders = tuple(encoders)
-
-    def process_sequence(
-        self,
-        source: str | Path,
-    ) -> SequenceDataset:
+    @profile
+    def process_sequence(self, source: str | Path) -> SequenceDataset:
         recording = Recording.from_directory(root=source, config=self.config.recording)
+
+        # datasets: dict[str, TensorDataset] = {
+        #     "frames": self._load_frames_dataset(source=recording.video),
+        #     "controller": self._load_controller_dataset(source=recording.controller),
+        # }
+
+        # if recording.game_state is not None:
+        #     datasets["game_state"] = self._load_game_state_dataset(
+        #         source=recording.game_state,
+        #     )
 
         if recording.game_state is None:
             raise ValueError(
                 f"Missing game-state data in recording at {recording.root}"
             )
 
-        frame_dataset = self._load_frames_dataset(source=recording.video)
-        controller_dataset = self._load_controller_dataset(source=recording.controller)
-        game_state_dataset = self._load_game_state_dataset(source=recording.game_state)
-
-        self._validate_recording_integrity(
-            frames=frame_dataset,
-            controller=controller_dataset,
-            game_state=game_state_dataset,
+        game_state = self._load_game_state_dataset(
+            source=recording.game_state,
         )
 
+        datasets: dict[str, TensorDataset] = {
+            "frames": self._load_frames_dataset(
+                source=recording.video,
+                cfg=self.config.video_store_cfg,
+                capture_timestamps_ns=game_state.store.capture_timestamp_ns, # TODO : this is temporary
+            ),
+            "controller": self._load_controller_dataset(
+                source=recording.controller,
+            ),
+            "game_state": game_state,
+        }
+        self._validate_recording_integrity(datasets)
+
         return SequenceDataset(
-            frames=frame_dataset,
-            controller=controller_dataset,
-            game_state=game_state_dataset,
-            sequence_length=self.sequence_length,
-            drop_incomplete=self.drop_incomplete,
+            datasets=datasets,
+            sequence_length=self.config.sequence_length,
+            drop_incomplete=self.config.drop_incomplete,
         )
 
     def discover_encodings(self, recording_root: str | Path) -> None:
-        recording = Recording.from_directory(root=recording_root, config=self.config.recording)
+        recording = Recording.from_directory(
+            root=recording_root,
+            config=self.config.recording,
+        )
 
         if recording.game_state is None:
-            raise ValueError(
-                f"Missing game-state data in recording at {recording.root}"
-            )
+            return
 
-        game_state_dataset = self._load_game_state_dataset(source=recording.game_state)
-        game_state_dataset.discover_encodings()
+        self._load_game_state_dataset(
+            source=recording.game_state,
+        ).discover_encodings()
 
-    def get_encoding_cardinalities(self) -> Mapping[str, int]:
-        cardinalities: dict[str, int] = {}
-
-        # a encoder can be used for multiple fields
-        # so need to process all fields
-        for encoder in self.encoders:
-            for field_name in encoder.fields:
-                cardinalities[field_name] = encoder.cardinality
-
-        return MappingProxyType(cardinalities)
-
-    @staticmethod
-    def _validate_recording_integrity(
-        *,
-        frames: FramesDataset,
-        controller: ControllerDataset,
-        game_state: GameStateDataset,
-    ) -> None:
-        if len(frames) != len(controller):
-            raise ValueError(
-                "Frame and controller sample counts do not match: "
-                f"{len(frames)} != {len(controller)}"
-            )
-
-        if len(frames) != len(game_state):
-            raise ValueError(
-                "Frame and game-state sample counts do not match: "
-                f"{len(frames)} != {len(game_state)}"
-            )
-
-        expected_indices = list(range(len(frames)))
-
-        if list(controller.store.frame_indices) != expected_indices:
-            raise ValueError("Controller indices are not sequential")
-
-        if list(controller.store.frame_indices) != list(game_state.store.frame_indices):
-            raise ValueError("Controller and game-state indices do not match")
-
-        if list(controller.store.timestamps_ns) != list(game_state.store.timestamps_ns):
-            raise ValueError("Controller and game-state timestamps do not match")
-
-    def _load_frames_dataset(self, source: str | Path) -> FramesDataset:
-        frame_store = TensorFrameStore(
-            path=source, **self.config.video_decoder.model_dump()
+    @property
+    def encoding_cardinalities(self) -> Mapping[str, int]:
+        return MappingProxyType(
+            {
+                field_name: encoder.cardinality
+                for encoder in self.encoders
+                for field_name in encoder.fields
+            }
         )
-        frame_transform = FrameTransform(**self.config.frame_transform.model_dump())
-        return FramesDataset(store=frame_store, transform=frame_transform)
 
-    def _load_controller_dataset(self, source: str | Path) -> ControllerDataset:
-        controller_store = ParquetStore(path=source, columns=(*ANALOG_INPUTS, *BUTTON_INPUTS))
-        controller_transform = ControllerTransform(
-            **self.config.controller_transform.model_dump()
+    def _build_encoders(self) -> tuple[Encoder, ...]:
+        stores = {
+            config.encoding: EncodingStore(path=config.path)
+            for config in self.config.encoding_stores
+        }
+
+        return tuple(
+            Encoder(
+                fields=config.fields,
+                get_encodings=stores[config.encoding].load,
+                append_encoding=stores[config.encoding].append,
+            )
+            for config in self.config.encoders
         )
-        return ControllerDataset(store=controller_store, transform=controller_transform)
 
-    def _load_game_state_dataset(
+    def _load_frames_dataset(
         self,
         source: str | Path,
-    ) -> GameStateDataset:
-        features = tuple(value.name for value in self.config.processing_plan.inputs)
-        game_state_store = ParquetStore(
-            path=source, 
-            columns=features, 
+        cfg: VideoStoreConfig,
+        capture_timestamps_ns: Sequence[int],
+    ) -> TensorDataset:
+        # metadata = ParquetStore(path=source, columns=())
+
+        store = VideoStore(
+            path=source,
+            **cfg.model_dump(),
+            capture_timestamps_ns=capture_timestamps_ns, # TODO remove this, see above todo
         )
 
-        dataset = GameStateDataset(
-            store=game_state_store,
+        return TensorDataset(
+            store=store,
+            schema=self.config.frame_schema,
+            plan=self.config.frame_plan,
+        )
+
+    def _load_controller_dataset(self, source: str | Path) -> TensorDataset:
+        store = ParquetStore(path=source, columns=(*ANALOG_INPUTS, *BUTTON_INPUTS))
+
+        return TensorDataset(
+            store=store,
+            schema=self.config.controller_schema,
+            plan=self.config.controller_plan,
+        )
+
+    def _load_game_state_dataset(self, source: str | Path) -> TensorDataset:
+        features = tuple(value.name for value in self.config.game_state_plan.inputs)
+
+        store = ParquetStore(path=source, columns=features)
+
+        return TensorDataset(
+            store=store,
             schema=self.config.game_state_schema,
             encoders=self.encoders,
-            plan=self.config.processing_plan,
-            executor=TensorGraphExecutor(),
+            plan=self.config.game_state_plan,
         )
 
-        return dataset
+    @staticmethod
+    def _validate_recording_integrity(datasets: Mapping[str, TensorDataset]) -> None:
+        lengths = {name: len(dataset) for name, dataset in datasets.items()}
+
+        if len(set(lengths.values())) != 1:
+            raise ValueError(f"Dataset sample counts do not match: {lengths}")
