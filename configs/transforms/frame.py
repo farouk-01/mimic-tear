@@ -1,6 +1,7 @@
 from torch import float32
 
 from data.process.transforms.types.tensor import (
+    Contiguous,
     TensorTransform,
     Resize,
     ToDtype,
@@ -40,5 +41,12 @@ def get_frame_transforms(
                 std=std,
             )
         )
+
+    transforms.append(
+        Contiguous(
+            input="frames",
+            output="frames",
+        )
+    )
 
     return tuple(transforms)

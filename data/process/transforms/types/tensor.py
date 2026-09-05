@@ -123,3 +123,16 @@ class ToDtype(TensorTransform):
             dtype=self.dtype,
             scale=self.scale,
         )(input)
+
+
+class Contiguous(TensorTransform):
+    name: ClassVar[str] = "contiguous"
+
+    input: str
+
+    @property
+    def inputs(self) -> tuple[str]:
+        return (self.input,)
+
+    def __call__(self, input: Tensor) -> Tensor:
+        return input.contiguous()
