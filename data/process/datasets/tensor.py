@@ -5,8 +5,7 @@ from tensordict import TensorDict
 
 from data.models.tensor import TORCH_DTYPES, TensorSchema
 from data.process.stores.base import Store, STORE_ADAPTERS, TensorColumn, TensorTable
-from graph.base import Plan
-from graph.types.tensor import TensorGraphExecutor
+from data.process.transforms.tensor import TensorTransform
 from data.process.encoders.encoder import Encoder, TensorEncoder
 
 from utils import profile
@@ -19,16 +18,14 @@ class TensorDataset(Dataset[TensorDict]):
         store: Store,
         schema: TensorSchema,
         encoders: tuple[Encoder, ...] = (),
-        plan: Plan,
-        executor: TensorGraphExecutor | None = None,
+        transforms: tuple[TensorTransform, ...] = (),
     ) -> None:
         if len(store) <= 0:
             raise ValueError("Store cannot be empty")
 
         self.store = store
         self.schema = schema
-        self.plan = plan
-        self.executor = executor or TensorGraphExecutor()
+        self.transforms = transforms
 
         self.encoders = tuple(TensorEncoder(encoder) for encoder in encoders)
 
@@ -83,7 +80,11 @@ class TensorDataset(Dataset[TensorDict]):
             for field_name in encoder.fields:
                 tensors[field_name] = encoder.encode(tensors[field_name])
 
-        tensors = self.executor.execute(self.plan, tensors)
+        for transform in self.transforms:
+            inputs = tuple(tensors[name] for name in transform.inputs)
+            
+            output_name = transform.output
+            tensors[output_name] = transform(*inputs)
 
         self._validate_tensors(tensors)
 

@@ -7,7 +7,7 @@ from pydantic import BaseModel, ConfigDict
 from data.models.gamepad import ANALOG_INPUTS, BUTTON_INPUTS
 from data.models.record import Recording, RecordingConfig
 from data.models.tensor import TensorSchema
-from graph.base import Plan
+from data.process.transforms.tensor import TensorTransform
 
 from .datasets.tensor import TensorDataset
 from .encoders.encoder import Encoder, EncoderConfig
@@ -35,13 +35,13 @@ class ProcessConfig(BaseModel):
 
     video_store_cfg: VideoStoreConfig
     frame_schema: TensorSchema
-    frame_plan: Plan
+    frame_transforms: tuple[TensorTransform, ...] = ()
 
     controller_schema: TensorSchema
-    controller_plan: Plan
+    controller_transforms: tuple[TensorTransform, ...] = ()
 
     game_state_schema: TensorSchema
-    game_state_plan: Plan
+    game_state_transforms: tuple[TensorTransform, ...] = ()
 
     sequence_length: int
     drop_incomplete: bool = True
@@ -59,8 +59,12 @@ class Process:
         frames = self._load_frames_dataset(
             source=recording.video,
             cfg=self.config.video_store_cfg,
+            transforms=self.config.frame_transforms,
         )
-        controller = self._load_controller_dataset(recording.controller)
+        controller = self._load_controller_dataset(
+            recording.controller,
+            transforms=self.config.controller_transforms,
+        )
 
         datasets: dict[str, TensorDataset] = {
             "frames": frames,
@@ -68,7 +72,10 @@ class Process:
         }
 
         if recording.game_state is not None:
-            gstate = self._load_game_state_dataset(recording.game_state)
+            gstate = self._load_game_state_dataset(
+                recording.game_state,
+                transforms=self.config.game_state_transforms,
+            )
             datasets["game_state"] = gstate
 
         self._validate_recording_integrity(datasets)
@@ -120,34 +127,77 @@ class Process:
         source: str | Path,
         *,
         cfg: VideoStoreConfig,
+        transforms: tuple[TensorTransform, ...] = (),
     ) -> TensorDataset:
         store = VideoStore(path=source, **cfg.model_dump())
 
         return TensorDataset(
             store=store,
             schema=self.config.frame_schema,
-            plan=self.config.frame_plan,
+            transforms=transforms,
         )
 
-    def _load_controller_dataset(self, source: str | Path) -> TensorDataset:
+    def _load_controller_dataset(
+        self,
+        source: str | Path,
+        *,
+        transforms: tuple[TensorTransform, ...] = (),
+    ) -> TensorDataset:
         store = ParquetStore(path=source, columns=(*ANALOG_INPUTS, *BUTTON_INPUTS))
 
         return TensorDataset(
             store=store,
             schema=self.config.controller_schema,
-            plan=self.config.controller_plan,
+            transforms=transforms,
         )
 
-    def _load_game_state_dataset(self, source: str | Path) -> TensorDataset:
-        features = tuple(value.name for value in self.config.game_state_plan.inputs)
+    def _load_game_state_dataset(
+        self,
+        source: str | Path,
+        *,
+        transforms: tuple[TensorTransform, ...] = (),
+    ) -> TensorDataset:
+        schema = self.config.game_state_schema
+        fields = schema.fields_by_name
 
-        store = ParquetStore(path=source, columns=features)
+        available = {name for name, field in fields.items() if not field.is_derived}
+
+        valid_transforms: list[TensorTransform] = []
+
+        for t in transforms:
+            if t.output not in fields:
+                continue
+
+            missing_inputs = set(t.inputs) - available
+            if missing_inputs:
+                raise ValueError(
+                    f"Transform '{t}' has missing inputs: {missing_inputs}"
+                )
+
+            valid_transforms.append(t)
+            available.add(t.output)
+
+        cols = {
+            name
+            for name, field in fields.items()
+            if field.is_model_input and not field.is_derived
+        }
+
+        for t in valid_transforms:
+            for name in t.inputs:
+                if name not in fields:
+                    continue
+
+                if not fields[name].is_derived:
+                    cols.add(name)
+
+        store = ParquetStore(path=source, columns=tuple(sorted(cols)))
 
         return TensorDataset(
             store=store,
             schema=self.config.game_state_schema,
             encoders=self.encoders,
-            plan=self.config.game_state_plan,
+            transforms=tuple(valid_transforms),
         )
 
     @staticmethod
