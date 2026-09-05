@@ -33,14 +33,11 @@ class VideoStore(Store[Tensor]):
         self,
         *,
         path: str | Path,
-        capture_timestamps_ns: Sequence[int],
         device: str | torch.device,
         dimension_order: Literal["NCHW", "NHWC"] = "NCHW",
         seek_mode: Literal["exact", "approximate"] = "exact",
         num_ffmpeg_threads: int = 1,
     ) -> None:
-        self._capture_timestamps_ns = tuple(capture_timestamps_ns)
-
         self.frames = VideoDecoder(
             source=path,
             dimension_order=dimension_order,
@@ -66,8 +63,7 @@ class VideoStore(Store[Tensor]):
 
     @property
     def capture_timestamp_ns(self) -> Sequence[int]:
-        return self._capture_timestamps_ns
-
+        raise NotImplementedError("Capture timestamps are not yet supported for ParquetStore")
 
 @STORE_ADAPTERS.register(VideoStore)
 class VideoStoreAdapter(StoreAdapter[Tensor]):

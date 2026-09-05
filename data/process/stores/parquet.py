@@ -68,7 +68,7 @@ class ParquetStore(Store[pa.Table]):
 
     @property
     def capture_timestamp_ns(self) -> Sequence[int]:
-        return self._capture_timestamps_ns
+        raise NotImplementedError("Capture timestamps are not yet supported for ParquetStore")
 
     @profile
     def get(self, index: int) -> pa.Table:

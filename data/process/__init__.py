@@ -56,36 +56,21 @@ class Process:
     def process_sequence(self, source: str | Path) -> SequenceDataset:
         recording = Recording.from_directory(root=source, config=self.config.recording)
 
-        # datasets: dict[str, TensorDataset] = {
-        #     "frames": self._load_frames_dataset(source=recording.video),
-        #     "controller": self._load_controller_dataset(source=recording.controller),
-        # }
-
-        # if recording.game_state is not None:
-        #     datasets["game_state"] = self._load_game_state_dataset(
-        #         source=recording.game_state,
-        #     )
-
-        if recording.game_state is None:
-            raise ValueError(
-                f"Missing game-state data in recording at {recording.root}"
-            )
-
-        game_state = self._load_game_state_dataset(
-            source=recording.game_state,
+        frames = self._load_frames_dataset(
+            source=recording.video,
+            cfg=self.config.video_store_cfg,
         )
+        controller = self._load_controller_dataset(recording.controller)
 
         datasets: dict[str, TensorDataset] = {
-            "frames": self._load_frames_dataset(
-                source=recording.video,
-                cfg=self.config.video_store_cfg,
-                capture_timestamps_ns=game_state.store.capture_timestamp_ns, # TODO : this is temporary
-            ),
-            "controller": self._load_controller_dataset(
-                source=recording.controller,
-            ),
-            "game_state": game_state,
+            "frames": frames,
+            "controller": controller,
         }
+
+        if recording.game_state is not None:
+            gstate = self._load_game_state_dataset(recording.game_state)
+            datasets["game_state"] = gstate
+
         self._validate_recording_integrity(datasets)
 
         return SequenceDataset(
@@ -103,9 +88,7 @@ class Process:
         if recording.game_state is None:
             return
 
-        self._load_game_state_dataset(
-            source=recording.game_state,
-        ).discover_encodings()
+        self._load_game_state_dataset(recording.game_state).discover_encodings()
 
     @property
     def encoding_cardinalities(self) -> Mapping[str, int]:
@@ -135,16 +118,10 @@ class Process:
     def _load_frames_dataset(
         self,
         source: str | Path,
+        *,
         cfg: VideoStoreConfig,
-        capture_timestamps_ns: Sequence[int],
     ) -> TensorDataset:
-        # metadata = ParquetStore(path=source, columns=())
-
-        store = VideoStore(
-            path=source,
-            **cfg.model_dump(),
-            capture_timestamps_ns=capture_timestamps_ns, # TODO remove this, see above todo
-        )
+        store = VideoStore(path=source, **cfg.model_dump())
 
         return TensorDataset(
             store=store,
@@ -175,7 +152,27 @@ class Process:
 
     @staticmethod
     def _validate_recording_integrity(datasets: Mapping[str, TensorDataset]) -> None:
-        lengths = {name: len(dataset) for name, dataset in datasets.items()}
+        controller = datasets["controller"]
+        frames = datasets["frames"]
 
-        if len(set(lengths.values())) != 1:
-            raise ValueError(f"Dataset sample counts do not match: {lengths}")
+        if len(controller) != len(frames):
+            raise ValueError(
+                f"Controller and frames datasets have different lengths: "
+                f"{len(controller)} != {len(frames)}"
+            )
+
+        frame_indices = tuple(frames.store.frame_indices)
+
+        if tuple(controller.store.frame_indices) != frame_indices:
+            raise ValueError(
+                "Controller and frames datasets have different frame indices"
+            )
+
+        if "game_state" in datasets:
+            gstate_indices = set(datasets["game_state"].store.frame_indices)
+            frame_indices = set(frame_indices)
+
+            if not gstate_indices <= frame_indices:
+                raise ValueError(
+                    "Game state contains frame indices that do not exist in frames"
+                )
