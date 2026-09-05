@@ -63,16 +63,15 @@ class MimicTearConfig(BaseModel):
         )
 
         controller_version = version.controller_tensor_schema
-        controller = ControllerConfig.load(schema=schemas.tensor.controller("gamepad", controller_version))
+        controller = ControllerConfig.load(
+            schema=schemas.tensor.controller("gamepad", controller_version)
+        )
 
         data = DataPipelineConfig.load(
             cfg,
             gstate=gstate_cfg,
-            video_store_cfg=frame.video_store_cfg,
-            frame_schema=frame.tensor_frame_schema,
-            frame_plan=frame.plan,
-            controller_schema=controller.tensor_controller_schema,
-            controller_plan=controller.plan,
+            frame=frame,
+            controller=controller,
             training=training,
         )
 

@@ -1,4 +1,4 @@
-from data.process.transforms.types.tensor import Clamp, TensorTransform
+from data.process.transforms.tensor import Clamp, TensorTransform
 
 GAMEPAD_TRANSFORMS: tuple[TensorTransform, ...] = (
     Clamp(

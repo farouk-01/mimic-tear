@@ -6,30 +6,11 @@ from torch import Tensor
 from torchvision.transforms import v2
 from pydantic import ConfigDict
 
-from graph.base import Value
-from graph.types.tensor import TensorNode
 from data.process.transforms.base import Transform
 
 
 class TensorTransform(Transform[Tensor]):
     pass
-
-
-@dataclass(frozen=True, slots=True, kw_only=True)
-class TransformNode(TensorNode):
-    transform: TensorTransform
-
-    @property
-    def input_names(self) -> tuple[str, ...]:
-        return self.transform.inputs
-
-    @property
-    def output_names(self) -> tuple[str, ...]:
-        return (self.transform.output,)
-
-    def execute(self, *inputs: Tensor) -> tuple[Tensor, ...]:
-        return (self.transform(*inputs),)
-
 
 class Ratio(TensorTransform):
     name: ClassVar[str] = "ratio"

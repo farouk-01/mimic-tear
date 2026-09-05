@@ -1,1 +1,1 @@
-from .types.tensor import *
+from .tensor import *

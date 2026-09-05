@@ -2,7 +2,6 @@ from typing import Self
 
 from pydantic import BaseModel, ConfigDict
 
-from graph.base import Plan
 from data.capture import (
     CaptureConfig,
     EldenRingMemoryProfile,
@@ -12,6 +11,7 @@ from data.capture import (
 from data.models.record import RecordingConfig
 from data.models.tensor import TensorSchema
 from data.process import ProcessConfig
+from data.process.transforms.tensor import TensorTransform
 from data.write import (
     ControllerWriterConfig,
     GameStateWriterConfig,
@@ -22,7 +22,7 @@ from data.write import (
 from .training import TrainingConfig
 from .game_state import GameStateConfig
 from .frame import FrameConfig
-from .frame import VideoStoreConfig
+from .controller import ControllerConfig
 
 
 class DataPipelineConfig(BaseModel):
@@ -38,11 +38,8 @@ class DataPipelineConfig(BaseModel):
         raw_pipeline: dict,
         *,
         gstate: GameStateConfig,
-        video_store_cfg: VideoStoreConfig,
-        frame_schema: TensorSchema,
-        frame_plan: Plan,
-        controller_schema: TensorSchema,
-        controller_plan: Plan,
+        frame: FrameConfig,
+        controller: ControllerConfig,
         training: TrainingConfig,
     ) -> Self:
         recording = RecordingConfig.model_validate(raw_pipeline["recording"]["files"])
@@ -50,14 +47,10 @@ class DataPipelineConfig(BaseModel):
         capture = cls._load_capture(raw_pipeline, game_state=gstate.memory_profile)
 
         process = cls._load_process(
-            raw_pipeline,
             recording=recording,
             gstate=gstate,
-            video_store_cfg=video_store_cfg,
-            frame_schema=frame_schema,
-            frame_plan=frame_plan,
-            controller_schema=controller_schema,
-            controller_plan=controller_plan,
+            frame=frame,
+            controller=controller,
             training=training,
         )
 
@@ -107,28 +100,24 @@ class DataPipelineConfig(BaseModel):
 
     @staticmethod
     def _load_process(
-        raw: dict,
         *,
         recording: RecordingConfig,
         gstate: GameStateConfig,
-        video_store_cfg: VideoStoreConfig,
-        frame_schema: TensorSchema,
-        frame_plan: Plan,
-        controller_schema: TensorSchema,
-        controller_plan: Plan,
+        frame: FrameConfig,
+        controller: ControllerConfig,
         training: TrainingConfig,
     ) -> ProcessConfig:
         return ProcessConfig(
             recording=recording,
             encoding_stores=gstate.encoding_stores,
             encoders=gstate.encoders,
-            video_store_cfg=video_store_cfg,
-            frame_schema=frame_schema,
-            frame_plan=frame_plan,
-            controller_schema=controller_schema,
-            controller_plan=controller_plan,
+            video_store_cfg=frame.video_store_cfg,
+            frame_schema=frame.tensor_frame_schema,
+            frame_transforms=frame.transforms,
+            controller_schema=controller.tensor_controller_schema,
+            controller_transforms=controller.transforms,
             game_state_schema=gstate.tensor_gstate_schema,
-            game_state_plan=gstate.plan,
+            game_state_transforms=gstate.transforms,
             sequence_length=training.hyperparameters.sequence_length,
             drop_incomplete=True,
         )

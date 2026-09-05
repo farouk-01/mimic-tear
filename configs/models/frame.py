@@ -4,9 +4,8 @@ from pydantic import BaseModel, ConfigDict
 from torchvision.models import ResNet18_Weights
 
 from data.models.tensor import TensorSchema
-from data.process.transforms.types.tensor import TransformNode
+from data.process.transforms.tensor import TensorTransform
 from data.process.stores.video import VideoStoreConfig
-from graph.base import Graph, Plan, Value
 
 from configs.transforms.frame import get_frame_transforms
 
@@ -21,7 +20,7 @@ class FrameConfig(BaseModel):
 
     video_store_cfg: VideoStoreConfig
     tensor_frame_schema: TensorSchema
-    plan: Plan
+    transforms: tuple[TensorTransform, ...] = ()
 
     @classmethod
     def load(
@@ -40,15 +39,12 @@ class FrameConfig(BaseModel):
             mean = tuple(presets.mean)
             std = tuple(presets.std)
 
-        graph = Graph()
-
         transforms = get_frame_transforms(**transform_cfg, mean=mean, std=std)
-
-        for transform in transforms:
-            graph.add(TransformNode(transform=transform))
-
-        plan = graph.resolve((graph.value("frames"),))
 
         video_cfg = VideoStoreConfig(**video_store_cfg)
 
-        return cls(video_store_cfg=video_cfg, tensor_frame_schema=schema, plan=plan)
+        return cls(
+            video_store_cfg=video_cfg,
+            tensor_frame_schema=schema,
+            transforms=transforms,
+        )

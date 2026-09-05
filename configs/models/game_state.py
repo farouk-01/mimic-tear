@@ -4,12 +4,11 @@ from typing import Self
 from pydantic import BaseModel, ConfigDict
 
 from data.models.tensor import TensorSchema
-from graph.base import Graph, Value, Plan
 
 from data.capture.memory import EldenRingMemoryProfile
 from data.process.encoders.encoder import EncoderConfig
 from data.process.stores.encoding import EncodingStoreConfig
-from data.process.transforms.types.tensor import TransformNode
+from data.process.transforms.tensor import TensorTransform
 from configs.transforms.game_state import GAME_STATE_TRANSFORMS
 
 
@@ -23,7 +22,7 @@ class GameStateConfig(BaseModel):
 
     memory_profile: EldenRingMemoryProfile
     tensor_gstate_schema: TensorSchema
-    plan: Plan
+    transforms: tuple[TensorTransform, ...] = ()
 
     encoding_stores: tuple[EncodingStoreConfig, ...] = ()
     encoders: tuple[EncoderConfig, ...] = ()
@@ -36,25 +35,10 @@ class GameStateConfig(BaseModel):
         tensor_gstate_schema: TensorSchema,
         encodings_path: Path,
     ) -> Self:
-        graph = Graph()
-
-        for transform in GAME_STATE_TRANSFORMS:
-            graph.add(TransformNode(transform=transform))
-
-        outputs = tuple(
-            graph.value(field.name)
-            for field in tensor_gstate_schema.fields
-            if field.is_model_input
-        )
-
-        plan = graph.resolve(outputs)
-
-        input_names = {value.name for value in plan.inputs}
-
         nominal_fields = [
             field
             for field in tensor_gstate_schema.fields
-            if field.name in input_names and field.kind == "nominal"
+            if field.is_model_input and field.kind == "nominal"
         ]
 
         grouped: dict[str, set[str]] = {}
@@ -81,7 +65,7 @@ class GameStateConfig(BaseModel):
         return cls(
             memory_profile=memory_profile,
             tensor_gstate_schema=tensor_gstate_schema,
-            plan=plan,
+            transforms=GAME_STATE_TRANSFORMS,
             encoding_stores=encoding_stores,
             encoders=encoders,
         )

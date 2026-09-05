@@ -1,4 +1,4 @@
-from data.process.transforms.types.tensor import Ratio, TensorTransform
+from data.process.transforms.tensor import Ratio, TensorTransform
 
 GAME_STATE_TRANSFORMS: tuple[TensorTransform, ...] = (
     Ratio(

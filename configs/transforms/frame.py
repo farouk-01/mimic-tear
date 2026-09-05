@@ -1,6 +1,6 @@
 from torch import float32
 
-from data.process.transforms.types.tensor import (
+from data.process.transforms.tensor import (
     Contiguous,
     TensorTransform,
     Resize,

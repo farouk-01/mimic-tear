@@ -38,40 +38,40 @@ enabled = true
 enabled = true
 
 [logging.profiling.profiles."SequenceDataset.__getitem__"]
-enabled = true
+enabled = false
 
 [logging.profiling.profiles."DataPipeline.prepare_recordings"]
-enabled = true
+enabled = false
 
 [logging.profiling.profiles."Process.process_sequence"]
-enabled = true
+enabled = false
 
 [logging.profiling.profiles."ParquetStore.get_range"]
-enabled = true
+enabled = false
 
 [logging.profiling.profiles."TensorDataset.get_range"]
-enabled = true
+enabled = false
 
 [logging.profiling.profiles."VideoStore.get_range"]
-enabled = true
+enabled = false
 
 [logging.profiling.profiles."LSTMPolicy.forward"]
-enabled = true
+enabled = false
 
 [logging.profiling.profiles."PolicyLoss.forward"]
-enabled = true
+enabled = false
 
 [logging.profiling.profiles."Vision.forward"]
-enabled = true
+enabled = false
 
 [logging.profiling.profiles."Temporal.forward"]
-enabled = true
+enabled = false
 
 [logging.profiling.profiles."GameState.forward"]
-enabled = true
+enabled = false
 
 [logging.profiling.profiles."Fusion.forward"]
-enabled = true
+enabled = false
 
 [logging.profiling.profiles."Controller.forward"]
-enabled = true
+enabled = false
