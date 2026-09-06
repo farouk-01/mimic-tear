@@ -30,9 +30,9 @@ class Profilable(ABC):
 class FunctionProfileConfig(BaseModel):
     model_config = ConfigDict(frozen=True, extra="forbid", strict=True)
 
-    enabled: bool = False
+    enabled: bool = True
 
-    timer: bool = False
+    timer: bool = True
     cuda_timer: bool = False
     cpu: bool = False
     ram: bool = False
@@ -150,13 +150,15 @@ class Profiler:
                 if not values:
                     continue
 
-                average = sum(values) / len(values)
+                total = sum(values)
+                average = total / len(values)
 
                 self.logger.debug(
-                    "%-26s | %-10s | %-8s | samples=%d",
+                    "%-26s | %-10s | %-8s | %-8s | samples=%d",
                     name,
                     metric_name,
                     f"avg={average:.2f}",
+                    f"total={total:.2f}",
                     len(values),
                 )
 
