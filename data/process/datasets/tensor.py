@@ -67,14 +67,11 @@ class TensorDataset(Dataset[TensorDict]):
         *,
         batch_size: list[int],
     ) -> TensorDict:
-        tensors = TensorDict(
-            {
-                name: self._materialize_column(name, column)
-                for name, column in table.items()
-            },
-            batch_size=batch_size,
-            # device="cuda",
-        )
+        source: dict[str, Tensor] = {}
+        for name, column in table.items():
+            source[name] = self._materialize_column(name, column)
+
+        tensors = TensorDict(source, batch_size=batch_size)
 
         for encoder in self.encoders:
             for field_name in encoder.fields:
@@ -82,12 +79,11 @@ class TensorDataset(Dataset[TensorDict]):
 
         for transform in self.transforms:
             inputs = tuple(tensors[name] for name in transform.inputs)
-            
+
             output_name = transform.output
             tensors[output_name] = transform(*inputs)
 
         self._validate_tensors(tensors)
-
         return tensors
 
     def _materialize_column(self, name: str, column: TensorColumn) -> Tensor:

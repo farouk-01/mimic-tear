@@ -4,10 +4,11 @@ from functools import cached_property
 from pathlib import Path
 
 from .capture import Capture, CaptureConfig
-from .process import Process, ProcessConfig, SequenceDataset
+from .process import Process, ProcessConfig, SequenceDataset, PresenceMask
 from .write import Writer, WriterConfig
 
 from utils import profile
+
 
 class DataPipeline:
     def __init__(
@@ -108,7 +109,9 @@ class DataPipeline:
 
         return path
 
-    def prepare_recordings(self, *, root: str | Path) -> Iterator[SequenceDataset]:
+    def prepare_recordings(
+        self, *, root: str | Path
+    ) -> Iterator[tuple[SequenceDataset, PresenceMask]]:
         root_path = Path(root).resolve()
 
         if not root_path.is_dir():
@@ -116,8 +119,10 @@ class DataPipeline:
 
         for metadata in sorted(root_path.rglob("metadata.json")):
             yield self.prepare_one_recording(source=metadata.parent)
-    
-    def prepare_one_recording(self, *, source: str | Path) -> SequenceDataset:
+
+    def prepare_one_recording(
+        self, *, source: str | Path
+    ) -> tuple[SequenceDataset, PresenceMask]:
         return self.processor.process_sequence(source=Path(source).resolve())
 
     def discover_encodings(self, *, root: str | Path) -> None:

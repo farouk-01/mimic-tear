@@ -3,6 +3,7 @@ from pathlib import Path
 from types import MappingProxyType
 
 from pydantic import BaseModel, ConfigDict
+import torch
 
 from data.models.gamepad import ANALOG_INPUTS, BUTTON_INPUTS
 from data.models.record import Recording, RecordingConfig
@@ -47,13 +48,18 @@ class ProcessConfig(BaseModel):
     drop_incomplete: bool = True
 
 
+type PresenceMask = dict[str, dict[str, torch.Tensor] | None]
+
+
 class Process:
     def __init__(self, *, config: ProcessConfig) -> None:
         self.config = config
         self.encoders = self._build_encoders()
 
     @profile
-    def process_sequence(self, source: str | Path) -> SequenceDataset:
+    def process_sequence(
+        self, source: str | Path
+    ) -> tuple[SequenceDataset, PresenceMask]:
         recording = Recording.from_directory(root=source, config=self.config.recording)
 
         frames = self._load_frames_dataset(
@@ -71,6 +77,12 @@ class Process:
             "controller": controller,
         }
 
+        presences: PresenceMask = {
+            "frames": None,
+            "controller": None,
+            "game_state": None,
+        }
+
         if recording.game_state is not None:
             gstate = self._load_game_state_dataset(
                 recording.game_state,
@@ -78,12 +90,20 @@ class Process:
             )
             datasets["game_state"] = gstate
 
+            presences["game_state"] = self._make_presence_mask(
+                schema=self.config.game_state_schema,
+                available_features=list(gstate.schema.feature_names),
+            )
+
         self._validate_recording_integrity(datasets)
 
-        return SequenceDataset(
-            datasets=datasets,
-            sequence_length=self.config.sequence_length,
-            drop_incomplete=self.config.drop_incomplete,
+        return (
+            SequenceDataset(
+                datasets=datasets,
+                sequence_length=self.config.sequence_length,
+                drop_incomplete=self.config.drop_incomplete,
+            ),
+            presences,
         )
 
     def discover_encodings(self, recording_root: str | Path) -> None:
@@ -199,6 +219,22 @@ class Process:
             encoders=self.encoders,
             transforms=tuple(valid_transforms),
         )
+
+    @staticmethod
+    def _make_presence_mask(
+        schema: TensorSchema,
+        available_features: list[str | tuple[str, ...]],
+    ) -> dict[str, torch.Tensor]:
+        features = schema.fields_by_name
+
+        presence: dict[str, torch.Tensor] = {}
+        for name, field in features.items():
+            if field.is_model_input:
+                is_available = name in available_features
+
+                presence[name] = torch.tensor(is_available, dtype=torch.bool)
+
+        return presence
 
     @staticmethod
     def _validate_recording_integrity(datasets: Mapping[str, TensorDataset]) -> None:
