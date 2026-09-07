@@ -18,8 +18,8 @@ class FrameConfig(BaseModel):
         arbitrary_types_allowed=True,
     )
 
-    video_store_cfg: VideoStoreConfig
-    tensor_frame_schema: TensorSchema
+    store_cfg: VideoStoreConfig
+    tensor_schema: TensorSchema
     transforms: tuple[TensorTransform, ...] = ()
 
     @classmethod
@@ -27,7 +27,7 @@ class FrameConfig(BaseModel):
         cls,
         *,
         schema: TensorSchema,
-        video_store_cfg: dict,
+        store_cfg: dict,
         transform_cfg: dict,
         weights_name: str | None,
     ) -> Self:
@@ -41,10 +41,10 @@ class FrameConfig(BaseModel):
 
         transforms = get_frame_transforms(**transform_cfg, mean=mean, std=std)
 
-        video_cfg = VideoStoreConfig(**video_store_cfg)
+        video_store_cfg = VideoStoreConfig(**store_cfg)
 
         return cls(
-            video_store_cfg=video_cfg,
-            tensor_frame_schema=schema,
+            store_cfg=video_store_cfg,
+            tensor_schema=schema,
             transforms=transforms,
         )

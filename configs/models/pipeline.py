@@ -10,7 +10,8 @@ from data.capture import (
 )
 from data.models.record import RecordingConfig
 from data.models.tensor import TensorSchema
-from data.process import ProcessConfig
+from data.process import ProcessConfig, DatasetSourceConfig
+from data.process.datasets.tensor import TensorDatasetConfig
 from data.process.transforms.tensor import TensorTransform
 from data.write import (
     ControllerWriterConfig,
@@ -46,11 +47,32 @@ class DataPipelineConfig(BaseModel):
 
         capture = cls._load_capture(raw_pipeline, game_state=gstate.memory_profile)
 
+        dataset_cfgs: list[DatasetSourceConfig] = []
+
+        for cfg, name in zip(
+            (gstate, frame, controller), ("game_state", "video", "controller")
+        ):
+            dataset_cfg = TensorDatasetConfig(
+                tensor_schema=cfg.tensor_schema,
+                transforms=cfg.transforms,
+            )
+
+            store_cfg = cfg.store_cfg
+            encoding_stores = getattr(cfg, "encoding_stores", ())
+            encoders = getattr(cfg, "encoders", ())
+
+            source_cfg = DatasetSourceConfig(
+                name=name,
+                dataset_cfg=dataset_cfg,
+                store_cfg=store_cfg,
+                encoding_stores=encoding_stores,
+                encoders=encoders,
+            )
+            dataset_cfgs.append(source_cfg)
+
         process = cls._load_process(
             recording=recording,
-            gstate=gstate,
-            frame=frame,
-            controller=controller,
+            datasets=tuple(dataset_cfgs),
             training=training,
         )
 
@@ -102,22 +124,12 @@ class DataPipelineConfig(BaseModel):
     def _load_process(
         *,
         recording: RecordingConfig,
-        gstate: GameStateConfig,
-        frame: FrameConfig,
-        controller: ControllerConfig,
+        datasets: tuple[DatasetSourceConfig, ...] = (),
         training: TrainingConfig,
     ) -> ProcessConfig:
         return ProcessConfig(
             recording=recording,
-            encoding_stores=gstate.encoding_stores,
-            encoders=gstate.encoders,
-            video_store_cfg=frame.video_store_cfg,
-            frame_schema=frame.tensor_frame_schema,
-            frame_transforms=frame.transforms,
-            controller_schema=controller.tensor_controller_schema,
-            controller_transforms=controller.transforms,
-            game_state_schema=gstate.tensor_gstate_schema,
-            game_state_transforms=gstate.transforms,
+            datasets=datasets,
             sequence_length=training.hyperparameters.sequence_length,
             drop_incomplete=True,
         )

@@ -49,7 +49,7 @@ class MimicTearConfig(BaseModel):
 
         gstate_cfg = GameStateConfig.load(
             memory_profile=memory_gstate_profile,
-            tensor_gstate_schema=tensor_gstate_schema,
+            tensor_schema=tensor_gstate_schema,
             encodings_path=enc_gstate_path,
         )
 
@@ -57,7 +57,7 @@ class MimicTearConfig(BaseModel):
 
         frame = FrameConfig.load(
             schema=schemas.tensor.frame(),
-            video_store_cfg=cfg["data"]["stores"]["frames"],
+            store_cfg=cfg["data"]["stores"]["frames"],
             transform_cfg=cfg["data"]["transforms"]["frames"],
             weights_name=cfg["model"]["vision"]["weights_name"],
         )
@@ -91,7 +91,7 @@ class MimicTearConfig(BaseModel):
     ) -> ModelConfig:
         return ModelConfig.load(
             self.raw_cfg["model"],
-            gstate_schema=self.gstate.tensor_gstate_schema,
+            gstate_schema=self.gstate.tensor_schema,
             encoding_cardinalities=encoding_cardinalities,
         )
 
