@@ -97,10 +97,14 @@ class TensorDataset(Dataset[TensorDict]):
                 tensors[field_name] = encoder.encode(tensors[field_name])
 
         for transform in self.transforms:
-            inputs = tuple(tensors[name] for name in transform.inputs)
+            required_inputs = transform.inputs
+            is_available = (name in self.available_features for name in required_inputs)
+            
+            if all(is_available):
+                inputs = tuple(tensors[name] for name in transform.inputs)
 
-            output_name = transform.output
-            tensors[output_name] = transform(*inputs)
+                output_name = transform.output
+                tensors[output_name] = transform(*inputs)
 
         self._validate_tensors(tensors)
         return tensors
