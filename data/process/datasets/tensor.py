@@ -69,6 +69,17 @@ class TensorDataset(Dataset[TensorDict]):
                 tensor = self._materialize_column(field_name, col)
                 encoder.discover(tensor)
 
+    @property
+    def available_features(self) -> set[str]:
+        available = set(self.store.feature_names)
+
+        for transform in self.transforms:
+            # if all inputs are available 
+            if all(name in available for name in transform.inputs):
+                available.add(transform.output)
+
+        return available
+
     def _process_table(
         self,
         table: TensorTable,
@@ -96,7 +107,7 @@ class TensorDataset(Dataset[TensorDict]):
 
     def _materialize_column(self, name: str, column: TensorColumn) -> Tensor:
         field = self.schema.get_field(name)
-        dtype = TORCH_DTYPES[field.dtype]
+        dtype = field.torch_dtype
 
         values = column.values.to(dtype)
         if column.validity is None:
@@ -112,24 +123,33 @@ class TensorDataset(Dataset[TensorDict]):
         )
 
     def _validate_tensors(self, tensors: TensorDict) -> None:
-        expected = {field.name for field in self.schema.fields}
-
+        expected = self.available_features
         actual = set(tensors.keys())
 
         missing = expected - actual
         if missing:
             raise ValueError(f"Missing features: {sorted(missing)}")
 
-        unexpected = actual - expected
+        unexpected = actual - set(self.schema.feature_names)
         if unexpected:
             raise ValueError(f"Unexpected features: {sorted(unexpected)}")
 
-        for field in self.schema.fields:
-            tensor = tensors[field.name]
-            expected_dtype = TORCH_DTYPES[field.dtype]
+        fields = self.schema.fields_by_name
+
+        for name in actual:
+            if not isinstance(name, str):
+                raise ValueError(
+                    f"Expected feature name to be a string, got {type(name)}. \n"
+                    f"Note: TensorDict supports tuple[str, ...] keys for nested tensors"
+                    f" but this is not supported in TensorSchema."
+                )
+
+            field = fields[name]
+            tensor = tensors[name]
+            expected_dtype = field.torch_dtype
 
             if tensor.dtype != expected_dtype:
                 raise TypeError(
-                    f"Feature '{field.name}' has dtype {tensor.dtype}, "
+                    f"Feature '{name}' has dtype {tensor.dtype}, "
                     f"expected {expected_dtype}"
                 )

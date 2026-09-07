@@ -74,6 +74,10 @@ class TensorField(Field[TensorType]):
 
         return self
 
+    @property
+    def torch_dtype(self) -> torch.dtype:
+        return TORCH_DTYPES[self.dtype]
+
 
 class TensorSchema(Schema[TensorField]):
     pass
