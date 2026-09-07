@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from collections.abc import Sequence
+from collections.abc import Collection, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -39,6 +39,10 @@ class Store[Row](ABC):
 
     @abstractmethod
     def get_range(self, start: int, end: int) -> Row: ...
+
+    @property
+    @abstractmethod
+    def feature_names(self) -> Collection[str]: ...
 
     @property
     @abstractmethod

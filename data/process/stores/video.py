@@ -1,6 +1,6 @@
 from pathlib import Path
 from typing import Literal
-from collections.abc import Sequence
+from collections.abc import Sequence, Collection
 
 import torch
 from torchcodec.decoders import (
@@ -58,6 +58,10 @@ class VideoStore(Store[Tensor]):
     @profile
     def get_range(self, start: int, end: int) -> Tensor:
         return self.frames.get_frames_in_range(start=start, stop=end).data
+
+    @property
+    def feature_names(self) -> Collection[str]:
+        return ("frames",)
 
     @property
     def frame_indices(self) -> Sequence[int]:

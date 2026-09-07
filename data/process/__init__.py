@@ -141,7 +141,7 @@ class Process:
 
         mask = self._make_presence_mask(
             schema=dataset.schema,
-            available_features=list(dataset.schema.feature_names),
+            available_features=list(dataset.store.feature_names),
         )
 
         return dataset, mask

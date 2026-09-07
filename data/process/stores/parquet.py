@@ -1,5 +1,5 @@
 from pathlib import Path
-from collections.abc import Sequence
+from collections.abc import Sequence, Collection
 
 import pyarrow.parquet as pq
 import pyarrow as pa
@@ -71,7 +71,7 @@ class ParquetStore(Store[pa.Table]):
         return self._frame_indices
 
     @property
-    def columns(self) -> tuple[str, ...]:
+    def feature_names(self) -> Collection[str]:
         return self._columns
 
     @property
