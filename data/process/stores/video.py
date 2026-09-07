@@ -32,16 +32,16 @@ class VideoStoreConfig(StoreConfig):
 class VideoStore(Store[Tensor]):
     def __init__(
         self,
+        source: str | Path,
         *,
-        path: str | Path,
         device: str | torch.device,
         dimension_order: Literal["NCHW", "NHWC"] = "NCHW",
         seek_mode: Literal["exact", "approximate"] = "exact",
         num_ffmpeg_threads: int = 1,
     ) -> None:
-        super().__init__(source=path)
+        super().__init__(source=source)
         self.frames = VideoDecoder(
-            source=path,
+            source=source,
             dimension_order=dimension_order,
             seek_mode=seek_mode,
             device=device,

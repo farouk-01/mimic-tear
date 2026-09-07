@@ -24,6 +24,12 @@ DEFAULT_SAMPLE_COLUMNS = SampleColumns(
 class StoreConfig(BaseModel):
     model_config = ConfigDict(frozen=True, extra="forbid", strict=True)
 
+    def kwargs(self) -> dict[str, object]:
+        return {
+            name: getattr(self, name)
+            for name in type(self).model_fields
+        }
+
 
 class Store[Row](ABC):
     source: Path

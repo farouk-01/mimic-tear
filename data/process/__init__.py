@@ -130,7 +130,7 @@ class Process:
         suffix = source.suffix.lower()
 
         store_cls = FILE_STORES.resolve(suffix)
-        store = store_cls(source=source, **store_cfg.model_dump())
+        store = store_cls(source=source, **store_cfg.kwargs())
 
         dataset = TensorDataset(
             store=store,

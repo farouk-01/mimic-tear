@@ -29,12 +29,12 @@ class ParquetStoreConfig(StoreConfig):
 class ParquetStore(Store[pa.Table]):
     def __init__(
         self,
-        path: str | Path,
+        source: str | Path,
         *,
         columns: Sequence[str],
         sample_columns: SampleColumns = DEFAULT_SAMPLE_COLUMNS,
     ) -> None:
-        super().__init__(source=path)
+        super().__init__(source=source)
 
         if not self.source.is_file():
             raise FileNotFoundError(f"Parquet file does not exist: {self.source}")
