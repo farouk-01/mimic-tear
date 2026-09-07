@@ -1,7 +1,9 @@
 from abc import ABC, abstractmethod
 from collections.abc import Sequence
 from dataclasses import dataclass
+from pathlib import Path
 
+from pydantic import BaseModel, ConfigDict
 from torch import Tensor
 
 from utils.registries import Registry
@@ -19,7 +21,16 @@ DEFAULT_SAMPLE_COLUMNS = SampleColumns(
 )
 
 
+class StoreConfig(BaseModel):
+    model_config = ConfigDict(frozen=True, extra="forbid", strict=True)
+
+
 class Store[Row](ABC):
+    source: Path
+
+    def __init__(self, *, source: str | Path) -> None:
+        self.source = Path(source)
+
     @abstractmethod
     def __len__(self) -> int: ...
 
@@ -55,4 +66,5 @@ class StoreAdapter[Row](ABC):
     ) -> TensorTable: ...
 
 
+FILE_STORES = Registry[str, type[Store]]()
 STORE_ADAPTERS = Registry[type[Store], type[StoreAdapter]]()

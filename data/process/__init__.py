@@ -1,21 +1,19 @@
-from collections.abc import Mapping, Sequence
+from collections.abc import Mapping, Collection
 from pathlib import Path
 from types import MappingProxyType
 
 from pydantic import BaseModel, ConfigDict
 import torch
 
-from data.models.gamepad import ANALOG_INPUTS, BUTTON_INPUTS
-from data.models.record import Recording, RecordingConfig
+from data.models.record import Recording, RecordingConfig, RecordingName
 from data.models.tensor import TensorSchema
-from data.process.transforms.tensor import TensorTransform
+from data.process.transforms import TensorTransform
 
-from .datasets.tensor import TensorDataset
+from .datasets.tensor import TensorDataset, TensorDatasetConfig
 from .encoders.encoder import Encoder, EncoderConfig
 from .sequence import SequenceDataset
 from .stores.encoding import EncodingStore, EncodingStoreConfig
-from .stores.parquet import ParquetStore
-from .stores.video import VideoStore, VideoStoreConfig
+from .stores.base import FILE_STORES, StoreConfig
 
 from utils import profile
 
@@ -26,23 +24,23 @@ __all__ = [
 ]
 
 
+class DatasetSourceConfig(BaseModel):
+    model_config = ConfigDict(frozen=True, extra="forbid", strict=True)
+
+    name: RecordingName
+    store_cfg: StoreConfig
+    dataset_cfg: TensorDatasetConfig
+
+    encoding_stores: tuple[EncodingStoreConfig, ...] = ()
+    encoders: tuple[EncoderConfig, ...] = ()
+
+
 class ProcessConfig(BaseModel):
     model_config = ConfigDict(frozen=True, extra="forbid", strict=True)
 
     recording: RecordingConfig
 
-    encoding_stores: tuple[EncodingStoreConfig, ...] = ()
-    encoders: tuple[EncoderConfig, ...] = ()
-
-    video_store_cfg: VideoStoreConfig
-    frame_schema: TensorSchema
-    frame_transforms: tuple[TensorTransform, ...] = ()
-
-    controller_schema: TensorSchema
-    controller_transforms: tuple[TensorTransform, ...] = ()
-
-    game_state_schema: TensorSchema
-    game_state_transforms: tuple[TensorTransform, ...] = ()
+    datasets: tuple[DatasetSourceConfig, ...] = ()
 
     sequence_length: int
     drop_incomplete: bool = True
@@ -54,7 +52,7 @@ type PresenceMask = dict[str, dict[str, torch.Tensor] | None]
 class Process:
     def __init__(self, *, config: ProcessConfig) -> None:
         self.config = config
-        self.encoders = self._build_encoders()
+        self.encoders: dict[RecordingName, tuple[Encoder, ...]] = self._build_encoders()
 
     @profile
     def process_sequence(
@@ -62,38 +60,7 @@ class Process:
     ) -> tuple[SequenceDataset, PresenceMask]:
         recording = Recording.from_directory(root=source, config=self.config.recording)
 
-        frames = self._load_frames_dataset(
-            source=recording.video,
-            cfg=self.config.video_store_cfg,
-            transforms=self.config.frame_transforms,
-        )
-        controller = self._load_controller_dataset(
-            recording.controller,
-            transforms=self.config.controller_transforms,
-        )
-
-        datasets: dict[str, TensorDataset] = {
-            "frames": frames,
-            "controller": controller,
-        }
-
-        presences: PresenceMask = {
-            "frames": None,
-            "controller": None,
-            "game_state": None,
-        }
-
-        if recording.game_state is not None:
-            gstate = self._load_game_state_dataset(
-                recording.game_state,
-                transforms=self.config.game_state_transforms,
-            )
-            datasets["game_state"] = gstate
-
-            presences["game_state"] = self._make_presence_mask(
-                schema=self.config.game_state_schema,
-                available_features=list(gstate.schema.feature_names),
-            )
+        datasets, presences = self._load_datasets(recording)
 
         self._validate_recording_integrity(datasets)
 
@@ -112,118 +79,77 @@ class Process:
             config=self.config.recording,
         )
 
-        if recording.game_state is None:
-            return
+        datasets, _ = self._load_datasets(recording)
 
-        self._load_game_state_dataset(recording.game_state).discover_encodings()
+        for dataset in datasets.values():
+            dataset.discover_encodings()
 
     @property
     def encoding_cardinalities(self) -> Mapping[str, int]:
-        return MappingProxyType(
-            {
-                field_name: encoder.cardinality
-                for encoder in self.encoders
-                for field_name in encoder.fields
+        result: dict[str, int] = {}
+
+        for encoders in self.encoders.values():
+            for encoder in encoders:
+                for name in encoder.fields:
+                    result[name] = encoder.cardinality
+
+        return MappingProxyType(result)
+
+    def _build_encoders(
+        self,
+    ) -> dict[RecordingName, tuple[Encoder, ...]]:
+        result: dict[RecordingName, tuple[Encoder, ...]] = {}
+
+        for dataset_cfg in self.config.datasets:
+            stores = {
+                cfg.encoding: EncodingStore(path=cfg.path)
+                for cfg in dataset_cfg.encoding_stores
             }
-        )
 
-    def _build_encoders(self) -> tuple[Encoder, ...]:
-        stores = {
-            config.encoding: EncodingStore(path=config.path)
-            for config in self.config.encoding_stores
-        }
-
-        return tuple(
-            Encoder(
-                fields=config.fields,
-                get_encodings=stores[config.encoding].load,
-                append_encoding=stores[config.encoding].append,
-            )
-            for config in self.config.encoders
-        )
-
-    def _load_frames_dataset(
-        self,
-        source: str | Path,
-        *,
-        cfg: VideoStoreConfig,
-        transforms: tuple[TensorTransform, ...] = (),
-    ) -> TensorDataset:
-        store = VideoStore(path=source, **cfg.model_dump())
-
-        return TensorDataset(
-            store=store,
-            schema=self.config.frame_schema,
-            transforms=transforms,
-        )
-
-    def _load_controller_dataset(
-        self,
-        source: str | Path,
-        *,
-        transforms: tuple[TensorTransform, ...] = (),
-    ) -> TensorDataset:
-        store = ParquetStore(path=source, columns=(*ANALOG_INPUTS, *BUTTON_INPUTS))
-
-        return TensorDataset(
-            store=store,
-            schema=self.config.controller_schema,
-            transforms=transforms,
-        )
-
-    def _load_game_state_dataset(
-        self,
-        source: str | Path,
-        *,
-        transforms: tuple[TensorTransform, ...] = (),
-    ) -> TensorDataset:
-        schema = self.config.game_state_schema
-        fields = schema.fields_by_name
-
-        available = {name for name, field in fields.items() if not field.is_derived}
-
-        valid_transforms: list[TensorTransform] = []
-
-        for t in transforms:
-            if t.output not in fields:
-                continue
-
-            missing_inputs = set(t.inputs) - available
-            if missing_inputs:
-                raise ValueError(
-                    f"Transform '{t}' has missing inputs: {missing_inputs}"
+            result[dataset_cfg.name] = tuple(
+                Encoder(
+                    fields=cfg.fields,
+                    get_encodings=stores[cfg.encoding].load,
+                    append_encoding=stores[cfg.encoding].append,
                 )
+                for cfg in dataset_cfg.encoders
+            )
 
-            valid_transforms.append(t)
-            available.add(t.output)
+        return result
 
-        cols = {
-            name
-            for name, field in fields.items()
-            if field.is_model_input and not field.is_derived
-        }
+    def _load_one_dataset(
+        self,
+        source: str | Path,
+        *,
+        schema: TensorSchema,
+        store_cfg: StoreConfig,
+        encoders: tuple[Encoder, ...] = (),
+        transforms: tuple[TensorTransform, ...] = (),
+    ) -> tuple[TensorDataset, dict[str, torch.Tensor] | None]:
+        source = Path(source)
+        suffix = source.suffix.lower()
 
-        for t in valid_transforms:
-            for name in t.inputs:
-                if name not in fields:
-                    continue
+        store_cls = FILE_STORES.resolve(suffix)
+        store = store_cls(source=source, **store_cfg.model_dump())
 
-                if not fields[name].is_derived:
-                    cols.add(name)
-
-        store = ParquetStore(path=source, columns=tuple(sorted(cols)))
-
-        return TensorDataset(
+        dataset = TensorDataset(
             store=store,
-            schema=self.config.game_state_schema,
-            encoders=self.encoders,
-            transforms=tuple(valid_transforms),
+            tensor_schema=schema,
+            encoders=encoders,
+            transforms=transforms,
         )
+
+        mask = self._make_presence_mask(
+            schema=dataset.schema,
+            available_features=list(dataset.schema.feature_names),
+        )
+
+        return dataset, mask
 
     @staticmethod
     def _make_presence_mask(
         schema: TensorSchema,
-        available_features: list[str | tuple[str, ...]],
+        available_features: Collection[str],
     ) -> dict[str, torch.Tensor]:
         features = schema.fields_by_name
 
@@ -236,29 +162,47 @@ class Process:
 
         return presence
 
+    def _load_datasets(
+        self,
+        recording: Recording,
+    ) -> tuple[dict[str, TensorDataset], PresenceMask]:
+        datasets: dict[str, TensorDataset] = {}
+        presences: PresenceMask = {}
+
+        for cfg in self.config.datasets:
+            name = cfg.name
+            source = getattr(recording, name)
+
+            if source is None:
+                presences[name] = None
+                continue
+
+            dataset, presence_mask = self._load_one_dataset(
+                source=source,
+                schema=cfg.dataset_cfg.tensor_schema,
+                store_cfg=cfg.store_cfg,
+                encoders=self.encoders[name],
+                transforms=cfg.dataset_cfg.transforms,
+            )
+
+            datasets[name] = dataset
+            presences[name] = presence_mask
+
+        return datasets, presences
+
     @staticmethod
     def _validate_recording_integrity(datasets: Mapping[str, TensorDataset]) -> None:
-        controller = datasets["controller"]
-        frames = datasets["frames"]
+        if not datasets:
+            return
 
-        if len(controller) != len(frames):
-            raise ValueError(
-                f"Controller and frames datasets have different lengths: "
-                f"{len(controller)} != {len(frames)}"
-            )
+        iterator = iter(datasets.items())
+        ref_name, ref_dataset = next(iterator)
+        ref_indices = tuple(ref_dataset.store.frame_indices)
 
-        frame_indices = tuple(frames.store.frame_indices)
+        for name, dataset in iterator:
+            indices = tuple(dataset.store.frame_indices)
 
-        if tuple(controller.store.frame_indices) != frame_indices:
-            raise ValueError(
-                "Controller and frames datasets have different frame indices"
-            )
-
-        if "game_state" in datasets:
-            gstate_indices = set(datasets["game_state"].store.frame_indices)
-            frame_indices = set(frame_indices)
-
-            if not gstate_indices <= frame_indices:
+            if indices != ref_indices:
                 raise ValueError(
-                    "Game state contains frame indices that do not exist in frames"
+                    f"Dataset '{name}' has different frame indices from dataset '{ref_name}'"
                 )

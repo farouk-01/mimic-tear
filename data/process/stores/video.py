@@ -12,22 +12,23 @@ from pydantic import BaseModel, ConfigDict
 from data.process.stores.base import (
     STORE_ADAPTERS,
     Store,
+    StoreConfig,
     StoreAdapter,
     TensorColumn,
     TensorTable,
+    FILE_STORES,
 )
 from utils import profile
 
 
-class VideoStoreConfig(BaseModel):
-    model_config = ConfigDict(frozen=True, extra="forbid", strict=True)
-
+class VideoStoreConfig(StoreConfig):
     device: str
     dimension_order: Literal["NCHW", "NHWC"] = "NCHW"
     seek_mode: Literal["exact", "approximate"] = "exact"
     num_ffmpeg_threads: int = 1
 
 
+@FILE_STORES.register(".mp4")
 class VideoStore(Store[Tensor]):
     def __init__(
         self,
@@ -38,6 +39,7 @@ class VideoStore(Store[Tensor]):
         seek_mode: Literal["exact", "approximate"] = "exact",
         num_ffmpeg_threads: int = 1,
     ) -> None:
+        super().__init__(source=path)
         self.frames = VideoDecoder(
             source=path,
             dimension_order=dimension_order,

@@ -2,6 +2,7 @@ from torch import Tensor
 import torch
 from torch.utils.data import Dataset
 from tensordict import TensorDict
+from pydantic import BaseModel, ConfigDict
 
 from data.models.tensor import TORCH_DTYPES, TensorSchema
 from data.process.stores.base import Store, STORE_ADAPTERS, TensorColumn, TensorTable
@@ -11,12 +12,19 @@ from data.process.encoders.encoder import Encoder, TensorEncoder
 from utils import profile
 
 
+class TensorDatasetConfig(BaseModel):
+    model_config = ConfigDict(frozen=True, extra="forbid", strict=True)
+
+    tensor_schema: TensorSchema
+    transforms: tuple[TensorTransform, ...] = ()
+
+
 class TensorDataset(Dataset[TensorDict]):
     def __init__(
         self,
-        *,
         store: Store,
-        schema: TensorSchema,
+        *,
+        tensor_schema: TensorSchema,
         encoders: tuple[Encoder, ...] = (),
         transforms: tuple[TensorTransform, ...] = (),
     ) -> None:
@@ -24,7 +32,7 @@ class TensorDataset(Dataset[TensorDict]):
             raise ValueError("Store cannot be empty")
 
         self.store = store
-        self.schema = schema
+        self.schema = tensor_schema
         self.transforms = transforms
 
         self.encoders = tuple(TensorEncoder(encoder) for encoder in encoders)

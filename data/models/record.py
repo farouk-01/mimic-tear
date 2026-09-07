@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
-
+from typing import Literal
 
 from dataclasses import dataclass
 from pathlib import Path
@@ -16,6 +16,9 @@ class RecordingConfig(BaseModel):
     controller_file: str
     game_state_file: str
     metadata_file: str
+
+
+type RecordingName = Literal["video", "controller", "game_state", "metadata"]
 
 @dataclass(frozen=True, slots=True)
 class Recording:

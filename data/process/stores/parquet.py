@@ -10,14 +10,22 @@ from data.process.stores.base import (
     SampleColumns,
     DEFAULT_SAMPLE_COLUMNS,
     StoreAdapter,
+    StoreConfig,
     TensorColumn,
     TensorTable,
     STORE_ADAPTERS,
+    FILE_STORES,
 )
 from data.process.stores.validations import normalize_index, normalize_range
 from utils import profile
 
 
+class ParquetStoreConfig(StoreConfig):
+    columns: Sequence[str]
+    sample_columns: SampleColumns = DEFAULT_SAMPLE_COLUMNS
+
+
+@FILE_STORES.register(".parquet")
 class ParquetStore(Store[pa.Table]):
     def __init__(
         self,
@@ -26,10 +34,10 @@ class ParquetStore(Store[pa.Table]):
         columns: Sequence[str],
         sample_columns: SampleColumns = DEFAULT_SAMPLE_COLUMNS,
     ) -> None:
-        self.path = Path(path)
+        super().__init__(source=path)
 
-        if not self.path.is_file():
-            raise FileNotFoundError(f"Parquet file does not exist: {self.path}")
+        if not self.source.is_file():
+            raise FileNotFoundError(f"Parquet file does not exist: {self.source}")
 
         self._columns = tuple(columns)
 
@@ -40,7 +48,7 @@ class ParquetStore(Store[pa.Table]):
             raise ValueError("Sample columns cannot also be payload columns")
 
         table = pq.read_table(
-            self.path,
+            self.source,
             columns=[frame_index, capture_timestamp_ns, *self._columns],
         )
 
