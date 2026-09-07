@@ -1,6 +1,7 @@
 from collections.abc import Mapping, Collection
 from pathlib import Path
 from types import MappingProxyType
+from dataclasses import dataclass
 
 from pydantic import BaseModel, ConfigDict
 import torch
@@ -46,7 +47,20 @@ class ProcessConfig(BaseModel):
     drop_incomplete: bool = True
 
 
-type PresenceMask = dict[str, dict[str, torch.Tensor] | None]
+type PresenceMask = dict[str, torch.Tensor]
+type PresenceMasks = dict[RecordingName, PresenceMask | None]
+
+type EncodingCardinalities = Mapping[str, int]
+type EncodingCardinalitiesByDataset = Mapping[
+    str,
+    EncodingCardinalities,
+]
+
+
+@dataclass(frozen=True, slots=True)
+class ProcessedRecording:
+    dataset: SequenceDataset
+    presence: PresenceMasks
 
 
 class Process:
@@ -55,16 +69,14 @@ class Process:
         self.encoders: dict[RecordingName, tuple[Encoder, ...]] = self._build_encoders()
 
     @profile
-    def process_sequence(
-        self, source: str | Path
-    ) -> tuple[SequenceDataset, PresenceMask]:
+    def process_sequence(self, source: str | Path) -> ProcessedRecording:
         recording = Recording.from_directory(root=source, config=self.config.recording)
 
         datasets, presences = self._load_datasets(recording)
 
         self._validate_recording_integrity(datasets)
 
-        return (
+        return ProcessedRecording(
             SequenceDataset(
                 datasets=datasets,
                 sequence_length=self.config.sequence_length,
@@ -79,19 +91,23 @@ class Process:
             config=self.config.recording,
         )
 
-        datasets, _ = self._load_datasets(recording)
+        datasets, *_ = self._load_datasets(recording)
 
         for dataset in datasets.values():
             dataset.discover_encodings()
 
     @property
-    def encoding_cardinalities(self) -> Mapping[str, int]:
-        result: dict[str, int] = {}
+    def encoding_cardinalities(self) -> EncodingCardinalitiesByDataset:
+        result: dict[str, Mapping[str, int]] = {}
 
-        for encoders in self.encoders.values():
+        for dataset_name, encoders in self.encoders.items():
+            cardinalities: dict[str, int] = {}
+
             for encoder in encoders:
-                for name in encoder.fields:
-                    result[name] = encoder.cardinality
+                for field_name in encoder.fields:
+                    cardinalities[field_name] = encoder.cardinality
+
+            result[dataset_name] = MappingProxyType(cardinalities)
 
         return MappingProxyType(result)
 
@@ -167,9 +183,9 @@ class Process:
     def _load_datasets(
         self,
         recording: Recording,
-    ) -> tuple[dict[str, TensorDataset], PresenceMask]:
+    ) -> tuple[dict[str, TensorDataset], PresenceMasks]:
         datasets: dict[str, TensorDataset] = {}
-        presences: PresenceMask = {}
+        presences: PresenceMasks = {}
 
         for cfg in self.config.datasets:
             name = cfg.name
