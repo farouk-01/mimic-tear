@@ -6,9 +6,9 @@ from pydantic import BaseModel, ConfigDict, Field
 from mimic_tear.model import LSTMPolicyConfig
 from mimic_tear.model.components.controller import ControllerConfig
 from mimic_tear.model.components.fusions import VectorFusionConfig
-from mimic_tear.model.components.game_state import (
-    GameStateConfig,
-    GameStateFieldConfig,
+from mimic_tear.model.components.structured_data import (
+    StructuredDataConfig,
+    StructuredDataFieldConfig,
     GameStateFieldKind,
 )
 from mimic_tear.model.components.temporal import TemporalConfig
@@ -33,7 +33,7 @@ class ModelConfig(BaseModel):
 
     vision: VisionConfig
     temporal: TemporalConfig
-    game_state: GameStateConfig
+    game_state: StructuredDataConfig
     fusion: VectorFusionConfig
     controller: ControllerConfig
 
@@ -53,7 +53,7 @@ class ModelConfig(BaseModel):
         raw_model: dict,
         *,
         gstate_schema: TensorSchema,
-        encoding_cardinalities: Mapping[str, int],
+        encoding_cardinalities: Mapping[str, Mapping[str, int]],
     ) -> Self:
         vision = VisionConfig.model_validate(raw_model["vision"])
 
@@ -61,7 +61,7 @@ class ModelConfig(BaseModel):
             {**raw_model["temporal"], "input_features": vision.output_features}
         )
 
-        fields: list[GameStateFieldConfig] = []
+        fields: list[StructuredDataFieldConfig] = []
         for field in gstate_schema.fields:
             if not field.is_model_input:
                 continue
@@ -69,14 +69,14 @@ class ModelConfig(BaseModel):
             kind = MODEL_FIELD_KINDS[field.kind]
 
             # later this might change to keyed by kind
-            cardinality = encoding_cardinalities.get(field.name, None)
+            cardinality = encoding_cardinalities.get("game_state", {}).get(field.name, None)
             if kind == "categorical" and cardinality is None:
                 raise ValueError(
                     f"Missing encoding cardinality for categorical field {field.name}"
                 )
 
             fields.append(
-                GameStateFieldConfig(
+                StructuredDataFieldConfig(
                     name=field.name,
                     kind=kind,
                     cardinality=cardinality,
@@ -84,11 +84,12 @@ class ModelConfig(BaseModel):
             )
 
         d_model = raw_model["d_model"]
-        game_state = GameStateConfig(fields=tuple(fields), d_model=d_model)
+        game_state = StructuredDataConfig(fields=tuple(fields), d_model=d_model)
 
+        gstate_size = len(fields) * d_model
         fusion = VectorFusionConfig.model_validate(
             {
-                "input_features": (temporal.hidden_features, d_model),
+                "input_features": (temporal.hidden_features, gstate_size),
                 **raw_model["fusion"],
             }
         )

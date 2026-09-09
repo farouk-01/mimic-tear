@@ -212,6 +212,7 @@ class MimicTear:
                     gamepad=gamepad,
                     device=self.device,
                     button_threshold=self.hyperparams.button_threshold,
+                    analog_gain=self.hyperparams.analog_gain,
                 )
 
                 player.run(stop_event=stop_event)

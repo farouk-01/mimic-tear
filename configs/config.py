@@ -87,7 +87,7 @@ class MimicTearConfig(BaseModel):
     def load_model_config(
         self,
         *,
-        encoding_cardinalities: Mapping[str, int],
+        encoding_cardinalities: Mapping[str, Mapping[str, int]],
     ) -> ModelConfig:
         return ModelConfig.load(
             self.raw_cfg["model"],
