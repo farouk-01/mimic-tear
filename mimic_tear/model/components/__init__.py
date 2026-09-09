@@ -3,7 +3,7 @@ from mimic_tear.model.components.controller import (
     ControllerOutput,
     ControllerConfig,
 )
-from mimic_tear.model.components.game_state import GameState, GameStateConfig
+from mimic_tear.model.components.game_state import StructuredData, StructuredDataConfig
 from mimic_tear.model.components.temporal import LSTMState, Temporal, TemporalConfig
 from mimic_tear.model.components.vision import Vision, VisionConfig
 from mimic_tear.model.components.fusions import (
@@ -16,12 +16,12 @@ from mimic_tear.model.components.fusions import (
 __all__ = [
     "Controller",
     "ControllerOutput",
-    "GameState",
+    "StructuredData",
     "LSTMState",
     "Temporal",
     "Vision",
     "ControllerConfig",
-    "GameStateConfig",
+    "StructuredDataConfig",
     "TemporalConfig",
     "VisionConfig",
     "VectorFusion",

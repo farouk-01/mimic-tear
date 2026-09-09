@@ -9,7 +9,7 @@ from tensordict import TensorDict
 from torch.nn.utils import clip_grad_norm_
 from torch.utils.data import DataLoader
 
-from data.process import SequenceDataset
+from data.process import ProcessedRecording, SequenceDataset, PresenceMask
 from data.models.gamepad import get_inputs_names_classified
 from mimic_tear.model.loss import PolicyLoss
 from mimic_tear.model.policy import LSTMPolicy
@@ -109,36 +109,35 @@ class Trainer:
         )
 
     @profile
-    def train_epoch(self, recordings: Iterable[SequenceDataset]) -> EpochMetrics:
+    def train_epoch(self, recordings: Iterable[ProcessedRecording]) -> EpochMetrics:
         self.model.train()
         metrics = EpochMetrics()
 
         for recording in recordings:
             state = None
 
-            for sample in self._loader(recording):
+            dataset = recording.dataset
+            presence_mask = recording.presence
+
+            for sample in self._loader(dataset):
                 batch = Sampler.prepare(sample).to(self.device, non_blocking=True)
 
-                frames: TensorDict = batch.get("frames")
-                controller: TensorDict = batch.get("controller")
-
-                images = frames.get("frames")
+                images: TensorDict = batch["video", "frames"]
 
                 analogs, buttons = get_inputs_names_classified()
-
                 analogs = torch.stack(
-                    [controller.get(name) for name in analogs],
+                    [batch["controller", name] for name in analogs],
                     dim=-1,
                 )
                 buttons = torch.stack(
-                    [controller.get(name) for name in buttons],
+                    [batch["controller", name] for name in buttons],
                     dim=-1,
                 )
 
-                game_state = batch.get("game_state") if "game_state" in batch else None
+                game_state = batch.get("game_state")
 
                 self.optimizer.zero_grad(set_to_none=True)
-                
+
                 with torch.autocast(
                     device_type=self.device.type,
                     dtype=torch.float16,
@@ -146,7 +145,8 @@ class Trainer:
                 ):
                     output, next_state = self.model(
                         images,
-                        game_state=game_state,
+                        structured_data=game_state,
+                        presence_mask=presence_mask["game_state"],
                         state=state,
                     )
 
@@ -178,19 +178,21 @@ class Trainer:
         return metrics.average()
 
     @profile
-    def validate(self, recordings: Iterable[SequenceDataset]) -> EpochMetrics:
+    def validate(self, recordings: Iterable[ProcessedRecording]) -> EpochMetrics:
         self.model.eval()
-
         metrics = EpochMetrics()
 
         with torch.no_grad():
             for recording in recordings:
                 state = None
 
-                for sample in self._loader(recording):
+                dataset = recording.dataset
+                presence_mask = recording.presence
+
+                for sample in self._loader(dataset):
                     batch = Sampler.prepare(sample).to(self.device, non_blocking=True)
 
-                    frames: TensorDict = batch.get("frames")
+                    frames: TensorDict = batch.get("video")
                     controller: TensorDict = batch.get("controller")
 
                     images = frames.get("frames")
@@ -217,7 +219,8 @@ class Trainer:
                     ):
                         output, state = self.model(
                             images,
-                            game_state=game_state,
+                            structured_data=game_state,
+                            presence_mask=presence_mask["game_state"],
                             state=state,
                         )
 

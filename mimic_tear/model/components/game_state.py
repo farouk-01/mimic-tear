@@ -11,7 +11,7 @@ from utils import profile
 type GameStateFieldKind = Literal["numeric", "categorical"]
 
 
-class GameStateFieldConfig(BaseModel):
+class StructuredDataFieldConfig(BaseModel):
     model_config = ConfigDict(frozen=True, extra="forbid", strict=True)
 
     name: str
@@ -36,21 +36,21 @@ class GameStateFieldConfig(BaseModel):
         return values
 
 
-class GameStateConfig(BaseModel):
+class StructuredDataConfig(BaseModel):
     model_config = ConfigDict(frozen=True, extra="forbid", strict=True)
 
-    fields: tuple[GameStateFieldConfig, ...] = Field(
+    fields: tuple[StructuredDataFieldConfig, ...] = Field(
         default_factory=tuple,
         min_length=1,
     )
     d_model: int = Field(gt=0)
 
 
-class GameState(nn.Module):
+class StructuredData(nn.Module):
     def __init__(
         self,
         *,
-        fields: tuple[GameStateFieldConfig, ...],
+        fields: tuple[StructuredDataFieldConfig, ...],
         d_model: int,
     ) -> None:
         super().__init__()
@@ -77,7 +77,11 @@ class GameState(nn.Module):
         )
 
     @profile
-    def forward(self, state: dict[str, Tensor]) -> Tensor:
+    def forward(
+        self,
+        state: dict[str, Tensor],
+        presence_mask: dict[str, Tensor],
+    ) -> Tensor:
         tokens: list[Tensor] = []
 
         for field in self.fields:
@@ -91,4 +95,10 @@ class GameState(nn.Module):
 
             tokens.append(token)
 
-        return torch.stack(tokens, dim=-2)
+        tokens_stack = torch.stack(tokens, dim=-2)
+
+        mask = torch.stack([presence_mask[field.name] for field in self.fields])
+        mask = mask.to(device=tokens_stack.device, dtype=tokens_stack.dtype)
+        mask = mask.view(1, 1, -1, 1)
+
+        return tokens_stack * mask

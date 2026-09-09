@@ -15,8 +15,8 @@ class LSTMPolicyConfig(BaseModel):
 
     vision: VisionConfig
     temporal: TemporalConfig
-    game_state: GameStateConfig | None
-    fusion: VectorFusionConfig | None
+    game_state: StructuredDataConfig
+    fusion: VectorFusionConfig
     controller: ControllerConfig
 
     @model_validator(mode="after")
@@ -45,26 +45,20 @@ class LSTMPolicy(nn.Module):
 
         self.vision = Vision(**config.vision.model_dump())
         self.temporal = Temporal(**config.temporal.model_dump())
-
-        self.game_state: GameState | None = None
-        if config.game_state is not None:
-            self.game_state = GameState(
-                fields=config.game_state.fields,
-                d_model=config.game_state.d_model,
-            )
-
-        self.fusion: VectorFusion | None = None
-        if config.fusion is not None:
-            self.fusion = VectorFusion(**config.fusion.model_dump())
-
+        self.game_state = StructuredData(
+            fields=config.game_state.fields,
+            d_model=config.game_state.d_model,
+        )
+        self.fusion = VectorFusion(**config.fusion.model_dump())
         self.controller = Controller(**config.controller.model_dump())
 
     @profile
     def forward(
         self,
         images: Tensor,
-        game_state: dict[str, Tensor] | None = None,
-        state: LSTMState | None = None,
+        structured_data: dict[str, Tensor],
+        presence_mask: dict[str, Tensor],
+        state: LSTMState,
     ) -> tuple[ControllerOutput, LSTMState]:
         if images.ndim != 5:
             raise ValueError(
@@ -96,35 +90,13 @@ class LSTMPolicy(nn.Module):
         # [B, T, F] -> [B, T, H]
         temporal_features, next_state = self.temporal(visual_features, state)
 
-        if self.game_state is not None:
-            if game_state is None:
-                raise ValueError("This policy requires game-state input")
+        # [B, T, N, D]
+        state_tokens = self.game_state(structured_data, presence_mask)
+        # [B, T, N*D]
+        # TODO : use TokenFusion instead
+        state_tokens = state_tokens.flatten(start_dim=-2)
 
-            if self.fusion is None:
-                raise RuntimeError(
-                    "Fusion must be configured when game-state support is enabled"
-                )
-
-            state_tokens = self.game_state(game_state)
-
-            if state_tokens.shape[:2] != (batch_size, sequence_length):
-                raise ValueError(
-                    "Image and game-state batch/sequence dimensions must match"
-                )
-
-            # [B, T, N, D] -> [B, T, D]
-            state_features = state_tokens.mean(dim=-2)
-
-            features = self.fusion(temporal_features, state_features)
-
-        else:
-            if game_state is not None:
-                raise ValueError(
-                    "Game-state input was provided, but this policy "
-                    "was created without game-state support"
-                )
-
-            features = temporal_features
+        features = self.fusion(temporal_features, state_tokens)
 
         output = self.controller(features)
 
