@@ -33,7 +33,7 @@ class PolicyLoss(nn.Module):
         self.register_buffer("button_weight", button_weight)
 
         self.analog_criterion = nn.SmoothL1Loss(reduction="none")
-        self.button_criterion = nn.BCEWithLogitsLoss(reduction="none")
+        self.button_criterion = nn.BCEWithLogitsLoss(reduction="none", pos_weight=button_weight)
 
     @profile
     def forward(
@@ -56,10 +56,6 @@ class PolicyLoss(nn.Module):
         analog_loss = (analog_loss * self.analog_weight).sum(
             dim=-1
         ) / self.analog_weight.sum()
-
-        button_loss = (button_loss * self.button_weight).sum(
-            dim=-1
-        ) / self.button_weight.sum()
 
         analog_loss = analog_loss.mean()
         button_loss = button_loss.mean()
