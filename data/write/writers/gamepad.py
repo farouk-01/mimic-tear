@@ -2,15 +2,28 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from threading import Event, Lock, Thread
 from typing import BinaryIO
 
 from data.models.gamepad import GamepadState
 
 
 class GamepadWriter:
-    def __init__(self, pipe_name: str = "mimic-tear-controller") -> None:
+    def __init__(
+        self,
+        pipe_name: str = "mimic-tear-controller",
+        *,
+        refresh_interval: float = 0.05,
+    ) -> None:
         self.path = Path(rf"\\.\pipe\{pipe_name}")
+        self.refresh_interval = refresh_interval
+
         self._pipe: BinaryIO | None = None
+        self._latest_state: GamepadState | None = None
+
+        self._stop_event = Event()
+        self._lock = Lock()
+        self._thread: Thread | None = None
 
     def connect(self) -> None:
         if self._pipe is not None:
@@ -28,11 +41,27 @@ class GamepadWriter:
 
         if message.get("type") != "ready":
             self.close()
-            raise RuntimeError("Unexpected controller bridge response: " f"{message}")
+            raise RuntimeError(f"Unexpected controller bridge response: {message}")
+
+        self._stop_event.clear()
+
+        self._thread = Thread(target=self._refresh_loop, daemon=True)
+        self._thread.start()
 
     def write(self, state: GamepadState) -> None:
         state.validate()
 
+        self._latest_state = state
+        self._write_state(state)
+
+    def _refresh_loop(self) -> None:
+        while not self._stop_event.wait(self.refresh_interval):
+            state = self._latest_state
+
+            if state is not None:
+                self._write_state(state)
+
+    def _write_state(self, state: GamepadState) -> None:
         payload = {
             "type": "state",
             "left_x": state.analog.left_x,
@@ -73,19 +102,27 @@ class GamepadWriter:
         if self._pipe is None:
             return
 
+        self._stop_event.set()
+
+        if self._thread is not None:
+            self._thread.join()
+            self._thread = None
+
         try:
             self.reset()
-            self._write({"type": ("shutdown" if shutdown else "disconnect")})
-
+            self._write({"type": "shutdown" if shutdown else "disconnect"})
         finally:
             self._pipe.close()
             self._pipe = None
+            self._latest_state = None
 
     def _write(self, payload: dict[str, object]) -> None:
         pipe = self._ensure_connected()
 
         message = json.dumps(payload, separators=(",", ":")) + "\n"
-        pipe.write(message.encode("utf-8"))
+
+        with self._lock:
+            pipe.write(message.encode("utf-8"))
 
     def __enter__(self) -> GamepadWriter:
         self.connect()
