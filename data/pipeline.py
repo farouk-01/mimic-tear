@@ -2,12 +2,11 @@ from collections.abc import Iterator, Mapping
 from datetime import datetime
 from functools import cached_property
 from pathlib import Path
+from threading import Event
 
 from .capture import Capture, CaptureConfig
-from .process import Process, ProcessConfig, ProcessedRecording
+from .process import Process, ProcessConfig, ProcessedRecording, ProcessedSample
 from .write import Writer, WriterConfig
-
-from utils import profile
 
 
 class DataPipeline:
@@ -31,6 +30,10 @@ class DataPipeline:
     @cached_property
     def processor(self) -> Process:
         return Process(config=self.process_config)
+
+    @cached_property
+    def writer(self) -> Writer:
+        return Writer(config=self.writer_config)
 
     def record_session(
         self,
@@ -60,10 +63,9 @@ class DataPipeline:
             print(f"Recording for {seconds:.1f} seconds.")
 
         schema = self.capture_config.game_state_profile.raw_schema
-        write_cfg = self.writer_config
         with (
             Capture(config=self.capture_config) as capture,
-            Writer(path=path, schema=schema, config=write_cfg) as writer,
+            self.writer.recording(path=path, schema=schema) as writer,
         ):
             try:
                 for sample in capture.capture_stream():
@@ -76,6 +78,11 @@ class DataPipeline:
                     if game_state is None:
                         raise RuntimeError(
                             "Game state is None, but it is required for writing."
+                        )
+
+                    if sample.controller is None:
+                        raise RuntimeError(
+                            "Controller state is None, but it is required for writing."
                         )
 
                     writer.write_record(
@@ -133,6 +140,18 @@ class DataPipeline:
     @property
     def encoding_cardinalities(self) -> Mapping[str, Mapping[str, int]]:
         return self.processor.encoding_cardinalities
+
+    def process_stream(
+        self,
+        *,
+        stop_event: Event | None = None,
+    ) -> Iterator[ProcessedSample]:
+        with Capture(config=self.capture_config) as capture:
+            for sample in capture.capture_stream(
+                stop_event=stop_event,
+                include_gamepad=False,
+            ):
+                yield self.processor.process_sample(sample)
 
     @staticmethod
     def _validate_config_compatibility(

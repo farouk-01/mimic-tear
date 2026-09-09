@@ -4,6 +4,7 @@ from .controller import (
 )
 from .game_state import GameStateWriter, GameStateWriterConfig
 from .video import VideoConfig, VideoFrameWriter
+from .gamepad import GamepadWriter
 
 
 __all__ = [
@@ -13,4 +14,5 @@ __all__ = [
     "GameStateWriterConfig",
     "VideoConfig",
     "VideoFrameWriter",
+    "GamepadWriter",
 ]

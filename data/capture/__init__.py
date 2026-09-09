@@ -87,10 +87,19 @@ class Capture:
         ).capture()
 
     def capture_stream(
-        self, stop_event: Event | None = None
+        self,
+        *,
+        stop_event: Event | None = None,
+        include_gamepad: bool = True,
     ) -> Iterator[CaptureSample]:
-        self._ensure_open()
-        return self._synchronizer.run(stop_event=stop_event)
+        synchronizer = CaptureSynchronizer(
+            screen=self._screen,
+            gamepad=self._gamepad if include_gamepad else None,
+            game_state=self._game_state,
+            fps=self.config.fps,
+        )
+
+        return synchronizer.run(stop_event=stop_event)
 
     def close(self) -> None:
         if self._closed:

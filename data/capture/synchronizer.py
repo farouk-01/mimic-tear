@@ -9,7 +9,6 @@ from .gamepad.reader import GamepadReader
 from .screen import ScreenReader, CapturedFrame
 from .memory.game_state import GameStateReader
 from data.models.game_state.memory import MemoryGameStateSnapshot
-
 from data.models.gamepad import GamepadState
 
 
@@ -17,7 +16,7 @@ from data.models.gamepad import GamepadState
 class CaptureSample:
     index: int
     frame: CapturedFrame
-    controller: GamepadState
+    controller: GamepadState | None
     game_state: MemoryGameStateSnapshot | None
     completed_ns: int
 
@@ -35,7 +34,7 @@ class CaptureSynchronizer:
         self,
         *,
         screen: ScreenReader,
-        gamepad: GamepadReader,
+        gamepad: GamepadReader | None = None,
         game_state: GameStateReader | None = None,
         fps: float = 30.0,
     ) -> None:
@@ -52,13 +51,8 @@ class CaptureSynchronizer:
 
     def capture(self) -> CaptureSample:
         frame = self.screen.read()
-        controller = self.gamepad.read()
-
-        game_state = (
-            self.game_state.read()
-            if self.game_state is not None
-            else None
-        )
+        controller = self.gamepad.read() if self.gamepad is not None else None
+        game_state = self.game_state.read() if self.game_state is not None else None
 
         sample = CaptureSample(
             index=self._next_index,
@@ -89,10 +83,6 @@ class CaptureSynchronizer:
                 sleep(remaining_ns / 1_000_000_000)
                 continue
 
-            # If capture took too long,
-            # skip expired deadlines instead of accumulating drift.
-            missed_ticks = (
-                (now_ns - next_tick_ns) // self._period_ns
-            ) + 1
+            missed_ticks = ((now_ns - next_tick_ns) // self._period_ns) + 1
 
             next_tick_ns += missed_ticks * self._period_ns

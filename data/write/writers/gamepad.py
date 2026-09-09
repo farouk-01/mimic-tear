@@ -4,7 +4,7 @@ import json
 from pathlib import Path
 from typing import BinaryIO
 
-from data.models.gamepad import AnalogState, ButtonState, GamepadState
+from data.models.gamepad import GamepadState
 
 
 class GamepadWriter:
@@ -28,7 +28,7 @@ class GamepadWriter:
 
         if message.get("type") != "ready":
             self.close()
-            raise RuntimeError(f"Unexpected controller bridge response: {message}")
+            raise RuntimeError("Unexpected controller bridge response: " f"{message}")
 
     def write(self, state: GamepadState) -> None:
         state.validate()
@@ -69,13 +69,14 @@ class GamepadWriter:
         if self._pipe is not None:
             self._write({"type": "reset"})
 
-    def close(self) -> None:
+    def close(self, *, shutdown: bool = False) -> None:
         if self._pipe is None:
             return
 
         try:
             self.reset()
-            self._write({"type": "disconnect"})
+            self._write({"type": ("shutdown" if shutdown else "disconnect")})
+
         finally:
             self._pipe.close()
             self._pipe = None

@@ -1,25 +1,30 @@
 from collections.abc import Mapping, Collection
 from pathlib import Path
-from types import MappingProxyType
 from dataclasses import dataclass
+from functools import cached_property
+from typing import overload
 
 from pydantic import BaseModel, ConfigDict
 import torch
+from tensordict import TensorDict
 
 from data.models.record import Recording, RecordingConfig, RecordingName
 from data.models.tensor import TensorSchema
 from data.process.transforms import TensorTransform
+from data.capture import CaptureSample
 
 from .datasets.tensor import TensorDataset, TensorDatasetConfig
 from .encoders.encoder import Encoder, EncoderConfig
 from .sequence import SequenceDataset
 from .stores.encoding import EncodingStore, EncodingStoreConfig
-from .stores.base import FILE_STORES, StoreConfig
+from .stores.base import FILE_STORES, StoreConfig, TensorColumn, TensorTable
 
 from utils import profile
 
 __all__ = [
     "SequenceDataset",
+    "ProcessedRecording",
+    "ProcessedSample",
     "ProcessConfig",
     "Process",
 ]
@@ -48,7 +53,7 @@ class ProcessConfig(BaseModel):
 
 
 type PresenceMask = dict[str, torch.Tensor]
-type PresenceMasks = dict[RecordingName, PresenceMask | None]
+type PresenceMasks = dict[RecordingName, PresenceMask]
 
 type EncodingCardinalities = Mapping[str, int]
 type EncodingCardinalitiesByDataset = Mapping[
@@ -60,6 +65,12 @@ type EncodingCardinalitiesByDataset = Mapping[
 @dataclass(frozen=True, slots=True)
 class ProcessedRecording:
     dataset: SequenceDataset
+    presence: PresenceMasks
+
+
+@dataclass(frozen=True, slots=True)
+class ProcessedSample:
+    datasets: dict[RecordingName, TensorDict]
     presence: PresenceMasks
 
 
@@ -108,8 +119,109 @@ class Process:
                     cardinalities[field_name] = encoder.cardinality
 
             result[dataset_name] = cardinalities
-            
+
         return result
+
+    @cached_property
+    def live_datasets(self) -> dict[RecordingName, TensorDataset]:
+        return self._build_live_datasets()
+
+    def _build_live_datasets(
+        self,
+    ) -> dict[RecordingName, TensorDataset]:
+        return {
+            cfg.name: TensorDataset(
+                store=None,
+                tensor_schema=cfg.dataset_cfg.tensor_schema,
+                encoders=self.encoders[cfg.name],
+                transforms=cfg.dataset_cfg.transforms,
+            )
+            for cfg in self.config.datasets
+        }
+
+    @cached_property
+    def dataset_configs(self) -> dict[RecordingName, DatasetSourceConfig]:
+        return {cfg.name: cfg for cfg in self.config.datasets}
+
+    @overload
+    def process_sample(
+        self,
+        sample: CaptureSample,
+    ) -> ProcessedSample: ...
+
+    @overload
+    def process_sample(
+        self,
+        sample: Mapping[RecordingName, TensorTable | None],
+    ) -> ProcessedSample: ...
+
+    def process_sample(
+        self,
+        sample: CaptureSample | Mapping[RecordingName, TensorTable | None],
+    ) -> ProcessedSample:
+        if isinstance(sample, CaptureSample):
+            sources = self._capture_sample_sources(sample)
+        else:
+            sources = sample
+
+        datasets: dict[RecordingName, TensorDict] = {}
+        presences: PresenceMasks = {}
+
+        for name, table in sources.items():
+            if name not in self.dataset_configs:
+                raise KeyError(f"Unknown dataset: {name}")
+
+            cfg = self.dataset_configs[name]
+            dataset = self.live_datasets[name]
+
+            datasets[name] = dataset.process_table(
+                table,
+                batch_size=[1],
+            )
+
+            available_features = self._available_table_features(
+                table=table,
+                transforms=cfg.dataset_cfg.transforms,
+            )
+
+            presences[name] = self._make_presence_mask(
+                schema=dataset.schema,
+                available_features=available_features,
+            )
+
+        return ProcessedSample(datasets=datasets, presence=presences)
+
+    def _capture_sample_sources(
+        self,
+        sample: CaptureSample,
+    ) -> dict[RecordingName, TensorTable | None]:
+        frame = torch.from_numpy(sample.frame.image)
+        frame = frame.permute(2, 0, 1).unsqueeze(0)
+
+        video_table: TensorTable = {"frames": TensorColumn(values=frame)}
+
+        game_state_table: TensorTable | None = None
+
+        if sample.game_state is not None:
+            game_state_table = {}
+
+            config = self.dataset_configs["game_state"]
+            schema = config.dataset_cfg.tensor_schema
+
+            for name, value in sample.game_state.to_dict().items():
+                if name not in schema.fields_by_name or value is None:
+                    continue
+
+                field = schema.get_field(name)
+
+                game_state_table[name] = TensorColumn(
+                    values=torch.as_tensor(
+                        [value],
+                        dtype=field.torch_dtype,
+                    ),
+                )
+
+        return {"video": video_table, "game_state": game_state_table}
 
     def _build_encoders(
         self,
@@ -141,7 +253,7 @@ class Process:
         store_cfg: StoreConfig,
         encoders: tuple[Encoder, ...] = (),
         transforms: tuple[TensorTransform, ...] = (),
-    ) -> tuple[TensorDataset, dict[str, torch.Tensor] | None]:
+    ) -> tuple[TensorDataset, dict[str, torch.Tensor]]:
         if source is None:
             dataset = TensorDataset(
                 store=None,
@@ -210,6 +322,23 @@ class Process:
             presences[name] = presence_mask
 
         return datasets, presences
+
+    @staticmethod
+    def _available_table_features(
+        *,
+        table: TensorTable | None,
+        transforms: tuple[TensorTransform, ...],
+    ) -> set[str]:
+        if table is None:
+            return set()
+
+        available = set(table)
+
+        for transform in transforms:
+            if all(name in available for name in transform.inputs):
+                available.add(transform.output)
+
+        return available
 
     @staticmethod
     def _validate_recording_integrity(datasets: Mapping[str, TensorDataset]) -> None:

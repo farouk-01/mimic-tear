@@ -1,27 +1,33 @@
-from pathlib import Path
-from contextlib import ExitStack
-import json
+from __future__ import annotations
+
+from collections.abc import Mapping, Generator
+from contextlib import ExitStack, contextmanager
 from dataclasses import asdict
+import json
+from pathlib import Path
 from types import TracebackType
 from typing import Self
-from collections.abc import Mapping
+import subprocess
+from time import monotonic, sleep
 
-from pydantic import BaseModel, ConfigDict
 import numpy as np
 from numpy.typing import NDArray
+from pydantic import BaseModel, ConfigDict
 
 from data.models.game_state.memory import MemoryGameStateSchema
+from data.models.gamepad import GamepadState
 from data.models.record import RecordingConfig
+
 from .metadata import RecordingMetadata
 from .writers import (
+    ControllerWriter,
     ControllerWriterConfig,
-    VideoConfig,
-    VideoFrameWriter,
+    GamepadWriter,
     GameStateWriter,
     GameStateWriterConfig,
-    ControllerWriter,
+    VideoConfig,
+    VideoFrameWriter,
 )
-from data.models.gamepad import GamepadState
 
 __all__ = [
     "RecordingMetadata",
@@ -40,6 +46,86 @@ class WriterConfig(BaseModel):
 
 
 class Writer:
+    def __init__(self, *, config: WriterConfig) -> None:
+        self.config = config
+
+    @contextmanager
+    def recording(
+        self,
+        *,
+        path: str | Path,
+        schema: MemoryGameStateSchema,
+    ) -> Generator[RecordingWriter]:
+        with RecordingWriter(path=path, schema=schema, config=self.config) as writer:
+            yield writer
+
+    @contextmanager
+    def gamepad(self) -> Generator[GamepadWriter]:
+        writer = GamepadWriter()
+
+        launched_bridge = False
+
+        try:
+            try:
+                writer.connect()
+
+            except FileNotFoundError:
+                self._start_gamepad_bridge()
+                launched_bridge = True
+
+                self._wait_for_gamepad_bridge(writer)
+
+            yield writer
+
+        finally:
+            writer.close(shutdown=launched_bridge)
+
+    def _start_gamepad_bridge(
+        self,
+    ) -> None:
+        root = Path(__file__).resolve().parents[2]
+
+        script = root / "bridges" / "hidmaestro" / "start.ps1"
+
+        if not script.exists():
+            raise FileNotFoundError(
+                "Controller bridge startup script " f"not found: {script}"
+            )
+
+        subprocess.run(
+            [
+                "powershell.exe",
+                "-NoProfile",
+                "-ExecutionPolicy",
+                "Bypass",
+                "-File",
+                str(script),
+            ],
+            check=True,
+        )
+
+    def _wait_for_gamepad_bridge(
+        self,
+        writer: GamepadWriter,
+        *,
+        timeout: float = 10.0,
+        interval: float = 0.1,
+    ) -> None:
+        deadline = monotonic() + timeout
+
+        while True:
+            try:
+                writer.connect()
+                return
+
+            except FileNotFoundError:
+                if monotonic() >= deadline:
+                    raise TimeoutError("Timed out waiting for " "controller bridge")
+
+                sleep(interval)
+
+
+class RecordingWriter:
     def __init__(
         self,
         *,
@@ -110,11 +196,15 @@ class Writer:
         self.video_writer.write(frame=video_frame)
 
         self.controller_writer.write(
-            index=index, timestamp_ns=timestamp_ns, state=controller_state
+            index=index,
+            timestamp_ns=timestamp_ns,
+            state=controller_state,
         )
 
         self.game_state_writer.write(
-            index=index, timestamp_ns=timestamp_ns, values=game_state
+            index=index,
+            timestamp_ns=timestamp_ns,
+            values=game_state,
         )
 
         self._sample_count += 1
@@ -134,7 +224,7 @@ class Writer:
         if existing:
             paths = ", ".join(str(path) for path in existing)
 
-            raise FileExistsError("Recording files already exist: " f"{paths}")
+            raise FileExistsError(f"Recording files already exist: {paths}")
 
     def _write_metadata(self) -> None:
         metadata = RecordingMetadata(
@@ -146,9 +236,14 @@ class Writer:
         )
 
         path = self.root / self.config.recording.metadata_file
+
         path.write_text(json.dumps(asdict(metadata), indent=2), encoding="utf-8")
 
-    def close(self, *, finalize: bool = True) -> None:
+    def close(
+        self,
+        *,
+        finalize: bool = True,
+    ) -> None:
         if self._closed:
             return
 

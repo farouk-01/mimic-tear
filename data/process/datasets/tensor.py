@@ -60,22 +60,21 @@ class TensorDataset(Dataset[TensorDict]):
 
     def __getitem__(self, index: int) -> TensorDict:
         if self.store is None or self.adapter is None:
-            return self._process_table(None, batch_size=[1])
+            return self.process_table(None, batch_size=[1])
 
         data = self.store.get(index)
         table = self.adapter.get(data)
 
-        return self._process_table(table, batch_size=[1])
+        return self.process_table(table, batch_size=[1])
 
-    @profile
     def get_range(self, start: int, end: int) -> TensorDict:
         if self.store is None or self.adapter is None:
-            return self._process_table(None, batch_size=[end - start])
+            return self.process_table(None, batch_size=[end - start])
 
         data = self.store.get_range(start, end)
         table = self.adapter.get(data)
 
-        return self._process_table(table, batch_size=[end - start])
+        return self.process_table(table, batch_size=[end - start])
 
     def discover_encodings(self) -> None:
         if self.store is None or self.adapter is None:
@@ -110,7 +109,8 @@ class TensorDataset(Dataset[TensorDict]):
 
         return available
 
-    def _process_table(
+    @profile
+    def process_table(
         self,
         table: TensorTable | None,
         *,
