@@ -9,6 +9,7 @@ from data.write.writers.gamepad import GamepadWriter
 from mimic_tear.model.components.controller import ControllerOutput
 from mimic_tear.model.components.temporal import LSTMState
 from mimic_tear.model.policy import LSTMPolicy
+from utils.logging import Logger
 
 type ProcessStream = Callable[..., Iterator[ProcessedSample]]
 
@@ -23,6 +24,8 @@ class Player:
         device: torch.device | str,
         button_threshold: float = 0.5,
         analog_gain: float = 1.0,
+        logger: Logger,
+        log_interval: int = 30,
     ) -> None:
         self.model = model
         self.process_stream = process_stream
@@ -30,6 +33,8 @@ class Player:
         self.device = torch.device(device)
         self.button_threshold = button_threshold
         self.analog_gain = analog_gain
+        self.logger = logger
+        self.log_interval = log_interval
 
     @torch.inference_mode()
     def run(
@@ -40,7 +45,7 @@ class Player:
         self.model.eval()
         state: LSTMState | None = None
 
-        for sample in self.process_stream(stop_event=stop_event):
+        for i, sample in enumerate(self.process_stream(stop_event=stop_event)):
             video = sample.datasets["video"]["frames"]
             structured_data = sample.datasets["game_state"]
             presence_mask = sample.presence["game_state"]
@@ -58,11 +63,13 @@ class Player:
                 state=state,
             )
 
-            self._write_output(output)
+            self._write_output(output, log=(i % self.log_interval == 0))
 
-    def _write_output(self, output: ControllerOutput) -> None:
-        analog = (output.analog[0, -1] * self.analog_gain).clamp(-1.0, 1.0)
+    def _write_output(self, output: ControllerOutput, *, log: bool = False) -> None:
+        raw_analog = output.analog[0, -1]
         buttons = torch.sigmoid(output.button_logits[0, -1])
+
+        analog = (raw_analog * self.analog_gain).clamp(-1.0, 1.0)
 
         gamepad_state = GamepadState.from_values(
             analog=analog.tolist(),
@@ -70,3 +77,10 @@ class Player:
         )
 
         self.gamepad.write(gamepad_state)
+
+        if log:
+            self.logger.debug(
+                "analog=%s buttons=%s",
+                [round(value, 3) for value in raw_analog.tolist()],
+                [round(value, 3) for value in buttons.tolist()],
+            )

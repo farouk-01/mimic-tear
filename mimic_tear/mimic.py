@@ -36,6 +36,7 @@ class MimicTear:
             logger=self.perf_logger,
             device=self.device,
         )
+        self.grace_logger: Logger | None = None
 
         self.hyperparams = config.training.hyperparameters
 
@@ -176,19 +177,34 @@ class MimicTear:
     def train(self, *, discover_encodings: bool = False) -> None:
         self.mimic(discover_encodings=discover_encodings)
 
-    # def record(
-    #     self,
-    #     *,
-    #     name: str | None = None,
-    #     seconds: float | None = None,
-    # ) -> Path:
-    #     self.logger.info("Starting gameplay recording...")
+    def record(
+        self,
+        *,
+        name: str,
+        theme: str | None = None,
+        sub_theme: str | None = None,
+        seconds: float | None = None,
+        validation: bool = False,
+    ) -> Path:
+        self.logger.info("Starting gameplay recording...")
 
-    #     output = RecordingSession(config=self.config).run(name=name, seconds=seconds)
+        root = (
+            self.config.paths.validation_recordings
+            if validation
+            else self.config.paths.training_recordings
+        )
 
-    #     self.logger.info("Recording saved to %s", output)
+        output = self.data_pipeline.record_session(
+            root=root,
+            theme=theme,
+            sub_theme=sub_theme,
+            name=name,
+            seconds=seconds,
+        )
 
-    #     return output
+        self.logger.info("Recording saved to %s", output)
+
+        return output
 
     def summon(self, *, stop_event: Event | None = None) -> None:
         input("Press Enter to summon (Ctrl+C to dismiss)")
@@ -204,6 +220,9 @@ class MimicTear:
 
         load_checkpoint(self.config.paths.artifacts / "best.pt", model=model)
 
+        if self.grace_logger is None:
+            self.grace_logger = Logger(**self.config.logging.grace.model_dump())
+
         try:
             with self.data_pipeline.writer.gamepad() as gamepad:
                 player = Player(
@@ -213,6 +232,7 @@ class MimicTear:
                     device=self.device,
                     button_threshold=self.hyperparams.button_threshold,
                     analog_gain=self.hyperparams.analog_gain,
+                    logger=self.grace_logger,
                 )
 
                 player.run(stop_event=stop_event)
