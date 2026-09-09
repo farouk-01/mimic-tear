@@ -103,6 +103,9 @@ class Hyperparameters(BaseModel):
 
     sequence_length: PositiveInt
 
+    button_threshold: PositiveFloat = Field(default=0.5, ge=0.0, le=1.0)
+    analog_gain: PositiveFloat = 1.0
+
     @classmethod
     def load(cls, path: str | Path) -> Hyperparameters:
         path = Path(path)
