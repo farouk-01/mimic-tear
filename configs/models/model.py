@@ -86,10 +86,10 @@ class ModelConfig(BaseModel):
         d_model = raw_model["d_model"]
         game_state = StructuredDataConfig(fields=tuple(fields), d_model=d_model)
 
-        gstate_size = len(fields) * d_model
+        # gstate_size = len(fields) * d_model
         fusion = VectorFusionConfig.model_validate(
             {
-                "input_features": (temporal.hidden_features, gstate_size),
+                "input_features": (temporal.hidden_features, d_model),
                 **raw_model["fusion"],
             }
         )
