@@ -94,7 +94,7 @@ class LSTMPolicy(nn.Module):
         state_tokens = self.game_state(structured_data, presence_mask)
         # [B, T, N*D]
         # TODO : use TokenFusion instead
-        state_tokens = state_tokens.flatten(start_dim=-2)
+        state_tokens = state_tokens.mean(dim=-2)
 
         features = self.fusion(temporal_features, state_tokens)
 
