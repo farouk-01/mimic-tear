@@ -9,7 +9,7 @@ from data import DataPipeline
 from mimic_tear.model.loss import PolicyLoss
 from mimic_tear.model.policy import LSTMPolicy
 
-# from mimic_tear.player.player import Player
+from mimic_tear.player.player import Player
 from utils.logging.logger import Logger
 from mimic_tear.training import Trainer
 from mimic_tear.training.checkpoint import load_checkpoint, save_checkpoint
@@ -190,64 +190,34 @@ class MimicTear:
 
     #     return output
 
-    # def summon(
-    #     self,
-    #     *,
-    #     stop_event: Event | None = None,
-    # ) -> None:
-    #     input("Press Enter to summon (Ctrl+C to dismiss)")
-    #     self.logger.info("Summoning Mimic Tear...")
-    #     sleep(3.0)
+    def summon(self, *, stop_event: Event | None = None) -> None:
+        input("Press Enter to summon (Ctrl+C to dismiss)")
 
-    #     model = EldenRingPolicy(config=self.config.policy).to(self.device)
+        self.logger.info("Summoning Mimic Tear...")
+        sleep(3.0)
 
-    #     checkpoint = load_checkpoint(
-    #         self.config.artifacts_directory / "best.pt",
-    #         model=model,
-    #     )
+        cardinalities = self.data_pipeline.encoding_cardinalities
 
-    #     metadata = checkpoint["metadata"]
+        model_cfg = self.config.load_model_config(encoding_cardinalities=cardinalities)
 
-    #     game_state_transform_config = GameStateTransformConfig.model_validate(
-    #         metadata["game_state_transform"]
-    #     )
+        model = LSTMPolicy(config=model_cfg.policy).to(self.device)
 
-    #     frame_transform = FrameTransform(**self.config.transform_frames.model_dump())
-    #     game_state_transform = GameStateTransform(
-    #         **game_state_transform_config.model_dump()
-    #     )
+        load_checkpoint(self.config.paths.artifacts / "best.pt", model=model)
 
-    #     screen = ScreenReader(**self.config.capture_screen.model_dump())
-    #     game_state_reader = EldenRingReader.open(self.config.game_state)
-    #     gamepad = GamepadWriter()
+        try:
+            with self.data_pipeline.writer.gamepad() as gamepad:
+                player = Player(
+                    model=model,
+                    process_stream=self.data_pipeline.process_stream,
+                    gamepad=gamepad,
+                    device=self.device,
+                    button_threshold=self.hyperparams.button_threshold,
+                )
 
-    #     grace_logger = Logger(**self.config.grace_logging.model_dump())
+                player.run(stop_event=stop_event)
 
-    #     player = Player(
-    #         model=model,
-    #         screen=screen,
-    #         gamepad=gamepad,
-    #         frame_transform=frame_transform,
-    #         game_state_reader=game_state_reader,
-    #         game_state_transform=game_state_transform,
-    #         game_state_features=self.config.game_state.schema_.features,
-    #         device=self.device,
-    #         fps=self.config.video_config.fps,
-    #         logger=grace_logger,
-    #     )
+        except KeyboardInterrupt:
+            self.logger.info("Mimic Tear dismissed.")
 
-    #     try:
-    #         player.run()
-    #     except KeyboardInterrupt:
-    #         self.logger.info("Mimic Tear dismissed.")
-    #     finally:
-    #         game_state_reader.close()
-    #         screen.close()
-    #         gamepad.close()
-
-    # def eval(
-    #     self,
-    #     *,
-    #     stop_event: Event | None = None,
-    # ) -> None:
-    #     self.summon(stop_event=stop_event)
+    def eval(self, *, stop_event: Event | None = None) -> None:
+        self.summon(stop_event=stop_event)

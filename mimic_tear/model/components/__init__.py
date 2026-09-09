@@ -3,7 +3,7 @@ from mimic_tear.model.components.controller import (
     ControllerOutput,
     ControllerConfig,
 )
-from mimic_tear.model.components.game_state import StructuredData, StructuredDataConfig
+from mimic_tear.model.components.structured_data import StructuredData, StructuredDataConfig
 from mimic_tear.model.components.temporal import LSTMState, Temporal, TemporalConfig
 from mimic_tear.model.components.vision import Vision, VisionConfig
 from mimic_tear.model.components.fusions import (
