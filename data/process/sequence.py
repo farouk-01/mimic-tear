@@ -7,6 +7,7 @@ from torch.utils.data import Dataset
 from .datasets.tensor import TensorDataset
 from utils import profile
 
+
 class SequenceDataset(Dataset[TensorDict]):
     def __init__(
         self,
@@ -21,7 +22,12 @@ class SequenceDataset(Dataset[TensorDict]):
         if sequence_length <= 0:
             raise ValueError("sequence_length must be greater than zero")
 
-        lengths = {len(dataset) for dataset in datasets.values()}
+        lengths = {
+            len(dataset) for dataset in datasets.values() if dataset.store is not None
+        }
+
+        if not lengths:
+            raise ValueError("At least one dataset must have a store")
 
         if len(lengths) != 1:
             raise ValueError("All datasets must have the same length")

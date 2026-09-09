@@ -107,9 +107,9 @@ class Process:
                 for field_name in encoder.fields:
                     cardinalities[field_name] = encoder.cardinality
 
-            result[dataset_name] = MappingProxyType(cardinalities)
-
-        return MappingProxyType(result)
+            result[dataset_name] = cardinalities
+            
+        return result
 
     def _build_encoders(
         self,
@@ -135,28 +135,35 @@ class Process:
 
     def _load_one_dataset(
         self,
-        source: str | Path,
+        source: str | Path | None,
         *,
         schema: TensorSchema,
         store_cfg: StoreConfig,
         encoders: tuple[Encoder, ...] = (),
         transforms: tuple[TensorTransform, ...] = (),
     ) -> tuple[TensorDataset, dict[str, torch.Tensor] | None]:
-        source = Path(source)
-        suffix = source.suffix.lower()
+        if source is None:
+            dataset = TensorDataset(
+                store=None,
+                tensor_schema=schema,
+                encoders=encoders,
+                transforms=transforms,
+            )
+        else:
+            source = Path(source)
+            suffix = source.suffix.lower()
 
-        store_cls = FILE_STORES.resolve(suffix)
-        store = store_cls(source=source, **store_cfg.kwargs())
+            store_cls = FILE_STORES.resolve(suffix)
+            store = store_cls(source=source, **store_cfg.kwargs())
 
-        dataset = TensorDataset(
-            store=store,
-            tensor_schema=schema,
-            encoders=encoders,
-            transforms=transforms,
-        )
+            dataset = TensorDataset(
+                store=store,
+                tensor_schema=schema,
+                encoders=encoders,
+                transforms=transforms,
+            )
 
         available_features = dataset.available_features
-
         mask = self._make_presence_mask(
             schema=dataset.schema,
             available_features=available_features,
@@ -191,10 +198,6 @@ class Process:
             name = cfg.name
             source = getattr(recording, name)
 
-            if source is None:
-                presences[name] = None
-                continue
-
             dataset, presence_mask = self._load_one_dataset(
                 source=source,
                 schema=cfg.dataset_cfg.tensor_schema,
@@ -210,15 +213,20 @@ class Process:
 
     @staticmethod
     def _validate_recording_integrity(datasets: Mapping[str, TensorDataset]) -> None:
-        if not datasets:
+        stores = [
+            (name, dataset.store)
+            for name, dataset in datasets.items()
+            if dataset.store is not None
+        ]
+
+        if not stores:
             return
 
-        iterator = iter(datasets.items())
-        ref_name, ref_dataset = next(iterator)
-        ref_indices = tuple(ref_dataset.store.frame_indices)
+        ref_name, ref_store = stores[0]
+        ref_indices = tuple(ref_store.frame_indices)
 
-        for name, dataset in iterator:
-            indices = tuple(dataset.store.frame_indices)
+        for name, store in stores[1:]:
+            indices = tuple(store.frame_indices)
 
             if indices != ref_indices:
                 raise ValueError(

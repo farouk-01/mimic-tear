@@ -4,8 +4,14 @@ from torch.utils.data import Dataset
 from tensordict import TensorDict
 from pydantic import BaseModel, ConfigDict
 
-from data.models.tensor import TORCH_DTYPES, TensorSchema
-from data.process.stores.base import Store, STORE_ADAPTERS, TensorColumn, TensorTable
+from data.models.tensor import TensorSchema
+from data.process.stores.base import (
+    Store,
+    StoreAdapter,
+    STORE_ADAPTERS,
+    TensorColumn,
+    TensorTable,
+)
 from data.process.transforms.tensor import TensorTransform
 from data.process.encoders.encoder import Encoder, TensorEncoder
 
@@ -22,14 +28,15 @@ class TensorDatasetConfig(BaseModel):
 class TensorDataset(Dataset[TensorDict]):
     def __init__(
         self,
-        store: Store,
+        store: Store | None,
         *,
         tensor_schema: TensorSchema,
         encoders: tuple[Encoder, ...] = (),
         transforms: tuple[TensorTransform, ...] = (),
     ) -> None:
-        if len(store) <= 0:
-            raise ValueError("Store cannot be empty")
+        if store is not None:
+            if len(store) <= 0:
+                raise ValueError("Store cannot be empty")
 
         self.store = store
         self.schema = tensor_schema
@@ -37,13 +44,24 @@ class TensorDataset(Dataset[TensorDict]):
 
         self.encoders = tuple(TensorEncoder(encoder) for encoder in encoders)
 
-        adapter_cls = STORE_ADAPTERS.resolve(type(store))
-        self.adapter = adapter_cls()
+        self.adapter: StoreAdapter | None
+
+        if store is not None:
+            adapter_cls = STORE_ADAPTERS.resolve(type(store))
+            self.adapter = adapter_cls()
+        else:
+            self.adapter = None
 
     def __len__(self) -> int:
+        if self.store is None:
+            raise TypeError("TensorDataset with no Store has no length")
+        
         return len(self.store)
 
     def __getitem__(self, index: int) -> TensorDict:
+        if self.store is None or self.adapter is None:
+            return self._process_table(None, batch_size=[1])
+
         data = self.store.get(index)
         table = self.adapter.get(data)
 
@@ -51,12 +69,18 @@ class TensorDataset(Dataset[TensorDict]):
 
     @profile
     def get_range(self, start: int, end: int) -> TensorDict:
+        if self.store is None or self.adapter is None:
+            return self._process_table(None, batch_size=[end - start])
+
         data = self.store.get_range(start, end)
         table = self.adapter.get(data)
 
         return self._process_table(table, batch_size=[end - start])
 
     def discover_encodings(self) -> None:
+        if self.store is None or self.adapter is None:
+            return
+
         if not self.encoders:
             return
 
@@ -65,16 +89,22 @@ class TensorDataset(Dataset[TensorDict]):
 
         for encoder in self.encoders:
             for field_name in encoder.fields:
-                col = table[field_name]
-                tensor = self._materialize_column(field_name, col)
+                if field_name not in table:
+                    continue
+
+                column = table[field_name]
+                tensor = self._materialize_column(field_name, column)
+
                 encoder.discover(tensor)
 
     @property
     def available_features(self) -> set[str]:
+        if self.store is None:
+            return set()
+
         available = set(self.store.feature_names)
 
         for transform in self.transforms:
-            # if all inputs are available 
             if all(name in available for name in transform.inputs):
                 available.add(transform.output)
 
@@ -82,29 +112,35 @@ class TensorDataset(Dataset[TensorDict]):
 
     def _process_table(
         self,
-        table: TensorTable,
+        table: TensorTable | None,
         *,
         batch_size: list[int],
     ) -> TensorDict:
         source: dict[str, Tensor] = {}
-        for name, column in table.items():
-            source[name] = self._materialize_column(name, column)
+
+        if table is not None:
+            for name, column in table.items():
+                source[name] = self._materialize_column(name, column)
 
         tensors = TensorDict(source, batch_size=batch_size)
 
         for encoder in self.encoders:
             for field_name in encoder.fields:
-                tensors[field_name] = encoder.encode(tensors[field_name])
+                if field_name in tensors:
+                    tensors[field_name] = encoder.encode(tensors[field_name])
 
         for transform in self.transforms:
-            required_inputs = transform.inputs
-            is_available = (name in self.available_features for name in required_inputs)
-            
-            if all(is_available):
+            if all(name in tensors for name in transform.inputs):
                 inputs = tuple(tensors[name] for name in transform.inputs)
 
-                output_name = transform.output
-                tensors[output_name] = transform(*inputs)
+                tensors[transform.output] = transform(*inputs)
+
+        for field in self.schema.fields:
+            if field.is_model_input and field.name not in tensors:
+                tensors[field.name] = self._materialize_missing_column(
+                    field.name,
+                    batch_size=batch_size,
+                )
 
         self._validate_tensors(tensors)
         return tensors
@@ -122,13 +158,24 @@ class TensorDataset(Dataset[TensorDict]):
 
         return torch.where(
             column.validity,
-            column.values,
+            values,
             torch.as_tensor(field.fill_value, dtype=dtype, device=values.device),
         )
 
+    def _materialize_missing_column(
+        self,
+        name: str,
+        *,
+        batch_size: list[int],
+    ) -> Tensor:
+        field = self.schema.get_field(name)
+
+        return torch.zeros(batch_size, dtype=field.torch_dtype)
+
     def _validate_tensors(self, tensors: TensorDict) -> None:
-        expected = self.available_features
         actual = set(tensors.keys())
+        expected = {field.name for field in self.schema.fields if field.is_model_input}
+        expected.update(self.available_features)
 
         missing = expected - actual
         if missing:
