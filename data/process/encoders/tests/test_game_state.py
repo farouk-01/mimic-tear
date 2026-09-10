@@ -2,12 +2,12 @@ import pytest
 import torch
 from collections.abc import Callable, Sequence
 
-from data.process.encoders import GameStateEncoder, TensorGameStateEncoder
+from data.process.encoders import Encoder, TensorEncoder
 
 
 @pytest.fixture
-def make_encoder() -> Callable[[dict[int, int]], GameStateEncoder]:
-    def create(encodings: dict[int, int]) -> GameStateEncoder:
+def make_encoder() -> Callable[[dict[int, int]], Encoder]:
+    def create(encodings: dict[int, int]) -> Encoder:
         def append_encoding(
             keys: Sequence[int] | int, values: Sequence[int] | int
         ) -> None:
@@ -19,7 +19,7 @@ def make_encoder() -> Callable[[dict[int, int]], GameStateEncoder]:
             for k, v in zip(keys, values):
                 encodings[k] = v
 
-        return GameStateEncoder(
+        return Encoder(
             fields=("test_field",),
             get_encodings=encodings.copy,
             append_encoding=append_encoding,
@@ -28,7 +28,7 @@ def make_encoder() -> Callable[[dict[int, int]], GameStateEncoder]:
     return create
 
 
-class TestGameStateEncoder:
+class TestEncoder:
 
     def test_when_gap_then_no_overwrite(self, make_encoder) -> None:
         encoder = make_encoder({1234: 1, 5678: 3})
@@ -37,7 +37,7 @@ class TestGameStateEncoder:
         assert encoder.encode(9810) == 4
 
     def test_first_value_is_not_zero(
-        self, make_encoder: Callable[[dict[int, int]], GameStateEncoder]
+        self, make_encoder: Callable[[dict[int, int]], Encoder]
     ) -> None:
         encoder = make_encoder({})
 
@@ -46,7 +46,7 @@ class TestGameStateEncoder:
 
     def test_existing_value_existing_encoding(
         self,
-        make_encoder: Callable[[dict[int, int]], GameStateEncoder],
+        make_encoder: Callable[[dict[int, int]], Encoder],
     ) -> None:
         encoder = make_encoder({1234: 2})
 
@@ -54,7 +54,7 @@ class TestGameStateEncoder:
 
     def test_multiple_values_all_encoded(
         self,
-        make_encoder: Callable[[dict[int, int]], GameStateEncoder],
+        make_encoder: Callable[[dict[int, int]], Encoder],
     ) -> None:
         encoder = make_encoder({1234: 1})
 
@@ -63,7 +63,7 @@ class TestGameStateEncoder:
 
     def test_same_new_value_same_encoding(
         self,
-        make_encoder: Callable[[dict[int, int]], GameStateEncoder],
+        make_encoder: Callable[[dict[int, int]], Encoder],
     ) -> None:
         encoder = make_encoder({})
 
@@ -72,28 +72,28 @@ class TestGameStateEncoder:
 
     def test_sequence_with_one_unknown_then_one_zero_encoding(
         self,
-        make_encoder: Callable[[dict[int, int]], GameStateEncoder],
+        make_encoder: Callable[[dict[int, int]], Encoder],
     ) -> None:
         encoder = make_encoder({1234: 1})
 
         assert encoder.encode([1234, 5678]) == [1, 0]
 
 
-class TestTensorGameStateEncoder:
+class TestTensorEncoder:
 
     @pytest.fixture
     def make_tensor_encoder(
         self,
-        make_encoder: Callable[[dict[int, int]], GameStateEncoder],
-    ) -> Callable[[dict[int, int]], TensorGameStateEncoder]:
-        def create(encodings: dict[int, int]) -> TensorGameStateEncoder:
-            return TensorGameStateEncoder(make_encoder(encodings))
+        make_encoder: Callable[[dict[int, int]], Encoder],
+    ) -> Callable[[dict[int, int]], TensorEncoder]:
+        def create(encodings: dict[int, int]) -> TensorEncoder:
+            return TensorEncoder(make_encoder(encodings))
 
         return create
 
     def test_encode_preserves_shape_dtype(
         self,
-        make_tensor_encoder: Callable[[dict[int, int]], TensorGameStateEncoder],
+        make_tensor_encoder: Callable[[dict[int, int]], TensorEncoder],
     ) -> None:
         encoder = make_tensor_encoder({123: 1, 456: 2})
 

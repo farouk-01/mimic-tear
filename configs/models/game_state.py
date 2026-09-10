@@ -38,11 +38,11 @@ class GameStateConfig(BaseModel):
         tensor_schema: TensorSchema,
         encodings_path: Path,
     ) -> Self:
-        transforms = cls._resolve_store_columns(
+        transforms = cls._resolve_transforms(
             schema=tensor_schema,
             transforms=GAME_STATE_TRANSFORMS,
         )
-        
+
         nominal_fields = [
             field
             for field in tensor_schema.fields
@@ -90,40 +90,48 @@ class GameStateConfig(BaseModel):
         )
 
     @staticmethod
-    def _resolve_store_columns(
+    def _resolve_transforms(
         schema: TensorSchema,
         transforms: tuple[TensorTransform, ...],
     ) -> Graph[Tensor]:
         fields = schema.fields_by_name
 
-        available = {name for name, field in fields.items() if not field.is_derived}
-        valid_transforms: list[TensorTransform] = []
+        by_output = {transform.output: transform for transform in transforms}
 
-        for t in transforms:
-            if t.output not in fields:
-                continue
-
-            missing_inputs = set(t.inputs) - available
-            if missing_inputs:
-                raise ValueError(
-                    f"Transform '{t}' has missing inputs: {missing_inputs}"
-                )
-
-            valid_transforms.append(t)
-            available.add(t.output)
-
-        cols = {
+        required_outputs = {
             name
             for name, field in fields.items()
-            if field.is_model_input and not field.is_derived
+            if field.is_model_input and field.is_derived
         }
 
-        for t in valid_transforms:
-            for name in t.inputs:
-                if name not in fields:
-                    continue
+        required_transform_ids: set[int] = set()
 
-                if not fields[name].is_derived:
-                    cols.add(name)
+        def resolve(name: str) -> None:
+            transform = by_output.get(name)
+
+            if transform is None:
+                if name not in fields:
+                    raise ValueError(
+                        f"Transform dependency '{name}' is neither "
+                        "produced by a transform nor defined in the schema"
+                    )
+                return
+
+            if transform.id in required_transform_ids:
+                return
+
+            required_transform_ids.add(transform.id)
+
+            for input_name in transform.inputs:
+                resolve(input_name)
+
+        for output in required_outputs:
+            resolve(output)
+
+        valid_transforms = tuple(
+            transform
+            for transform in transforms
+            if transform.id in required_transform_ids
+        )
 
         return Graph[Tensor](valid_transforms)

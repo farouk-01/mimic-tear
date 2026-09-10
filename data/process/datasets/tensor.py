@@ -106,7 +106,17 @@ class TensorDataset(Dataset[TensorDict]):
         if self.store is None:
             return set()
 
-        return set(self.transforms.resolve_available(self.schema.feature_names))
+        # base fields that the store can provide
+        store_available = set(self.store.feature_names)
+
+        # everything the graph can produce from those fields
+        graph_available = self.transforms.resolve_available(store_available)
+
+        # everything the store can provide
+        available = set(self.store.feature_names) | set(graph_available)
+
+        # only return features that are model inputs
+        return available & set(self.schema.model_input_names)
 
     @profile
     def process_table(
@@ -170,8 +180,7 @@ class TensorDataset(Dataset[TensorDict]):
 
     def _validate_tensors(self, tensors: TensorDict) -> None:
         actual = set(tensors.keys())
-        expected = {field.name for field in self.schema.fields if field.is_model_input}
-        expected.update(self.available_features)
+        expected = self.available_features
 
         missing = expected - actual
         if missing:

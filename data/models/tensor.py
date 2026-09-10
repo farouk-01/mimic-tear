@@ -47,12 +47,13 @@ TORCH_DTYPES: dict[TensorType, torch.dtype] = {
 
 FillValueType = int | float | bool
 
+
 class TensorField(Field[TensorType]):
     nullable: bool = False
     fill_value: FillValueType | None = None
     kind: FieldKind
     encoding: str | None = None
-    
+
     is_derived: bool = False
     is_model_input: bool = True
     is_metadata: bool = False
@@ -80,4 +81,14 @@ class TensorField(Field[TensorType]):
 
 
 class TensorSchema(Schema[TensorField]):
-    pass
+
+    @property
+    def model_input_names(self) -> tuple[str, ...]:
+        fields = self.fields_by_name
+        model_input_names: list[str] = []
+
+        for name, field in fields.items():
+            if field.is_model_input:
+                model_input_names.append(name)
+
+        return tuple(model_input_names)
