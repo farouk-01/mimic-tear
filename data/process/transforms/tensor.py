@@ -1,5 +1,5 @@
-from dataclasses import dataclass
-from typing import ClassVar
+from collections.abc import Mapping
+from typing import ClassVar, Literal
 
 import torch
 from torch import Tensor
@@ -11,6 +11,7 @@ from data.process.transforms.base import Transform
 
 class TensorTransform(Transform[Tensor]):
     pass
+
 
 class Ratio(TensorTransform):
     name: ClassVar[str] = "ratio"
@@ -117,3 +118,48 @@ class Contiguous(TensorTransform):
 
     def __call__(self, input: Tensor) -> Tensor:
         return input.contiguous()
+
+
+class Delta(TensorTransform):
+    name: ClassVar[str] = "delta"
+
+    lhs: str
+    rhs: str
+
+    @property
+    def inputs(self) -> tuple[str, str]:
+        return self.lhs, self.rhs
+
+    def __call__(self, lhs: Tensor, rhs: Tensor) -> Tensor:
+        return lhs - rhs
+    
+
+class Lag(TensorTransform):
+    name: ClassVar[str] = "lag"
+
+    input: str
+    periods: int = 1
+    fill: Literal["first", "zero"] = "first"
+
+    @property
+    def inputs(self) -> tuple[str]:
+        return (self.input,)
+
+    def __call__(self, input: Tensor) -> Tensor:
+        if self.periods <= 0:
+            raise ValueError("periods must be greater than zero")
+
+        if input.ndim == 0:
+            raise ValueError("Lag requires a tensor with a time dimension")
+
+        result = torch.empty_like(input)
+
+        if self.fill == "first":
+            result[: self.periods] = input[0]
+        else:
+            result[: self.periods] = 0
+
+        if self.periods < input.shape[0]:
+            result[self.periods :] = input[: -self.periods]
+
+        return result
