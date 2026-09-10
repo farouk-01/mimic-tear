@@ -12,17 +12,22 @@ from data.process.stores.base import (
     TensorColumn,
     TensorTable,
 )
-from data.process.transforms.tensor import TensorTransform
+from data.process.transforms import TensorTransform, Graph
 from data.process.encoders.encoder import Encoder, TensorEncoder
 
 from utils import profile
 
 
 class TensorDatasetConfig(BaseModel):
-    model_config = ConfigDict(frozen=True, extra="forbid", strict=True)
+    model_config = ConfigDict(
+        frozen=True,
+        extra="forbid",
+        strict=True,
+        arbitrary_types_allowed=True,
+    )
 
     tensor_schema: TensorSchema
-    transforms: tuple[TensorTransform, ...] = ()
+    transforms: Graph[Tensor]
 
 
 class TensorDataset(Dataset[TensorDict]):
@@ -32,7 +37,7 @@ class TensorDataset(Dataset[TensorDict]):
         *,
         tensor_schema: TensorSchema,
         encoders: tuple[Encoder, ...] = (),
-        transforms: tuple[TensorTransform, ...] = (),
+        transforms: Graph[Tensor],
     ) -> None:
         if store is not None:
             if len(store) <= 0:
@@ -101,16 +106,7 @@ class TensorDataset(Dataset[TensorDict]):
         if self.store is None:
             return set()
 
-        available = set(self.store.feature_names)
-
-        for transform in self.transforms:
-            is_in_schema = transform.output in self.schema.feature_names
-            all_inputs_available = all(name in available for name in transform.inputs)
-
-            if is_in_schema and all_inputs_available:
-                available.add(transform.output)
-
-        return available
+        return set(self.transforms.resolve_available(self.schema.feature_names))
 
     @profile
     def process_table(
@@ -132,14 +128,8 @@ class TensorDataset(Dataset[TensorDict]):
                 if field_name in tensors:
                     tensors[field_name] = encoder.encode(tensors[field_name])
 
-        for transform in self.transforms:
-            is_in_schema = transform.output in self.schema.feature_names
-            all_inputs_available = all(name in tensors for name in transform.inputs)
-
-            if is_in_schema and all_inputs_available:
-                inputs = tuple(tensors[name] for name in transform.inputs)
-
-                tensors[transform.output] = transform(*inputs)
+        if self.transforms is not None:
+            tensors = self.transforms(tensors)
 
         for field in self.schema.fields:
             if field.is_model_input and field.name not in tensors:

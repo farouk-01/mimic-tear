@@ -3,10 +3,13 @@ from datetime import datetime
 from functools import cached_property
 from pathlib import Path
 from threading import Event
+from time import sleep
 
 from .capture import Capture, CaptureConfig
 from .process import Process, ProcessConfig, ProcessedRecording, ProcessedSample
 from .write import Writer, WriterConfig
+
+from utils.hotkeys import VK_F9, register_hotkey, unregister_hotkey
 
 
 class DataPipeline:
@@ -57,59 +60,73 @@ class DataPipeline:
         fps = self.capture_config.fps
         max_frames = max(1, round(seconds * fps)) if seconds is not None else None
 
-        print("Press Ctrl+C to stop recording.")
+        stop_event = Event()
+        hotkey = register_hotkey(VK_F9, stop_event.set)
+
+        print("Recording starts in 5 seconds...")
+
+        for seconds_left in range(5, 0, -1):
+            print(f"\rStarting in {seconds_left}...", end="", flush=True)
+            sleep(1.0)
+
+        print("Press F8 to stop recording.")
 
         if seconds is not None:
             print(f"Recording for {seconds:.1f} seconds.")
 
         schema = self.capture_config.game_state_profile.raw_schema
-        with (
-            Capture(config=self.capture_config) as capture,
-            self.writer.recording(path=path, schema=schema) as writer,
-        ):
-            try:
-                for sample in capture.capture_stream():
-                    game_state = (
-                        sample.game_state.to_dict()
-                        if sample.game_state is not None
-                        else None
-                    )
 
-                    if game_state is None:
-                        raise RuntimeError(
-                            "Game state is None, but it is required for writing."
+        try:
+            with (
+                Capture(config=self.capture_config) as capture,
+                self.writer.recording(path=path, schema=schema) as writer,
+            ):
+                try:
+                    for sample in capture.capture_stream(stop_event=stop_event):
+                        game_state = (
+                            sample.game_state.to_dict()
+                            if sample.game_state is not None
+                            else None
                         )
 
-                    if sample.controller is None:
-                        raise RuntimeError(
-                            "Controller state is None, but it is required for writing."
+                        if game_state is None:
+                            raise RuntimeError(
+                                "Game state is None, but it is required for writing."
+                            )
+
+                        if sample.controller is None:
+                            raise RuntimeError(
+                                "Controller state is None, but it is required for writing."
+                            )
+
+                        writer.write_record(
+                            index=sample.index,
+                            timestamp_ns=sample.timestamp_ns,
+                            video_frame=sample.frame.image,
+                            controller_state=sample.controller,
+                            game_state=game_state,
                         )
 
-                    writer.write_record(
-                        index=sample.index,
-                        timestamp_ns=sample.timestamp_ns,
-                        video_frame=sample.frame.image,
-                        controller_state=sample.controller,
-                        game_state=game_state,
-                    )
+                        elapsed_seconds = writer.sample_count / fps
 
-                    elapsed_seconds = writer.sample_count / fps
+                        print(
+                            f"\r"
+                            f"Frames: {writer.sample_count} "
+                            f"Time: {elapsed_seconds:.1f}s "
+                            f"Capture: "
+                            f"{sample.capture_duration_ns / 1_000_000:.2f}ms",
+                            end="",
+                            flush=True,
+                        )
 
-                    print(
-                        f"\r"
-                        f"Frames: {writer.sample_count} "
-                        f"Time: {elapsed_seconds:.1f}s "
-                        f"Capture: "
-                        f"{sample.capture_duration_ns / 1_000_000:.2f}ms",
-                        end="",
-                        flush=True,
-                    )
+                        if max_frames is not None and writer.sample_count >= max_frames:
+                            break
 
-                    if max_frames is not None and writer.sample_count >= max_frames:
-                        break
+                except KeyboardInterrupt:
+                    print("\nStopping recording...")
 
-            except KeyboardInterrupt:
-                print("\nStopping recording...")
+        finally:
+            unregister_hotkey(hotkey)
 
         print()
         print(f"Saved {writer.sample_count} samples " f"to {writer.root.resolve()}")

@@ -6,11 +6,12 @@ from typing import overload
 
 from pydantic import BaseModel, ConfigDict
 import torch
+from torch import Tensor
 from tensordict import TensorDict
 
 from data.models.record import Recording, RecordingConfig, RecordingName
 from data.models.tensor import TensorSchema
-from data.process.transforms import TensorTransform
+from data.process.transforms import TensorTransform, Graph
 from data.capture import CaptureSample
 
 from .datasets.tensor import TensorDataset, TensorDatasetConfig
@@ -252,7 +253,7 @@ class Process:
         schema: TensorSchema,
         store_cfg: StoreConfig,
         encoders: tuple[Encoder, ...] = (),
-        transforms: tuple[TensorTransform, ...] = (),
+        transforms: Graph[Tensor],
     ) -> tuple[TensorDataset, dict[str, torch.Tensor]]:
         if source is None:
             dataset = TensorDataset(
@@ -327,14 +328,14 @@ class Process:
     def _available_table_features(
         *,
         table: TensorTable | None,
-        transforms: tuple[TensorTransform, ...],
+        transforms: Graph[Tensor],
     ) -> set[str]:
         if table is None:
             return set()
 
         available = set(table)
 
-        for transform in transforms:
+        for transform in transforms.transforms:
             if all(name in available for name in transform.inputs):
                 available.add(transform.output)
 

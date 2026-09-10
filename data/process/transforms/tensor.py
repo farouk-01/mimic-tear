@@ -1,3 +1,4 @@
+from abc import abstractmethod
 from collections.abc import Mapping
 from typing import ClassVar, Literal
 
@@ -7,6 +8,8 @@ from torchvision.transforms import v2
 from pydantic import ConfigDict
 
 from data.process.transforms.base import Transform
+
+type TransformInput = str | TensorTransform
 
 
 class TensorTransform(Transform[Tensor]):
