@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from collections.abc import Iterable
 from dataclasses import dataclass
+from typing import Literal, overload
 
 from pydantic import BaseModel, ConfigDict
 import torch
@@ -13,6 +14,8 @@ from data.process import ProcessedRecording, SequenceDataset, PresenceMask
 from data.models.gamepad import get_inputs_names_classified
 from mimic_tear.model.loss import PolicyLoss
 from mimic_tear.model.policy import LSTMPolicy
+from mimic_tear.model.components import ControllerOutput
+
 from utils import profile
 
 
@@ -64,6 +67,9 @@ class Sampler:
         return sample.unsqueeze(0)
 
 
+type GamepadPredictions = tuple[ControllerOutput, torch.Tensor, torch.Tensor]
+
+
 class Trainer:
     def __init__(
         self,
@@ -99,6 +105,8 @@ class Trainer:
         self.scaler = torch.GradScaler(self.device.type, enabled=self.use_amp)
 
         self.data_loader_config = data_loader_config
+
+        torch.backends.cudnn.benchmark = True
 
     @profile
     def _loader(self, recording: SequenceDataset) -> DataLoader[TensorDict]:
@@ -177,10 +185,34 @@ class Trainer:
 
         return metrics.average()
 
+    @overload
+    def validate(
+        self,
+        recordings: Iterable[ProcessedRecording],
+        *,
+        return_predictions: Literal[False] = False,
+    ) -> EpochMetrics: ...
+
+    @overload
+    def validate(
+        self,
+        recordings: Iterable[ProcessedRecording],
+        *,
+        return_predictions: Literal[True],
+    ) -> tuple[EpochMetrics, list[GamepadPredictions]]: ...
+
     @profile
-    def validate(self, recordings: Iterable[ProcessedRecording]) -> EpochMetrics:
+    def validate(
+        self,
+        recordings: Iterable[ProcessedRecording],
+        *,
+        return_predictions: bool = False,
+    ) -> EpochMetrics | tuple[EpochMetrics, list[GamepadPredictions]]:
         self.model.eval()
         metrics = EpochMetrics()
+
+        if return_predictions:
+            self.predictions: list[GamepadPredictions] = []
 
         with torch.no_grad():
             for recording in recordings:
@@ -237,5 +269,11 @@ class Trainer:
                         analog=losses.analog.item(),
                         buttons=losses.buttons.item(),
                     )
+
+                    if return_predictions:
+                        self.predictions.append((output, analogs, buttons))
+
+        if return_predictions:
+            return metrics.average(), self.predictions
 
         return metrics.average()

@@ -4,6 +4,7 @@ import torch
 from pathlib import Path
 from typing import TYPE_CHECKING
 from threading import Event
+import datetime
 
 from data import DataPipeline
 from mimic_tear.model.loss import PolicyLoss
@@ -12,7 +13,7 @@ from mimic_tear.model.policy import LSTMPolicy
 from mimic_tear.player.player import Player
 from utils.logging.logger import Logger
 from mimic_tear.training import Trainer
-from mimic_tear.training.checkpoint import load_checkpoint, save_checkpoint
+from mimic_tear.training.checkpoint import load_checkpoint, save_checkpoint, save_predictions
 from utils.logging.profiling import Profiler
 
 if TYPE_CHECKING:
@@ -54,6 +55,11 @@ class MimicTear:
 
     def mimic(self, *, discover_encodings: bool = False) -> None:
         self.logger.info("Starting training...")
+
+        artififact_path = (
+            self.config.paths.artifacts
+            / f"{datetime.datetime.now().strftime('%Y-%m-%d_%H-%M')}"
+        )
 
         if discover_encodings:
             self.logger.info("Discovering encodings...")
@@ -110,7 +116,15 @@ class MimicTear:
             self.logger.info(
                 "Validating epoch %d/%d...", epoch, self.hyperparams.epochs
             )
-            val_metrics = trainer.validate(val_datasets)
+
+            predictions = None
+            if model_cfg.return_predictions:
+                val_metrics, predictions = trainer.validate(
+                    val_datasets,
+                    return_predictions=model_cfg.return_predictions,
+                )
+            else:
+                val_metrics = trainer.validate(val_datasets)
 
             metadata = {
                 "validation_loss": val_metrics.total_loss,
@@ -125,7 +139,7 @@ class MimicTear:
             }
 
             save_checkpoint(
-                self.config.paths.artifacts / "latest.pt",
+                artififact_path / "latest.pt",
                 model=model,
                 optimizer=optimizer,
                 epoch=epoch,
@@ -135,12 +149,18 @@ class MimicTear:
             if val_metrics.total_loss < best_val_loss:
                 best_val_loss = val_metrics.total_loss
                 save_checkpoint(
-                    self.config.paths.artifacts / "best.pt",
+                    artififact_path / "best.pt",
                     model=model,
                     optimizer=optimizer,
                     epoch=epoch,
                     metadata=metadata,
                 )
+
+                if predictions is not None:
+                    save_predictions(
+                        artififact_path / "predictions.parquet",
+                        predictions=predictions,
+                    )
 
             self.logger.info(
                 "Epoch %d/%d : Train Loss: %.4f, Validation Loss: %.4f",

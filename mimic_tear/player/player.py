@@ -63,9 +63,9 @@ class Player:
                 state=state,
             )
 
-            self._write_output(output, log=(i % self.log_interval == 0))
+            self._write_output(output)
 
-    def _write_output(self, output: ControllerOutput, *, log: bool = False) -> None:
+    def _write_output(self, output: ControllerOutput) -> None:
         raw_analog = output.analog[0, -1]
         buttons = torch.sigmoid(output.button_logits[0, -1])
 
@@ -77,10 +77,3 @@ class Player:
         )
 
         self.gamepad.write(gamepad_state)
-
-        if log:
-            self.logger.debug(
-                "analog=%s buttons=%s",
-                [round(value, 3) for value in raw_analog.tolist()],
-                [round(value, 3) for value in buttons.tolist()],
-            )
