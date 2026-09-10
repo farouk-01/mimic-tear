@@ -55,7 +55,7 @@ class TensorDataset(Dataset[TensorDict]):
     def __len__(self) -> int:
         if self.store is None:
             raise TypeError("TensorDataset with no Store has no length")
-        
+
         return len(self.store)
 
     def __getitem__(self, index: int) -> TensorDict:
@@ -104,7 +104,10 @@ class TensorDataset(Dataset[TensorDict]):
         available = set(self.store.feature_names)
 
         for transform in self.transforms:
-            if all(name in available for name in transform.inputs):
+            is_in_schema = transform.output in self.schema.feature_names
+            all_inputs_available = all(name in available for name in transform.inputs)
+
+            if is_in_schema and all_inputs_available:
                 available.add(transform.output)
 
         return available
@@ -130,7 +133,10 @@ class TensorDataset(Dataset[TensorDict]):
                     tensors[field_name] = encoder.encode(tensors[field_name])
 
         for transform in self.transforms:
-            if all(name in tensors for name in transform.inputs):
+            is_in_schema = transform.output in self.schema.feature_names
+            all_inputs_available = all(name in tensors for name in transform.inputs)
+
+            if is_in_schema and all_inputs_available:
                 inputs = tuple(tensors[name] for name in transform.inputs)
 
                 tensors[transform.output] = transform(*inputs)

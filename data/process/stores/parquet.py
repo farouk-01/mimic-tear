@@ -38,7 +38,8 @@ class ParquetStore(Store[pa.Table]):
         if not self.source.is_file():
             raise FileNotFoundError(f"Parquet file does not exist: {self.source}")
 
-        self._columns = tuple(columns)
+        available_columns = pq.read_schema(self.source).names
+        self._columns = [col for col in columns if col in available_columns]
 
         frame_index = metadata_columns.frame_index
         capture_timestamp_ns = metadata_columns.capture_timestamp_ns
