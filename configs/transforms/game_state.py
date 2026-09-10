@@ -1,4 +1,4 @@
-from data.process.transforms.tensor import Ratio, TensorTransform
+from data.process.transforms.tensor import Delta, Lag, Ratio, TensorTransform
 
 GAME_STATE_TRANSFORMS: tuple[TensorTransform, ...] = (
     Ratio(
@@ -20,5 +20,16 @@ GAME_STATE_TRANSFORMS: tuple[TensorTransform, ...] = (
         output="enemy_hp_ratio",
         numerator="enemy_health",
         denominator="enemy_max_health",
+    ),
+    Lag(
+        output="enemy_hp_ratio_previous",
+        input="enemy_hp_ratio",
+        periods=30,
+        fill="first",
+    ),
+    Delta(
+        output="enemy_damage_dealt",
+        lhs="enemy_hp_ratio_previous",
+        rhs="enemy_hp_ratio",
     ),
 )

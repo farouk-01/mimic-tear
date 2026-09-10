@@ -2,7 +2,7 @@
 # Version
 # =============================================================================
 [version]
-gstate_tensor_schema = "1.1"
+gstate_tensor_schema = "2"
 gstate_memory_schema = "1.16.2"
 controller_tensor_schema = "2"
 
@@ -11,6 +11,7 @@ controller_tensor_schema = "2"
 # =============================================================================
 [model]
 d_model = 256
+debug_predictions = true
 
 [model.vision]
 output_features = 512
@@ -35,7 +36,7 @@ button_outputs = 14
 
 [training.hyperparameters]
 sequence_length = 120
-epochs = 10
+epochs = 1
 learning_rate = 0.0001
 weight_decay = 0.0001
 use_amp = true
@@ -45,13 +46,13 @@ analog_gain = 1.0
 
 [training.hyperparameters.controller_weights]
 south = 1.0
-east = 1.0
+east = 1.5
 west = 1.0
 north = 1.0
 left_bumper = 1.0
-right_bumper = 1.0
+right_bumper = 3.0
 left_stick = 1.0
-right_stick = 1.0
+right_stick = 5.0
 
 left_x = 1.0
 left_y = 1.0
@@ -70,7 +71,7 @@ right_trigger = 1.0
 
 [training.hyperparameters.early_stopping]
 enabled = true
-patience = 3
+patience = 5
 min_delta = 0.001
 
 [training.data_loader]
@@ -151,7 +152,7 @@ name = "mimic_tear.performance"
 log_file = "logs/mimic_tear_perf.log"
 
 [logging.grace]
-enabled = true
+enabled = false
 level = "DEBUG"
 log_file_enable = true
 name = "mimic_tear.grace"

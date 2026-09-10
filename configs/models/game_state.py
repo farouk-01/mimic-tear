@@ -1,16 +1,17 @@
 from pathlib import Path
 from typing import Self
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, model_validator
+from torch import Tensor
 
-from data.models.tensor import TensorSchema
-
+from data.process.transforms.tensor import TensorTransform
+from configs.transforms.game_state import GAME_STATE_TRANSFORMS
 from data.capture.memory import EldenRingMemoryProfile
+from data.models.tensor import TensorSchema
 from data.process.encoders.encoder import EncoderConfig
 from data.process.stores.encoding import EncodingStoreConfig
 from data.process.stores.parquet import ParquetStoreConfig
-from data.process.transforms.tensor import TensorTransform
-from configs.transforms.game_state import GAME_STATE_TRANSFORMS
+from data.process.transforms import Graph
 
 
 class GameStateConfig(BaseModel):
@@ -23,7 +24,7 @@ class GameStateConfig(BaseModel):
 
     memory_profile: EldenRingMemoryProfile
     tensor_schema: TensorSchema
-    transforms: tuple[TensorTransform, ...] = ()
+    transforms: Graph[Tensor]
     store_cfg: ParquetStoreConfig
 
     encoding_stores: tuple[EncodingStoreConfig, ...] = ()
@@ -37,6 +38,11 @@ class GameStateConfig(BaseModel):
         tensor_schema: TensorSchema,
         encodings_path: Path,
     ) -> Self:
+        transforms = cls._resolve_store_columns(
+            schema=tensor_schema,
+            transforms=GAME_STATE_TRANSFORMS,
+        )
+        
         nominal_fields = [
             field
             for field in tensor_schema.fields
@@ -64,56 +70,60 @@ class GameStateConfig(BaseModel):
             for encoding in sorted(grouped)
         )
 
-        store_cols = _resolve_game_state_fields(
-            tensor_schema, GAME_STATE_TRANSFORMS
-        )
-        store_cfg = ParquetStoreConfig(columns=tuple(sorted(store_cols)))
+        store_columns = {
+            name
+            for name, field in tensor_schema.fields_by_name.items()
+            if field.is_model_input and not field.is_derived
+        }
+
+        store_columns.update(transforms.inputs)
+
+        store_cfg = ParquetStoreConfig(columns=tuple(sorted(store_columns)))
 
         return cls(
             memory_profile=memory_profile,
             tensor_schema=tensor_schema,
-            transforms=GAME_STATE_TRANSFORMS,
+            transforms=transforms,
             store_cfg=store_cfg,
             encoding_stores=encoding_stores,
             encoders=encoders,
         )
 
+    @staticmethod
+    def _resolve_store_columns(
+        schema: TensorSchema,
+        transforms: tuple[TensorTransform, ...],
+    ) -> Graph[Tensor]:
+        fields = schema.fields_by_name
 
-def _resolve_game_state_fields(
-    schema: TensorSchema,
-    transforms: tuple[TensorTransform, ...],
-) -> set[str]:
-    fields = schema.fields_by_name
-    
-    available = {name for name, field in fields.items() if not field.is_derived}
+        available = {name for name, field in fields.items() if not field.is_derived}
+        valid_transforms: list[TensorTransform] = []
 
-    valid_transforms: list[TensorTransform] = []
-
-    for t in transforms:
-        if t.output not in fields:
-            continue
-
-        missing_inputs = set(t.inputs) - available
-        if missing_inputs:
-            raise ValueError(
-                f"Transform '{t}' has missing inputs: {missing_inputs}"
-            )
-
-        valid_transforms.append(t)
-        available.add(t.output)
-
-    cols = {
-        name
-        for name, field in fields.items()
-        if field.is_model_input and not field.is_derived
-    }
-
-    for t in valid_transforms:
-        for name in t.inputs:
-            if name not in fields:
+        for t in transforms:
+            if t.output not in fields:
                 continue
 
-            if not fields[name].is_derived:
-                cols.add(name)
+            missing_inputs = set(t.inputs) - available
+            if missing_inputs:
+                raise ValueError(
+                    f"Transform '{t}' has missing inputs: {missing_inputs}"
+                )
 
-    return cols
+            valid_transforms.append(t)
+            available.add(t.output)
+
+        cols = {
+            name
+            for name, field in fields.items()
+            if field.is_model_input and not field.is_derived
+        }
+
+        for t in valid_transforms:
+            for name in t.inputs:
+                if name not in fields:
+                    continue
+
+                if not fields[name].is_derived:
+                    cols.add(name)
+
+        return Graph[Tensor](valid_transforms)
