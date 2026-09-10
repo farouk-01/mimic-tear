@@ -138,7 +138,7 @@ class TensorDataset(Dataset[TensorDict]):
         if self.transforms is not None:
             tensors = self.transforms(tensors)
 
-            for name in tensors.keys():
+            for name in tuple(tensors.keys()):
                 if name not in self.schema.model_input_names:
                     del tensors[name]
 
