@@ -7,8 +7,6 @@ import torch
 
 from data.process.stores.base import (
     Store,
-    SampleColumns,
-    DEFAULT_SAMPLE_COLUMNS,
     StoreAdapter,
     StoreConfig,
     TensorColumn,
@@ -17,12 +15,13 @@ from data.process.stores.base import (
     FILE_STORES,
 )
 from data.process.stores.validations import normalize_index, normalize_range
+from data.write.metadata import DEFAULT_COLUMNS, MetaDataStoreColumns
+
 from utils import profile
 
 
 class ParquetStoreConfig(StoreConfig):
     columns: Sequence[str]
-    sample_columns: SampleColumns = DEFAULT_SAMPLE_COLUMNS
 
 
 @FILE_STORES.register(".parquet")
@@ -32,7 +31,7 @@ class ParquetStore(Store[pa.Table]):
         source: str | Path,
         *,
         columns: Sequence[str],
-        sample_columns: SampleColumns = DEFAULT_SAMPLE_COLUMNS,
+        metadata_columns: MetaDataStoreColumns = DEFAULT_COLUMNS,
     ) -> None:
         super().__init__(source=source)
 
@@ -41,8 +40,8 @@ class ParquetStore(Store[pa.Table]):
 
         self._columns = tuple(columns)
 
-        frame_index = sample_columns.frame_index
-        capture_timestamp_ns = sample_columns.capture_timestamp_ns
+        frame_index = metadata_columns.frame_index
+        capture_timestamp_ns = metadata_columns.capture_timestamp_ns
 
         if frame_index in self._columns or capture_timestamp_ns in self._columns:
             raise ValueError("Sample columns cannot also be payload columns")
@@ -76,7 +75,7 @@ class ParquetStore(Store[pa.Table]):
 
     @property
     def capture_timestamp_ns(self) -> Sequence[int]:
-        raise NotImplementedError("Capture timestamps are not yet supported for ParquetStore")
+        raise NotImplementedError("Capture timestamps not yet supported")
 
     @profile
     def get(self, index: int) -> pa.Table:

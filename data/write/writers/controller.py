@@ -11,11 +11,14 @@ from data.models.gamepad import (
     BUTTON_INPUTS,
     GamepadState,
 )
+from data.write.metadata import DEFAULT_COLUMNS
+
 
 class ControllerWriterConfig(BaseModel):
     model_config = ConfigDict(frozen=True, extra="forbid", strict=True)
 
     flush_every: PositiveInt
+
 
 class ControllerWriter:
     def __init__(
@@ -25,9 +28,7 @@ class ControllerWriter:
         flush_every: int,
     ) -> None:
         if flush_every <= 0:
-            raise ValueError(
-                "flush_every must be greater than zero"
-            )
+            raise ValueError("flush_every must be greater than zero")
 
         self.path = Path(path)
         self.flush_every = flush_every
@@ -39,16 +40,10 @@ class ControllerWriter:
 
         self._schema = pa.schema(
             [
-                pa.field("index", pa.int64()),
-                pa.field("timestamp_ns", pa.int64()),
-                *(
-                    pa.field(name, pa.float32())
-                    for name in ANALOG_INPUTS
-                ),
-                *(
-                    pa.field(name, pa.bool_())
-                    for name in BUTTON_INPUTS
-                ),
+                pa.field(DEFAULT_COLUMNS.frame_index, pa.int64()),
+                pa.field(DEFAULT_COLUMNS.capture_timestamp_ns, pa.int64()),
+                *(pa.field(name, pa.float32()) for name in ANALOG_INPUTS),
+                *(pa.field(name, pa.bool_()) for name in BUTTON_INPUTS),
             ]
         )
 
@@ -70,22 +65,15 @@ class ControllerWriter:
         state: GamepadState,
     ) -> None:
         if self._closed:
-            raise RuntimeError(
-                "Controller writer is closed"
-            )
+            raise RuntimeError("Controller writer is closed")
 
         if index < 0:
             raise ValueError("index cannot be negative")
 
         if timestamp_ns < 0:
-            raise ValueError(
-                "timestamp_ns cannot be negative"
-            )
+            raise ValueError("timestamp_ns cannot be negative")
 
-        if (
-            self._last_index is not None
-            and index != self._last_index + 1
-        ):
+        if self._last_index is not None and index != self._last_index + 1:
             raise ValueError(
                 "Controller indices must be sequential: "
                 f"expected {self._last_index + 1}, "
@@ -95,27 +83,13 @@ class ControllerWriter:
         state.validate()
 
         row: dict[str, object] = {
-            "index": index,
-            "timestamp_ns": timestamp_ns,
+            DEFAULT_COLUMNS.frame_index: index,
+            DEFAULT_COLUMNS.capture_timestamp_ns: timestamp_ns,
         }
 
-        row.update(
-            {
-                name: float(
-                    getattr(state.analog, name)
-                )
-                for name in ANALOG_INPUTS
-            }
-        )
+        row.update({name: float(getattr(state.analog, name)) for name in ANALOG_INPUTS})
 
-        row.update(
-            {
-                name: bool(
-                    getattr(state.buttons, name)
-                )
-                for name in BUTTON_INPUTS
-            }
-        )
+        row.update({name: bool(getattr(state.buttons, name)) for name in BUTTON_INPUTS})
 
         self._rows.append(row)
         self._last_index = index
@@ -125,9 +99,7 @@ class ControllerWriter:
 
     def flush(self) -> None:
         if self._closed:
-            raise RuntimeError(
-                "Controller writer is closed"
-            )
+            raise RuntimeError("Controller writer is closed")
 
         if not self._rows:
             return

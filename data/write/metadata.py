@@ -15,3 +15,15 @@ class RecordingMetadata:
     @property
     def duration_seconds(self) -> float:
         return self.sample_count / self.fps
+
+
+@dataclass(frozen=True, slots=True)
+class MetaDataStoreColumns:
+    frame_index: str
+    capture_timestamp_ns: str
+
+
+DEFAULT_COLUMNS = MetaDataStoreColumns(
+    frame_index="frame_index",
+    capture_timestamp_ns="frame_timestamp_ns",
+)

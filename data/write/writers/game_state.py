@@ -8,6 +8,7 @@ import pyarrow as pa
 import pyarrow.parquet as pq
 
 from data.models.game_state.memory import MemoryGameStateSchema
+from data.write.metadata import DEFAULT_COLUMNS
 
 
 class GameStateWriterConfig(BaseModel):
@@ -44,8 +45,8 @@ class GameStateWriter:
         self._closed = False
 
     def _validate_values(self, values: Mapping[str, object]) -> None:
-        missing = [name for name in self.schema.feature_names if name not in values]
-        unexpected = [name for name in values if not self.schema.has_feature(name)]
+        missing = [name for name in self.fields.feature_names if name not in values]
+        unexpected = [name for name in values if not self.fields.has_feature(name)]
 
         errors: list[Exception] = []
         if missing:
@@ -81,9 +82,12 @@ class GameStateWriter:
 
         self._validate_values(values)
 
-        row: dict[str, object] = {"index": index, "timestamp_ns": timestamp_ns}
+        row: dict[str, object] = {
+            DEFAULT_COLUMNS.frame_index: index,
+            DEFAULT_COLUMNS.capture_timestamp_ns: timestamp_ns,
+        }
 
-        for name in self.schema.feature_names:
+        for name in self.fields.feature_names:
             row[name] = values[name]
 
         self._rows.append(row)
