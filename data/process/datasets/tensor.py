@@ -138,6 +138,10 @@ class TensorDataset(Dataset[TensorDict]):
         if self.transforms is not None:
             tensors = self.transforms(tensors)
 
+            for name in tensors.keys():
+                if name not in self.schema.model_input_names:
+                    del tensors[name]
+
         for field in self.schema.fields:
             if field.is_model_input and field.name not in tensors:
                 tensors[field.name] = self._materialize_missing_column(
