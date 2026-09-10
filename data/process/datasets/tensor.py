@@ -110,13 +110,10 @@ class TensorDataset(Dataset[TensorDict]):
         store_available = set(self.store.feature_names)
 
         # everything the graph can produce from those fields
-        graph_available = self.transforms.resolve_available(store_available)
-
-        # everything the store can provide
-        available = set(self.store.feature_names) | set(graph_available)
+        available = self.transforms.resolve_available(store_available)
 
         # only return features that are model inputs
-        return available & set(self.schema.model_input_names)
+        return set(available) & set(self.schema.model_input_names)
 
     @profile
     def process_table(
