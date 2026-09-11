@@ -148,15 +148,15 @@ class TensorDataset(Dataset[TensorDict]):
                     field.name,
                     batch_size=batch_size,
                 )
-
+                
+        tensors = self._apply_schema(tensors)
         self._validate_tensors(tensors)
         return tensors
 
     def _materialize_column(self, name: str, column: TensorColumn) -> Tensor:
         field = self.schema.get_field(name)
-        dtype = field.torch_dtype
 
-        values = column.values.to(dtype)
+        values = column.values
         if column.validity is None:
             return values
 
@@ -166,8 +166,20 @@ class TensorDataset(Dataset[TensorDict]):
         return torch.where(
             column.validity,
             values,
-            torch.as_tensor(field.fill_value, dtype=dtype, device=values.device),
+            torch.as_tensor(field.fill_value, dtype=values.dtype, device=values.device),
         )
+
+    def _apply_schema(self, tensors: TensorDict) -> TensorDict:
+        fields = self.schema.fields_by_name
+
+        for name in tensors.keys():
+            if not isinstance(name, str):
+                continue
+
+            field = fields[name]
+            tensors[name] = tensors[name].to(dtype=field.torch_dtype)
+
+        return tensors
 
     def _materialize_missing_column(
         self,
