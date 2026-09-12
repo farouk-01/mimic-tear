@@ -44,17 +44,17 @@
         {
             "name": "player_x",
             "kind": "continuous",
-            "dtype": "int64"
+            "dtype": "float32"
         },
         {
             "name": "player_y",
             "kind": "continuous",
-            "dtype": "int64"
+            "dtype": "float32"
         },
         {
             "name": "player_z",
             "kind": "continuous",
-            "dtype": "int64"
+            "dtype": "float32"
         },
         {
             "name": "enemy_id",
