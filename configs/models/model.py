@@ -36,7 +36,7 @@ class ModelConfig(BaseModel):
     game_state: StructuredDataConfig
     fusion: VectorFusionConfig
     controller: ControllerConfig
-    debug_predictions: bool = False
+    return_predictions: bool = False
 
     @property
     def policy(self) -> LSTMPolicyConfig:
@@ -99,7 +99,7 @@ class ModelConfig(BaseModel):
             {**raw_model["controller"], "input_features": fusion.output_features}
         )
 
-        debug = raw_model["debug_predictions"]
+        return_predictions = raw_model["return_predictions"]
 
         return cls(
             d_model=d_model,
@@ -108,5 +108,5 @@ class ModelConfig(BaseModel):
             game_state=game_state,
             fusion=fusion,
             controller=controller,
-            debug_predictions=debug,
+            return_predictions=return_predictions,
         )

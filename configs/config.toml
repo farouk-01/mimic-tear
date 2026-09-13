@@ -11,7 +11,7 @@ controller_tensor_schema = "2"
 # =============================================================================
 [model]
 d_model = 256
-debug_predictions = true
+return_predictions = true
 
 [model.vision]
 output_features = 512
@@ -36,7 +36,7 @@ button_outputs = 14
 
 [training.hyperparameters]
 sequence_length = 120
-epochs = 1
+epochs = 20
 learning_rate = 0.0001
 weight_decay = 0.0001
 use_amp = true
@@ -46,13 +46,13 @@ analog_gain = 1.0
 
 [training.hyperparameters.controller_weights]
 south = 1.0
-east = 1.5
+east = 3.0
 west = 1.0
 north = 1.0
 left_bumper = 1.0
-right_bumper = 3.0
+right_bumper = 8.0
 left_stick = 1.0
-right_stick = 5.0
+right_stick = 15.0
 
 left_x = 1.0
 left_y = 1.0
@@ -71,7 +71,7 @@ right_trigger = 1.0
 
 [training.hyperparameters.early_stopping]
 enabled = true
-patience = 5
+patience = 3
 min_delta = 0.001
 
 [training.data_loader]
