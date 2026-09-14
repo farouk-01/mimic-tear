@@ -1,10 +1,11 @@
 from abc import ABC, abstractmethod
 from typing import ClassVar
 from graphlib import TopologicalSorter
-from collections.abc import Sequence, MutableMapping, Collection
+from collections.abc import Iterator, Sequence, MutableMapping, Collection
 import uuid
+from collections import deque
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, PositiveInt
 
 
 class Transform[T](BaseModel, ABC):
@@ -22,6 +23,32 @@ class Transform[T](BaseModel, ABC):
     def __call__(self, *args, **kwargs) -> T: ...
 
 
+class Lookback[T]:
+    def __init__(self, lookback_size: int) -> None:
+        self.lookback_size = lookback_size
+        self.buffer = deque(maxlen=lookback_size)
+
+    def push(self, value: T) -> None:
+        self.buffer.append(value)
+
+    def __iter__(self) -> Iterator[T]:
+        return iter(self.buffer)
+
+    def __len__(self) -> int:
+        return len(self.buffer)
+
+    def reset(self) -> None:
+        self.buffer.clear()
+
+
+class TemporalTransform[T](Transform[T]):
+    periods: PositiveInt = 1
+
+    lookback: Lookback[T] = Field(
+        default_factory=lambda data: Lookback(data["periods"])
+    )
+
+
 class Graph[T]:
     def __init__(self, transforms: Sequence[Transform[T]]) -> None:
         self.transforms = transforms
@@ -32,6 +59,8 @@ class Graph[T]:
 
         latest_producer: dict[str, int] = {}
 
+        self._lookback_cache: dict[int, Lookback[T]] = {}
+
         for t in transforms:
             deps: list[int] = []
 
@@ -40,6 +69,9 @@ class Graph[T]:
 
                 if _id is not None:
                     deps.append(_id)
+
+            if isinstance(t, TemporalTransform) and t.periods > 1:
+                self._lookback_cache[t.id] = Lookback(t.periods)
 
             self._sorter.add(t.id, *deps)
             latest_producer[t.output] = t.id
@@ -82,7 +114,7 @@ class Graph[T]:
 
         for t_id in self._order:
             transform = self._by_id[t_id]
-            
+
             if all(name in available for name in transform.inputs):
                 available.add(transform.output)
 
