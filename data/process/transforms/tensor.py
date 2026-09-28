@@ -5,9 +5,9 @@ from typing import ClassVar, Literal
 import torch
 from torch import Tensor
 from torchvision.transforms import v2
-from pydantic import ConfigDict
+from pydantic import ConfigDict, PositiveInt
 
-from data.process.transforms.base import Transform
+from data.process.transforms.base import Transform, TemporalTransform, Lookback
 
 type TransformInput = str | TensorTransform
 
@@ -15,6 +15,8 @@ type TransformInput = str | TensorTransform
 class TensorTransform(Transform[Tensor]):
     pass
 
+class TemporalTensorTransform(TemporalTransform[Tensor]):
+    pass
 
 class Ratio(TensorTransform):
     name: ClassVar[str] = "ratio"
@@ -137,11 +139,10 @@ class Delta(TensorTransform):
         return lhs - rhs
     
 
-class Lag(TensorTransform):
+class Lag(TemporalTensorTransform):
     name: ClassVar[str] = "lag"
 
     input: str
-    periods: int = 1
     fill: Literal["first", "zero"] = "first"
 
     @property
@@ -149,20 +150,20 @@ class Lag(TensorTransform):
         return (self.input,)
 
     def __call__(self, input: Tensor) -> Tensor:
-        if self.periods <= 0:
-            raise ValueError("periods must be greater than zero")
-
         if input.ndim == 0:
             raise ValueError("Lag requires a tensor with a time dimension")
 
         result = torch.empty_like(input)
 
-        if self.fill == "first":
-            result[: self.periods] = input[0]
+        if len(self.lookback) < self.periods:
+            if self.fill == "first":
+                result[:self.periods] = input[0]
+            else:
+                result[:self.periods] = 0
         else:
-            result[: self.periods] = 0
+            result[:self.periods] = torch.stack(list(self.lookback))
 
         if self.periods < input.shape[0]:
-            result[self.periods :] = input[: -self.periods]
+            result[self.periods:] = input[:-self.periods]
 
         return result

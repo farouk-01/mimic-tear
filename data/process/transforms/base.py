@@ -31,6 +31,9 @@ class Lookback[T]:
     def push(self, value: T) -> None:
         self.buffer.append(value)
 
+    def extend(self, values: Sequence[T]) -> None:
+        self.buffer.extend(values)
+
     def __iter__(self) -> Iterator[T]:
         return iter(self.buffer)
 
@@ -42,12 +45,11 @@ class Lookback[T]:
 
 
 class TemporalTransform[T](Transform[T]):
-    periods: PositiveInt = 1
+    periods: PositiveInt = 0
 
     lookback: Lookback[T] = Field(
         default_factory=lambda data: Lookback(data["periods"])
     )
-
 
 class Graph[T]:
     def __init__(self, transforms: Sequence[Transform[T]]) -> None:
@@ -59,8 +61,6 @@ class Graph[T]:
 
         latest_producer: dict[str, int] = {}
 
-        self._lookback_cache: dict[int, Lookback[T]] = {}
-
         for t in transforms:
             deps: list[int] = []
 
@@ -69,9 +69,6 @@ class Graph[T]:
 
                 if _id is not None:
                     deps.append(_id)
-
-            if isinstance(t, TemporalTransform) and t.periods > 1:
-                self._lookback_cache[t.id] = Lookback(t.periods)
 
             self._sorter.add(t.id, *deps)
             latest_producer[t.output] = t.id
@@ -85,8 +82,13 @@ class Graph[T]:
             if not all(name in data for name in transform.inputs):
                 continue
 
-            data[transform.output] = transform(*[data[i] for i in transform.inputs])
+            inputs = [data[i] for i in transform.inputs]
 
+            data[transform.output] = transform(*inputs)
+
+            if isinstance(transform, TemporalTransform):
+                transform.lookback.extend([data[transform.output]])
+                
         return data
 
     @property
@@ -119,3 +121,8 @@ class Graph[T]:
                 available.add(transform.output)
 
         return available
+
+    def reset_lookbacks(self) -> None:
+        for t in self.transforms:
+            if isinstance(t, TemporalTransform):
+                t.lookback.reset()

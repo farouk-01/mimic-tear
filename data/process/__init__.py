@@ -127,9 +127,7 @@ class Process:
     def live_datasets(self) -> dict[RecordingName, TensorDataset]:
         return self._build_live_datasets()
 
-    def _build_live_datasets(
-        self,
-    ) -> dict[RecordingName, TensorDataset]:
+    def _build_live_datasets(self) -> dict[RecordingName, TensorDataset]:
         return {
             cfg.name: TensorDataset(
                 store=None,
@@ -175,10 +173,7 @@ class Process:
             cfg = self.dataset_configs[name]
             dataset = self.live_datasets[name]
 
-            datasets[name] = dataset.process_table(
-                table,
-                batch_size=[1],
-            )
+            datasets[name] = dataset.process_table(table, batch_size=[1])
 
             available_features = self._available_table_features(
                 table=table,
@@ -311,12 +306,17 @@ class Process:
             name = cfg.name
             source = getattr(recording, name)
 
+            # reset lookbacks so a previous Recording
+            # data doesn't affect the current dataset
+            transforms = cfg.dataset_cfg.transforms
+            transforms.reset_lookbacks()
+
             dataset, presence_mask = self._load_one_dataset(
                 source=source,
                 schema=cfg.dataset_cfg.tensor_schema,
                 store_cfg=cfg.store_cfg,
                 encoders=self.encoders[name],
-                transforms=cfg.dataset_cfg.transforms,
+                transforms=transforms,
             )
 
             datasets[name] = dataset
