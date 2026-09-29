@@ -6,14 +6,15 @@ from typing import Literal, overload
 
 from pydantic import BaseModel, ConfigDict
 import torch
+from torch import Tensor
 from tensordict import TensorDict
 from torch.nn.utils import clip_grad_norm_
 from torch.utils.data import DataLoader
 
-from data.process import ProcessedRecording, SequenceDataset, PresenceMask
+from data.process import ProcessedRecording, SequenceDataset
 from data.models.gamepad import get_inputs_names_classified
-from mimic_tear.model.loss import PolicyLoss
-from mimic_tear.model.policy import LSTMPolicy
+from mimic_tear.model import Policy, PolicyInputs
+from mimic_tear.model.components.loss import GamepadLoss
 from mimic_tear.model.components import ControllerOutput
 
 from utils import profile
@@ -74,9 +75,9 @@ class Trainer:
     def __init__(
         self,
         *,
-        model: LSTMPolicy,
+        policy: Policy,
         optimizer: torch.optim.Optimizer,
-        loss: PolicyLoss,
+        loss: GamepadLoss,
         device: str | torch.device,
         gradient_clip_norm: float | None,
         use_amp: bool,
@@ -92,7 +93,7 @@ class Trainer:
                 "Shuffled training is not supported yet, " "shuffle must be False"
             )
 
-        self.model = model
+        self.policy = policy
         self.optimizer = optimizer
         self.loss = loss
 
@@ -118,7 +119,7 @@ class Trainer:
 
     @profile
     def train_epoch(self, recordings: Iterable[ProcessedRecording]) -> EpochMetrics:
-        self.model.train()
+        self.policy.train()
         metrics = EpochMetrics()
 
         for recording in recordings:
@@ -130,19 +131,7 @@ class Trainer:
             for sample in self._loader(dataset):
                 batch = Sampler.prepare(sample).to(self.device, non_blocking=True)
 
-                images: TensorDict = batch["video", "frames"]
-
-                analogs, buttons = get_inputs_names_classified()
-                analogs = torch.stack(
-                    [batch["controller", name] for name in analogs],
-                    dim=-1,
-                )
-                buttons = torch.stack(
-                    [batch["controller", name] for name in buttons],
-                    dim=-1,
-                )
-
-                game_state = batch.get("game_state")
+                analog_targets, buttons_target = self._targets(batch)
 
                 self.optimizer.zero_grad(set_to_none=True)
 
@@ -151,17 +140,13 @@ class Trainer:
                     dtype=torch.float16,
                     enabled=self.use_amp,
                 ):
-                    output, next_state = self.model(
-                        images,
-                        structured_data=game_state,
-                        presence_mask=presence_mask["game_state"],
-                        state=state,
-                    )
+                    data = PolicyInputs.from_batch(batch, presence=presence_mask)
+                    output, next_state = self.policy(data, state)
 
                     losses = self.loss(
                         output,
-                        analog_target=analogs,
-                        button_target=buttons,
+                        analog_target=analog_targets,
+                        button_target=buttons_target,
                     )
 
                 self.scaler.scale(losses.total).backward()
@@ -169,13 +154,13 @@ class Trainer:
                 if self.gradient_clip_norm is not None:
                     self.scaler.unscale_(self.optimizer)
 
-                    clip_grad_norm_(self.model.parameters(), self.gradient_clip_norm)
+                    clip_grad_norm_(self.policy.parameters(), self.gradient_clip_norm)
 
                 self.scaler.step(self.optimizer)
 
                 self.scaler.update()
 
-                state = self.model.detach_state(next_state)
+                state = self.policy.detach_state(next_state)
 
                 metrics.update(
                     total=losses.total.item(),
@@ -208,7 +193,7 @@ class Trainer:
         *,
         return_predictions: bool = False,
     ) -> EpochMetrics | tuple[EpochMetrics, list[GamepadPredictions]]:
-        self.model.eval()
+        self.policy.eval()
         metrics = EpochMetrics()
 
         if return_predictions:
@@ -224,45 +209,23 @@ class Trainer:
                 for sample in self._loader(dataset):
                     batch = Sampler.prepare(sample).to(self.device, non_blocking=True)
 
-                    frames: TensorDict = batch.get("video")
-                    controller: TensorDict = batch.get("controller")
-
-                    images = frames.get("frames")
-
-                    analogs, buttons = get_inputs_names_classified()
-
-                    analogs = torch.stack(
-                        [controller.get(name) for name in analogs],
-                        dim=-1,
-                    )
-                    buttons = torch.stack(
-                        [controller.get(name) for name in buttons],
-                        dim=-1,
-                    )
-
-                    game_state = (
-                        batch.get("game_state") if "game_state" in batch else None
-                    )
+                    analog_targets, buttons_target = self._targets(batch)
 
                     with torch.autocast(
                         device_type=self.device.type,
                         dtype=torch.float16,
                         enabled=self.use_amp,
                     ):
-                        output, state = self.model(
-                            images,
-                            structured_data=game_state,
-                            presence_mask=presence_mask["game_state"],
-                            state=state,
-                        )
+                        data = PolicyInputs.from_batch(batch, presence=presence_mask)
+                        output, next_state = self.policy(data, state)
 
                         losses = self.loss(
                             output,
-                            analog_target=analogs,
-                            button_target=buttons,
+                            analog_target=analog_targets,
+                            button_target=buttons_target,
                         )
 
-                    state = self.model.detach_state(state)
+                    state = self.policy.detach_state(next_state)
 
                     metrics.update(
                         total=losses.total.item(),
@@ -271,9 +234,24 @@ class Trainer:
                     )
 
                     if return_predictions:
-                        self.predictions.append((output, analogs, buttons))
+                        self.predictions.append((output, analog_targets, buttons_target))
 
         if return_predictions:
             return metrics.average(), self.predictions
 
         return metrics.average()
+
+    @staticmethod
+    def _targets(batch: TensorDict) -> tuple[Tensor, Tensor]:
+        analog_targets, buttons_target = get_inputs_names_classified()
+
+        analog_targets = torch.stack(
+            [batch["controller", name] for name in analog_targets],
+            dim=-1,
+        )
+        buttons_target = torch.stack(
+            [batch["controller", name] for name in buttons_target],
+            dim=-1,
+        )
+
+        return analog_targets, buttons_target

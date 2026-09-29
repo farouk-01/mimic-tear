@@ -1,4 +1,3 @@
-from .model import LSTMPolicy, LSTMPolicyConfig
 from .training import (
     EpochMetrics,
     Hyperparameters,
@@ -9,8 +8,6 @@ from .training import (
 from .mimic import MimicTear
 
 __all__ = [
-    "LSTMPolicy",
-    "LSTMPolicyConfig",
     "Trainer",
     "Hyperparameters",
     "EpochMetrics",

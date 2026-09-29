@@ -6,14 +6,19 @@ from typing import TYPE_CHECKING
 from threading import Event
 import datetime
 
+from configs.models.policy import PolicyConfig
 from data import DataPipeline
-from mimic_tear.model.loss import PolicyLoss
-from mimic_tear.model.policy import LSTMPolicy
+from mimic_tear.model import get_policy, Policy
+from mimic_tear.model.components import GamepadLoss
 
 from mimic_tear.player.player import Player
 from utils.logging.logger import Logger
 from mimic_tear.training import Trainer
-from mimic_tear.training.checkpoint import load_checkpoint, save_checkpoint, save_predictions
+from mimic_tear.training.checkpoint import (
+    load_checkpoint,
+    save_checkpoint,
+    save_predictions,
+)
 from utils.logging.profiling import Profiler
 
 if TYPE_CHECKING:
@@ -73,11 +78,10 @@ class MimicTear:
 
         cardinalities = self.data_pipeline.encoding_cardinalities
 
-        model_cfg = self.config.load_model_config(encoding_cardinalities=cardinalities)
-        model = LSTMPolicy(config=model_cfg.policy).to(self.device)
+        policy, policy_cfg = self._build_policy()
 
         optimizer = torch.optim.AdamW(
-            model.parameters(),
+            policy.parameters(),
             lr=self.hyperparams.learning_rate,
             weight_decay=self.hyperparams.weight_decay,
         )
@@ -85,14 +89,14 @@ class MimicTear:
         # self.logger.info("Training recordings: %d", len(train_dataset))
         # self.logger.info("Validation recordings: %d", len(val_dataset))
 
-        loss = PolicyLoss(
+        loss = GamepadLoss(
             button_weight=self.hyperparams.controller_weights.button_weights,
             analog_weight=self.hyperparams.controller_weights.analog_weights,
         ).to(self.device)
 
         self.logger.info("Initializing trainer on %s...", self.device)
         trainer = Trainer(
-            model=model,
+            policy=policy,
             optimizer=optimizer,
             loss=loss,
             device=self.device,
@@ -118,10 +122,10 @@ class MimicTear:
             )
 
             predictions = None
-            if model_cfg.return_predictions:
+            if self.config.training.return_predictions:
                 val_metrics, predictions = trainer.validate(
                     val_datasets,
-                    return_predictions=model_cfg.return_predictions,
+                    return_predictions=True,
                 )
             else:
                 val_metrics = trainer.validate(val_datasets)
@@ -129,7 +133,7 @@ class MimicTear:
             metadata = {
                 "validation_loss": val_metrics.total_loss,
                 "network_hyperparameters": self.hyperparams.model_dump(),
-                "policy_config": model.config.model_dump(),
+                "policy_config": policy_cfg.model_dump(),
                 "sequence_length": self.hyperparams.sequence_length,
                 "encoders": [
                     encoders.model_dump() for encoders in self.config.gstate.encoders
@@ -140,7 +144,7 @@ class MimicTear:
 
             save_checkpoint(
                 artififact_path / "latest.pt",
-                model=model,
+                model=policy,
                 optimizer=optimizer,
                 epoch=epoch,
                 metadata=metadata,
@@ -150,7 +154,7 @@ class MimicTear:
                 best_val_loss = val_metrics.total_loss
                 save_checkpoint(
                     artififact_path / "best.pt",
-                    model=model,
+                    model=policy,
                     optimizer=optimizer,
                     epoch=epoch,
                     metadata=metadata,
@@ -194,8 +198,53 @@ class MimicTear:
                 )
                 break
 
+    def summon(self, *, stop_event: Event | None = None) -> None:
+        input("Press Enter to summon (Ctrl+C to dismiss)")
+
+        self.logger.info("Summoning Mimic Tear...")
+        sleep(3.0)
+
+        policy, _ = self._build_policy()
+
+        load_checkpoint(r"artifacts\2026-09-10_22-17\best.pt", model=policy)
+
+        if self.grace_logger is None:
+            self.grace_logger = Logger(**self.config.logging.grace.model_dump())
+
+        try:
+            with self.data_pipeline.writer.gamepad() as gamepad:
+                player = Player(
+                    model=policy,
+                    process_stream=self.data_pipeline.process_stream,
+                    gamepad=gamepad,
+                    device=self.device,
+                    button_threshold=self.hyperparams.button_threshold,
+                    analog_gain=self.hyperparams.analog_gain,
+                    logger=self.grace_logger,
+                )
+
+                player.run(stop_event=stop_event)
+
+        except KeyboardInterrupt:
+            self.logger.info("Mimic Tear dismissed.")
+
     def train(self, *, discover_encodings: bool = False) -> None:
         self.mimic(discover_encodings=discover_encodings)
+
+    def eval(self, *, stop_event: Event | None = None) -> None:
+        self.summon(stop_event=stop_event)
+
+    def _build_policy(self) -> tuple[Policy, PolicyConfig]:
+        policy_cfg = self.config.policy
+        cardinalities = self.data_pipeline.encoding_cardinalities
+
+        policy = get_policy(
+            policy_cfg,
+            gstate_schema=self.config.gstate.tensor_schema,
+            cardinalities=cardinalities.get("game_state", {}),
+        )
+
+        return policy.to(self.device), policy_cfg
 
     def record(
         self,
@@ -225,40 +274,3 @@ class MimicTear:
         self.logger.info("Recording saved to %s", output)
 
         return output
-
-    def summon(self, *, stop_event: Event | None = None) -> None:
-        input("Press Enter to summon (Ctrl+C to dismiss)")
-
-        self.logger.info("Summoning Mimic Tear...")
-        sleep(3.0)
-
-        cardinalities = self.data_pipeline.encoding_cardinalities
-
-        model_cfg = self.config.load_model_config(encoding_cardinalities=cardinalities)
-
-        model = LSTMPolicy(config=model_cfg.policy).to(self.device)
-
-        load_checkpoint(self.config.paths.artifacts / "best.pt", model=model)
-
-        if self.grace_logger is None:
-            self.grace_logger = Logger(**self.config.logging.grace.model_dump())
-
-        try:
-            with self.data_pipeline.writer.gamepad() as gamepad:
-                player = Player(
-                    model=model,
-                    process_stream=self.data_pipeline.process_stream,
-                    gamepad=gamepad,
-                    device=self.device,
-                    button_threshold=self.hyperparams.button_threshold,
-                    analog_gain=self.hyperparams.analog_gain,
-                    logger=self.grace_logger,
-                )
-
-                player.run(stop_event=stop_event)
-
-        except KeyboardInterrupt:
-            self.logger.info("Mimic Tear dismissed.")
-
-    def eval(self, *, stop_event: Event | None = None) -> None:
-        self.summon(stop_event=stop_event)

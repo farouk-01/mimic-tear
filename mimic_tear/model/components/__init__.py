@@ -1,31 +1,28 @@
-from mimic_tear.model.components.controller import (
-    Controller,
-    ControllerOutput,
-    ControllerConfig,
-)
-from mimic_tear.model.components.structured_data import StructuredData, StructuredDataConfig
-from mimic_tear.model.components.temporal import LSTMState, Temporal, TemporalConfig
-from mimic_tear.model.components.vision import Vision, VisionConfig
-from mimic_tear.model.components.fusions import (
-    VectorFusion,
-    VectorFusionConfig,
-    TokenFusion,
-    TokenFusionConfig,
-)
+from .aggregator import Aggregator, Mean
+from .controller import ControllerOutput, Gamepad, Controller
+from .encoder import Embedding, ContinuousEncoder, Encoder
+from .fusion import Concat, Fusion
+from .loss import GamepadLoss, GamepadLossOutput
+from .temporal import LSTM, LSTMState, Temporal
+from .vision import ResNet18, Vision
+
 
 __all__ = [
+    "Aggregator",
     "Controller",
-    "ControllerOutput",
-    "StructuredData",
-    "LSTMState",
+    "Encoder",
+    "Fusion",
     "Temporal",
     "Vision",
-    "ControllerConfig",
-    "StructuredDataConfig",
-    "TemporalConfig",
-    "VisionConfig",
-    "VectorFusion",
-    "VectorFusionConfig",
-    "TokenFusion",
-    "TokenFusionConfig",
+    "Mean",
+    "ControllerOutput",
+    "Gamepad",
+    "Embedding",
+    "ContinuousEncoder",
+    "Concat",
+    "GamepadLoss",
+    "GamepadLossOutput",
+    "LSTM",
+    "LSTMState",
+    "ResNet18",
 ]

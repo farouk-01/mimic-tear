@@ -1,23 +1,32 @@
-from __future__ import annotations
-
+from abc import ABC, abstractmethod
 from dataclasses import dataclass
+from typing import Any
 
-import torch
 from torch import Tensor, nn
-from pydantic import BaseModel
 
-from mimic_tear.model.components import ControllerOutput
+from mimic_tear.model.components.controller import ControllerOutput
 from utils import profile
 
 
 @dataclass(frozen=True, slots=True)
-class PolicyLossOutput:
+class LossOutput:
     total: Tensor
+
+
+class Loss(nn.Module, ABC):
+    @abstractmethod
+    def forward(
+        self, output: ControllerOutput, *args: Any, **kwargs: Any
+    ) -> LossOutput: ...
+
+
+@dataclass(frozen=True, slots=True)
+class GamepadLossOutput(LossOutput):
     analog: Tensor
     buttons: Tensor
 
 
-class PolicyLoss(nn.Module):
+class GamepadLoss(Loss):
     analog_weight: Tensor
     button_weight: Tensor
 
@@ -33,7 +42,10 @@ class PolicyLoss(nn.Module):
         self.register_buffer("button_weight", button_weight)
 
         self.analog_criterion = nn.SmoothL1Loss(reduction="none")
-        self.button_criterion = nn.BCEWithLogitsLoss(reduction="none", pos_weight=button_weight)
+        self.button_criterion = nn.BCEWithLogitsLoss(
+            reduction="none",
+            pos_weight=button_weight,
+        )
 
     @profile
     def forward(
@@ -42,16 +54,9 @@ class PolicyLoss(nn.Module):
         *,
         analog_target: Tensor,
         button_target: Tensor,
-    ) -> PolicyLossOutput:
-        analog_loss = self.analog_criterion(
-            output.analog,
-            analog_target,
-        )
-
-        button_loss = self.button_criterion(
-            output.button_logits,
-            button_target,
-        )
+    ) -> GamepadLossOutput:
+        analog_loss = self.analog_criterion(output.analog, analog_target)
+        button_loss = self.button_criterion(output.button_logits, button_target)
 
         analog_loss = (analog_loss * self.analog_weight).sum(
             dim=-1
@@ -62,8 +67,4 @@ class PolicyLoss(nn.Module):
 
         total = analog_loss + button_loss
 
-        return PolicyLossOutput(
-            total=total,
-            analog=analog_loss,
-            buttons=button_loss,
-        )
+        return GamepadLossOutput(total=total, analog=analog_loss, buttons=button_loss)

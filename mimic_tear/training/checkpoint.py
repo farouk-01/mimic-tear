@@ -3,8 +3,8 @@ from typing import Any
 from collections.abc import Sequence
 
 import torch
+from torch import nn
 
-from mimic_tear.model.policy import LSTMPolicy
 from mimic_tear.training.trainer import GamepadPredictions
 from data.models.gamepad import get_inputs_names_classified
 
@@ -12,7 +12,7 @@ from data.models.gamepad import get_inputs_names_classified
 def save_checkpoint(
     path: str | Path,
     *,
-    model: LSTMPolicy,
+    model: nn.Module,
     optimizer: torch.optim.Optimizer,
     epoch: int,
     metadata: dict[str, Any] | None = None,
@@ -37,7 +37,7 @@ def save_checkpoint(
 def load_checkpoint(
     path: str | Path,
     *,
-    model: LSTMPolicy,
+    model: nn.Module,
     optimizer: torch.optim.Optimizer | None = None,
 ) -> dict[str, Any]:
     checkpoint = torch.load(
