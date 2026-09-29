@@ -206,7 +206,9 @@ class MimicTear:
 
         policy, _ = self._build_policy()
 
-        load_checkpoint(r"artifacts\2026-09-10_22-17\best.pt", model=policy)
+        checkpoint = self._latest_checkpoint()
+        self.logger.info("Loading checkpoint %s", checkpoint)
+        load_checkpoint(checkpoint, model=policy)
 
         if self.grace_logger is None:
             self.grace_logger = Logger(**self.config.logging.grace.model_dump())
@@ -233,6 +235,16 @@ class MimicTear:
 
     def eval(self, *, stop_event: Event | None = None) -> None:
         self.summon(stop_event=stop_event)
+
+    def _latest_checkpoint(self) -> Path:
+        checkpoints = list(self.config.paths.artifacts.glob("*/best.pt"))
+
+        if not checkpoints:
+            raise FileNotFoundError(
+                f"No best.pt checkpoint found in {self.config.paths.artifacts}"
+            )
+
+        return max(checkpoints, key=lambda path: path.stat().st_mtime)
 
     def _build_policy(self) -> tuple[Policy, PolicyConfig]:
         policy_cfg = self.config.policy
