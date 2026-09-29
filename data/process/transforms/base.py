@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 from typing import ClassVar
 from graphlib import TopologicalSorter
-from collections.abc import Iterator, Sequence, MutableMapping, Collection
+from collections.abc import Iterator, Sequence, MutableMapping, Collection, Iterable
 import uuid
 from collections import deque
 
@@ -31,8 +31,11 @@ class Lookback[T]:
     def push(self, value: T) -> None:
         self.buffer.append(value)
 
-    def extend(self, values: Sequence[T]) -> None:
+    def extend(self, values: Iterable[T]) -> None:
         self.buffer.extend(values)
+
+    def extendleft(self, values: Iterable[T]) -> None:
+        self.buffer.extendleft(values)
 
     def __iter__(self) -> Iterator[T]:
         return iter(self.buffer)
@@ -40,11 +43,16 @@ class Lookback[T]:
     def __len__(self) -> int:
         return len(self.buffer)
 
+    def __getitem__(self, index: int) -> T:
+        return self.buffer[index]
+
     def reset(self) -> None:
         self.buffer.clear()
 
 
 class TemporalTransform[T](Transform[T]):
+    model_config = ConfigDict(arbitrary_types_allowed=True)
+    
     periods: PositiveInt = 0
 
     lookback: Lookback[T] = Field(
@@ -85,9 +93,6 @@ class Graph[T]:
             inputs = [data[i] for i in transform.inputs]
 
             data[transform.output] = transform(*inputs)
-
-            if isinstance(transform, TemporalTransform):
-                transform.lookback.extend([data[transform.output]])
                 
         return data
 

@@ -15,8 +15,10 @@ type TransformInput = str | TensorTransform
 class TensorTransform(Transform[Tensor]):
     pass
 
+
 class TemporalTensorTransform(TemporalTransform[Tensor]):
     pass
+
 
 class Ratio(TensorTransform):
     name: ClassVar[str] = "ratio"
@@ -137,7 +139,7 @@ class Delta(TensorTransform):
 
     def __call__(self, lhs: Tensor, rhs: Tensor) -> Tensor:
         return lhs - rhs
-    
+
 
 class Lag(TemporalTensorTransform):
     name: ClassVar[str] = "lag"
@@ -155,15 +157,25 @@ class Lag(TemporalTensorTransform):
 
         result = torch.empty_like(input)
 
-        if len(self.lookback) < self.periods:
-            if self.fill == "first":
-                result[:self.periods] = input[0]
-            else:
-                result[:self.periods] = 0
-        else:
-            result[:self.periods] = torch.stack(list(self.lookback))
+        missing = self.periods - len(self.lookback)
 
-        if self.periods < input.shape[0]:
+        if missing > 0:
+            if self.fill == "first":
+                first_value = self.lookback[0] if self.lookback else input[0]
+                self.lookback.extendleft([first_value] * missing)    
+
+            elif self.fill == "zero":
+                value = torch.zeros_like(input[0])
+                self.lookback.extendleft([value] * missing)
+
+        required_fill_size = min(self.periods, input.size(0))
+        fill = list(self.lookback)[:required_fill_size]
+
+        result[:required_fill_size] = torch.stack(fill)
+
+        if self.periods < input.size(0):
             result[self.periods:] = input[:-self.periods]
+        
+        self.lookback.extend(input)
 
         return result
