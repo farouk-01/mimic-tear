@@ -45,7 +45,7 @@ TORCH_DTYPES: dict[TensorType, torch.dtype] = {
     "float64": torch.float64,
 }
 
-FillValueType = int | float | bool
+type FillValueType = int | float | bool
 
 
 class TensorField(Field[TensorType]):

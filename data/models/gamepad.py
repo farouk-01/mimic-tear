@@ -5,29 +5,37 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 
 ANALOG_INPUTS: tuple[str, ...] = (
+    # left joystick
     "left_x",
     "left_y",
+    # right joystick
     "right_x",
     "right_y",
+    # triggers (L2/R2)
     "left_trigger",
     "right_trigger",
 )
 
 BUTTON_INPUTS: tuple[str, ...] = (
+    # face buttons (A/B/X/Y)
     "south",
     "east",
     "west",
     "north",
+    # bumpers (L1/R1)
     "left_bumper",
     "right_bumper",
+    # stick buttons (L3/R3)
     "left_stick",
     "right_stick",
+    # dpad
     "dpad_up",
     "dpad_down",
     "dpad_left",
     "dpad_right",
+    # system buttons
     "start",
-    "back",
+    "back", # back = select
 )
 
 type AnalogInputs = tuple[str, ...]

@@ -1,23 +1,27 @@
-from pydantic import BaseModel, ConfigDict
+from collections.abc import Iterator
 from contextlib import ExitStack
 from functools import cached_property
-from collections.abc import Iterator
 from threading import Event
+from types import TracebackType
 from typing import Self
 
+from pydantic import BaseModel, ConfigDict
+
+from data.models.schema import Snapshot
+
 from .synchronizer import CaptureSynchronizer, CaptureSample
-from .gamepad import GamepadReader, GamepadReaderConfig
-from .screen import ScreenReader, CapturedFrame, ScreenCaptureConfig
-from .memory import EldenRingReader, EldenRingMemoryProfile, MemoryGameStateSnapshot
-
-
-from data.models.gamepad import GamepadState
+from .sources.controller import GamepadReader, GamepadReaderConfig
+from .sources.screen import CapturedFrame, ScreenReader, ScreenCaptureConfig
+from .sources.memory import EldenRingReader, EldenRingMemoryProfile
 
 __all__ = [
     "CaptureSample",
     "CaptureSynchronizer",
     "CaptureConfig",
     "Capture",
+    "EldenRingMemoryProfile",
+    "GamepadReaderConfig",
+    "ScreenCaptureConfig",
 ]
 
 
@@ -40,7 +44,10 @@ class Capture:
 
     @cached_property
     def _gamepad(self) -> GamepadReader:
-        return GamepadReader(**self.config.gamepad.model_dump())
+        self._ensure_open()
+        return self._stack.enter_context(
+            GamepadReader(**self.config.gamepad.model_dump())
+        )
 
     @cached_property
     def _screen(self) -> ScreenReader:
@@ -56,18 +63,6 @@ class Capture:
             EldenRingReader.open(self.config.game_state_profile)
         )
 
-    def capture_one_screen(self) -> CapturedFrame:
-        self._ensure_open()
-        return self._screen.read()
-
-    def capture_one_gamepad(self) -> GamepadState:
-        self._ensure_open()
-        return self._gamepad.read()
-
-    def capture_one_game_state(self) -> MemoryGameStateSnapshot:
-        self._ensure_open()
-        return self._game_state.read()
-
     @cached_property
     def _synchronizer(self) -> CaptureSynchronizer:
         return CaptureSynchronizer(
@@ -77,14 +72,21 @@ class Capture:
             fps=self.fps,
         )
 
+    def capture_one_screen(self) -> CapturedFrame:
+        self._ensure_open()
+        return self._screen.read()
+
+    def capture_one_gamepad(self) -> Snapshot:
+        self._ensure_open()
+        return self._gamepad.read()
+
+    def capture_one_game_state(self) -> Snapshot:
+        self._ensure_open()
+        return self._game_state.read()
+
     def capture_one(self) -> CaptureSample:
         self._ensure_open()
-        return CaptureSynchronizer(
-            screen=self._screen,
-            gamepad=self._gamepad,
-            game_state=self._game_state,
-            fps=self.fps,
-        ).capture()
+        return self._synchronizer.capture()
 
     def capture_stream(
         self,
@@ -92,11 +94,12 @@ class Capture:
         stop_event: Event | None = None,
         include_gamepad: bool = True,
     ) -> Iterator[CaptureSample]:
+        self._ensure_open()
         synchronizer = CaptureSynchronizer(
             screen=self._screen,
             gamepad=self._gamepad if include_gamepad else None,
             game_state=self._game_state,
-            fps=self.config.fps,
+            fps=self.fps,
         )
 
         return synchronizer.run(stop_event=stop_event)
@@ -118,5 +121,10 @@ class Capture:
         self._ensure_open()
         return self
 
-    def __exit__(self, exc_type: object, exc_value: object, traceback: object) -> None:
+    def __exit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc_value: BaseException | None,
+        traceback: TracebackType | None,
+    ) -> None:
         self.close()

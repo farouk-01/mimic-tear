@@ -6,6 +6,7 @@ from threading import Event
 from time import sleep
 
 from .capture import Capture, CaptureConfig
+from .capture.sources.controller import GAMEPAD_SCHEMA
 from .process import Process, ProcessConfig, ProcessedRecording, ProcessedSample
 from .write import Writer, WriterConfig
 
@@ -74,20 +75,18 @@ class DataPipeline:
         if seconds is not None:
             print(f"Recording for {seconds:.1f} seconds.")
 
-        schema = self.capture_config.game_state_profile.raw_schema
-
         try:
             with (
                 Capture(config=self.capture_config) as capture,
-                self.writer.recording(path=path, schema=schema) as writer,
+                self.writer.recording(
+                    path=path,
+                    controller_schema=GAMEPAD_SCHEMA,
+                    game_state_schema=self.capture_config.game_state_profile.raw_schema,
+                ) as writer,
             ):
                 try:
                     for sample in capture.capture_stream(stop_event=stop_event):
-                        game_state = (
-                            sample.game_state.to_dict()
-                            if sample.game_state is not None
-                            else None
-                        )
+                        game_state = sample.game_state
 
                         if game_state is None:
                             raise RuntimeError(

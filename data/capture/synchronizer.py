@@ -1,23 +1,22 @@
-from __future__ import annotations
-
-from collections.abc import Iterator
 from dataclasses import dataclass
-from threading import Event
 from time import perf_counter_ns, sleep
+from threading import Event
+from collections.abc import Iterator
 
-from .gamepad.reader import GamepadReader
-from .screen import ScreenReader, CapturedFrame
-from .memory.game_state import GameStateReader
-from data.models.game_state.memory import MemoryGameStateSnapshot
-from data.models.gamepad import GamepadState
+
+from .sources.screen import CapturedFrame, ScreenReader
+from .sources.controller import GamepadReader
+from .sources.memory import GameStateReader
+
+from data.models.schema import Snapshot
 
 
 @dataclass(frozen=True, slots=True)
 class CaptureSample:
     index: int
     frame: CapturedFrame
-    controller: GamepadState | None
-    game_state: MemoryGameStateSnapshot | None
+    controller: Snapshot | None
+    game_state: Snapshot
     completed_ns: int
 
     @property
@@ -34,8 +33,8 @@ class CaptureSynchronizer:
         self,
         *,
         screen: ScreenReader,
-        gamepad: GamepadReader | None = None,
-        game_state: GameStateReader | None = None,
+        gamepad: GamepadReader | None,
+        game_state: GameStateReader,
         fps: float = 30.0,
     ) -> None:
         if fps <= 0:
@@ -52,7 +51,7 @@ class CaptureSynchronizer:
     def capture(self) -> CaptureSample:
         frame = self.screen.read()
         controller = self.gamepad.read() if self.gamepad is not None else None
-        game_state = self.game_state.read() if self.game_state is not None else None
+        game_state = self.game_state.read()
 
         sample = CaptureSample(
             index=self._next_index,
@@ -65,11 +64,7 @@ class CaptureSynchronizer:
         self._next_index += 1
         return sample
 
-    def run(
-        self,
-        *,
-        stop_event: Event | None = None,
-    ) -> Iterator[CaptureSample]:
+    def run(self, *, stop_event: Event | None = None) -> Iterator[CaptureSample]:
         next_tick_ns = perf_counter_ns()
 
         while stop_event is None or not stop_event.is_set():

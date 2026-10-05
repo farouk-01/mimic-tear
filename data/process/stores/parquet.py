@@ -5,6 +5,7 @@ import pyarrow.parquet as pq
 import pyarrow as pa
 import torch
 
+from data.constants import DEFAULT_COLUMNS, RecordColumns
 from data.process.stores.base import (
     Store,
     StoreAdapter,
@@ -15,7 +16,6 @@ from data.process.stores.base import (
     FILE_STORES,
 )
 from data.process.stores.validations import normalize_index, normalize_range
-from data.write.metadata import DEFAULT_COLUMNS, MetaDataStoreColumns
 
 from utils import profile
 
@@ -31,7 +31,7 @@ class ParquetStore(Store[pa.Table]):
         source: str | Path,
         *,
         columns: Sequence[str],
-        metadata_columns: MetaDataStoreColumns = DEFAULT_COLUMNS,
+        metadata_columns: RecordColumns = DEFAULT_COLUMNS,
     ) -> None:
         super().__init__(source=source)
 

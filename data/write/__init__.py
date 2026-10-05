@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from collections.abc import Mapping, Generator
+from collections.abc import Generator
 from contextlib import ExitStack, contextmanager
 from dataclasses import asdict
 import json
@@ -14,23 +14,23 @@ import numpy as np
 from numpy.typing import NDArray
 from pydantic import BaseModel, ConfigDict
 
-from data.models.game_state.memory import MemoryGameStateSchema
-from data.models.gamepad import GamepadState
+from data.constants import DEFAULT_COLUMNS
 from data.models.record import RecordingConfig
+from data.models.schema import Schema, Snapshot
 
 from .metadata import RecordingMetadata
 from .writers import (
-    ControllerWriter,
-    ControllerWriterConfig,
     GamepadWriter,
-    GameStateWriter,
-    GameStateWriterConfig,
+    ParquetWriter,
+    ParquetWriterConfig,
     VideoConfig,
     VideoFrameWriter,
 )
 
 __all__ = [
+    "ParquetWriterConfig",
     "RecordingMetadata",
+    "VideoConfig",
     "WriterConfig",
     "Writer",
 ]
@@ -41,8 +41,8 @@ class WriterConfig(BaseModel):
 
     recording: RecordingConfig
     video: VideoConfig
-    game_state: GameStateWriterConfig
-    controller: ControllerWriterConfig
+    game_state: ParquetWriterConfig
+    controller: ParquetWriterConfig
 
 
 class Writer:
@@ -54,33 +54,71 @@ class Writer:
         self,
         *,
         path: str | Path,
-        schema: MemoryGameStateSchema,
+        controller_schema: Schema,
+        game_state_schema: Schema,
     ) -> Generator[RecordingWriter]:
-        with RecordingWriter(path=path, schema=schema, config=self.config) as writer:
+        with RecordingWriter(
+            path=path,
+            controller_schema=controller_schema,
+            game_state_schema=game_state_schema,
+            config=self.config,
+        ) as writer:
             yield writer
 
     @contextmanager
     def gamepad(self) -> Generator[GamepadWriter]:
         writer = GamepadWriter()
 
-        launched_bridge = False
+        try:
+            writer.connect()
+
+        except FileNotFoundError as error:
+            raise RuntimeError(
+                "Controller bridge is not running. Connect the virtual gamepad first."
+            ) from error
 
         try:
-            try:
-                writer.connect()
-
-            except FileNotFoundError:
-                self._start_gamepad_bridge()
-                launched_bridge = True
-
-                self._wait_for_gamepad_bridge(writer)
-
             yield writer
 
         finally:
-            writer.close(shutdown=launched_bridge)
+            writer.close()
 
-    def _start_gamepad_bridge(
+    def start_gamepad_bridge(self) -> bool:
+        writer = GamepadWriter()
+
+        try:
+            writer.connect()
+            writer.close()
+            return False
+
+        except FileNotFoundError:
+            pass
+
+        self._launch_gamepad_bridge()
+        self._wait_for_gamepad_bridge(writer)
+        writer.close()
+
+        return True
+
+    def stop_gamepad_bridge(self) -> bool:
+        writer = GamepadWriter()
+
+        try:
+            writer.connect()
+
+        except FileNotFoundError:
+            return False
+
+        except OSError:
+            raise RuntimeError(
+                "Controller is currently used, end whatever is using it before."
+            )
+
+        writer.close(shutdown=True)
+
+        return True
+
+    def _launch_gamepad_bridge(
         self,
     ) -> None:
         root = Path(__file__).resolve().parents[2]
@@ -130,13 +168,15 @@ class RecordingWriter:
         self,
         *,
         path: str | Path,
-        schema: MemoryGameStateSchema,
+        controller_schema: Schema,
+        game_state_schema: Schema,
         config: WriterConfig,
     ) -> None:
         self.config = config
         self.root = Path(path)
         self.root.mkdir(parents=True, exist_ok=True)
-        self.schema = schema
+        self.controller_schema = controller_schema
+        self.game_state_schema = game_state_schema
 
         self._validate_targets()
 
@@ -155,16 +195,18 @@ class RecordingWriter:
             )
 
             self.controller_writer = self._stack.enter_context(
-                ControllerWriter(
-                    path=self.root / config.recording.controller_file,
+                ParquetWriter(
+                    self.root / config.recording.controller_file,
+                    controller_schema.to_pyarrow_schema(),
                     flush_every=config.controller.flush_every,
+                    compression=config.controller.compression,
                 )
             )
 
             self.game_state_writer = self._stack.enter_context(
-                GameStateWriter(
-                    path=self.root / config.recording.game_state_file,
-                    schema=schema,
+                ParquetWriter(
+                    self.root / config.recording.game_state_file,
+                    game_state_schema.to_pyarrow_schema(),
                     flush_every=config.game_state.flush_every,
                     compression=config.game_state.compression,
                 )
@@ -184,8 +226,8 @@ class RecordingWriter:
         index: int,
         timestamp_ns: int,
         video_frame: NDArray[np.uint8],
-        controller_state: GamepadState,
-        game_state: Mapping[str, object],
+        controller_state: Snapshot,
+        game_state: Snapshot,
     ) -> None:
         if self._closed:
             raise RuntimeError("Writer is closed")
@@ -196,28 +238,33 @@ class RecordingWriter:
         self.video_writer.write(frame=video_frame)
 
         self.controller_writer.write(
-            index=index,
-            timestamp_ns=timestamp_ns,
-            state=controller_state,
+            self._snapshot_row(index, timestamp_ns, controller_state)
         )
-
         self.game_state_writer.write(
-            index=index,
-            timestamp_ns=timestamp_ns,
-            values=game_state,
+            self._snapshot_row(index, timestamp_ns, game_state)
         )
 
         self._sample_count += 1
+
+    @staticmethod
+    def _snapshot_row(
+        index: int,
+        timestamp_ns: int,
+        snapshot: Snapshot,
+    ) -> dict[str, object]:
+        return {
+            DEFAULT_COLUMNS.frame_index: index,
+            DEFAULT_COLUMNS.capture_timestamp_ns: timestamp_ns,
+            **snapshot.to_dict(),
+        }
 
     def _validate_targets(self) -> None:
         targets = [
             self.root / self.config.recording.video_file,
             self.root / self.config.recording.controller_file,
+            self.root / self.config.recording.game_state_file,
             self.root / self.config.recording.metadata_file,
         ]
-
-        if self.schema is not None:
-            targets.append(self.root / self.config.recording.game_state_file)
 
         existing = [path for path in targets if path.exists()]
 

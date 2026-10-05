@@ -9,18 +9,6 @@ from torch import Tensor
 from utils.registries import Registry
 
 
-@dataclass(frozen=True, slots=True)
-class SampleColumns:
-    frame_index: str
-    capture_timestamp_ns: str
-
-
-DEFAULT_SAMPLE_COLUMNS = SampleColumns(
-    frame_index="frame_index",
-    capture_timestamp_ns="frame_timestamp_ns",
-)
-
-
 class StoreConfig(BaseModel):
     model_config = ConfigDict(frozen=True, extra="forbid", strict=True)
 

@@ -1,13 +1,32 @@
 from dataclasses import dataclass
-from typing import Generic, Self, TYPE_CHECKING
+from typing import Generic, Self, TYPE_CHECKING, overload, Literal
 from functools import cached_property
-from collections.abc import Iterable
+from collections.abc import Iterable, Sequence
 from pathlib import Path
+from collections.abc import Mapping
 
 from pydantic import BaseModel, ConfigDict, model_validator
 
+from data.constants import DEFAULT_COLUMNS
+
 if TYPE_CHECKING:
     import pyarrow as pa
+
+
+type NumpyType = Literal[
+    "bool",
+    "int8",
+    "uint8",
+    "int16",
+    "uint16",
+    "int32",
+    "uint32",
+    "int64",
+    "uint64",
+    "float32",
+    "float64",
+    "str",
+]
 
 
 class Field[T](BaseModel):
@@ -40,7 +59,7 @@ class Schema[F: Field](BaseModel):
         return {field.name: field for field in self.fields}
 
     @property
-    def feature_count(self) -> int:
+    def width(self) -> int:
         return len(self.fields)
 
     def index(self, name: str) -> int:
@@ -61,16 +80,14 @@ class Schema[F: Field](BaseModel):
     def to_pyarrow_schema(self) -> pa.Schema:
         import pyarrow as pa
 
-        return pa.schema(
-            [
-                pa.field("index", pa.int64()),
-                pa.field("timestamp_ns", pa.int64()),
-                *(
-                    pa.field(field.name, pa.from_numpy_dtype(field.dtype))
-                    for field in self.fields
-                ),
-            ]
-        )
+        cols = []
+        cols.append(pa.field(DEFAULT_COLUMNS.frame_index, pa.int64()))
+        cols.append(pa.field(DEFAULT_COLUMNS.capture_timestamp_ns, pa.int64()))
+
+        for field in self.fields:
+            cols.append(pa.field(field.name, pa.from_numpy_dtype(field.dtype)))
+
+        return pa.schema(cols)
 
     @classmethod
     def from_json(cls, source: str | Path | dict) -> Self:
@@ -97,3 +114,57 @@ class Schema[F: Field](BaseModel):
                 "fields": tuple(schema_dict["fields"]),
             }
         )
+
+
+class Snapshot[F: Field]:
+    def __init__(
+        self,
+        values: Iterable[object],
+        schema: Schema[F],
+        timestamp_ns: int,
+    ) -> None:
+        if timestamp_ns < 0:
+            raise ValueError("timestamp_ns cannot be negative")
+        
+        self.values = tuple(values)
+        self.schema = schema
+        self.timestamp_ns = timestamp_ns
+
+    def __getitem__(self, name: str) -> object:
+        if name not in self.columns:
+            raise KeyError(f"Snapshot does not contain field: {name}")
+
+        index = self.schema.index(name)
+        return self.values[index]
+
+    @property
+    def columns(self) -> ...:
+        return self.schema.feature_names
+
+    @classmethod
+    def from_dict(
+        cls,
+        values: Mapping[str, object],
+        schema: Schema[F],
+        timestamp_ns: int,
+        nullable: bool = False,
+    ) -> Self:
+        ordered_data = []
+        for col in schema.fields:
+            if col.name not in values and nullable:
+                ordered_data.append(None)
+            else:
+                ordered_data.append(values[col.name])
+
+        if len(ordered_data) != schema.width:
+            raise ValueError(f"Expected {schema.width} values, got {len(ordered_data)}")
+
+        return cls(tuple(ordered_data), schema, timestamp_ns)
+
+    def to_dict(self) -> dict[str, object]:
+        py_data = {}
+
+        for i, col in enumerate(self.schema.fields):
+            py_data[col.name] = self.values[i]
+
+        return py_data

@@ -2,21 +2,11 @@ from __future__ import annotations
 
 from typing import Literal
 
-from pydantic import BaseModel
-
-from data.capture.memory.windows import MemoryReadError, ProcessMemory
-
-
-class ModulePointerLocator(BaseModel):
-    type: Literal["module_pointer"]
-    offset: str
-
-    def resolve(self, memory: ProcessMemory) -> int:
-        pointer_address = memory.module_base + int(self.offset, 0)
-        return memory.read_pointer(pointer_address)
+from data.capture.sources.memory.reader import DependentLocator, StaticLocator
+from data.capture.sources.memory.windows import MemoryReadError, ProcessMemory
 
 
-class FD4SingletonLocator(BaseModel):
+class FD4SingletonLocator(StaticLocator):
     type: Literal["fd4_singleton"]
     class_name: str
     offset: str
@@ -26,9 +16,8 @@ class FD4SingletonLocator(BaseModel):
         return memory.read_pointer(pointer_address)
 
 
-class CharacterHandleLocator(BaseModel):
+class CharacterHandleLocator(DependentLocator):
     type: Literal["character_handle"]
-    locator: str
     player_offset: str
     target_handle_offset: str
     character_set_offset: str
