@@ -70,7 +70,7 @@ class DataPipeline:
             print(f"\rStarting in {seconds_left}...", end="", flush=True)
             sleep(1.0)
 
-        print("Press F8 to stop recording.")
+        print("Press F9 to stop recording.")
 
         if seconds is not None:
             print(f"Recording for {seconds:.1f} seconds.")
