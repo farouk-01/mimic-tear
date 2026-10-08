@@ -7,32 +7,50 @@ gstate_memory_schema = "1.16.2"
 controller_tensor_schema = "2"
 
 # =============================================================================
-# Model
+# Policy
 # =============================================================================
-[model]
-d_model = 256
-return_predictions = true
+[policy]
+preset = "resnet_lstm"
 
-[model.vision]
-output_features = 512
+[policy.vision]
+type = "resnet18"
+output_size = 512
 weights_name = "DEFAULT"
 
-[model.temporal]
-hidden_features = 512
+[policy.game_state]
+d_model = 256
+aggregator = { type = "mean" }
+
+[policy.fusion]
+type = "concat"
+output_size = 512
+
+[policy.temporal]
+type = "lstm"
+hidden_size = 512
 num_layers = 2
 dropout = 0.1
 
-[model.game_state]
+# [policy.temporal]
+# type = "transformer"
+# d_model = 256
+# num_layers = 4
+# num_heads = 8
+# window = 30
+# dropout = 0.1
 
-[model.fusion]
-output_features = 512
-
-[model.controller]
-button_outputs = 14
+[policy.controller]
+type = "gamepad"
+num_buttons = 14
 
 # =============================================================================
 # Training hyperparameters
 # =============================================================================
+
+[training]
+save_predictions = true
+seed = 0
+repeats = 1
 
 [training.hyperparameters]
 sequence_length = 120
@@ -46,11 +64,11 @@ analog_gain = 1.0
 
 [training.hyperparameters.controller_weights]
 south = 1.0
-east = 3.0
+east = 5.0
 west = 1.0
 north = 1.0
 left_bumper = 1.0
-right_bumper = 8.0
+right_bumper = 10.0
 left_stick = 1.0
 right_stick = 15.0
 
@@ -71,7 +89,7 @@ right_trigger = 1.0
 
 [training.hyperparameters.early_stopping]
 enabled = true
-patience = 3
+patience = 5
 min_delta = 0.001
 
 [training.data_loader]
@@ -217,9 +235,9 @@ aggregate = false
 flush = true
 
 [logging.profiling.profiles."SequenceDataset.__getitem__"]
-enabled = false
+enabled = true
 timer = true
-cuda_timer = true
+cuda_timer = false
 cpu = false
 ram = false
 cuda = false
@@ -227,9 +245,9 @@ aggregate = true
 flush = false
 
 [logging.profiling.profiles."ParquetStore.get_range"]
-enabled = false
+enabled = true
 timer = true
-cuda_timer = true
+cuda_timer = false
 cpu = false
 ram = false
 cuda = false
@@ -247,8 +265,8 @@ aggregate = true
 flush = false
 
 [logging.profiling.profiles."VideoStore.get_range"]
-enabled = false
-timer = false
+enabled = true
+timer = true
 cuda_timer = true
 cpu = false
 ram = false
@@ -267,6 +285,26 @@ aggregate = true
 flush = false
 
 [logging.profiling.profiles."Process.process_sequence"]
+enabled = true
+timer = true
+cuda_timer = false
+cpu = false
+ram = false
+cuda = false
+aggregate = true
+flush = false
+
+[logging.profiling.profiles."Policy.forward"]
+enabled = true
+timer = false
+cuda_timer = true
+cpu = false
+ram = false
+cuda = false
+aggregate = true
+flush = false
+
+[logging.profiling.profiles."GamepadLoss.forward"]
 enabled = false
 timer = true
 cuda_timer = true
@@ -276,68 +314,8 @@ cuda = false
 aggregate = true
 flush = false
 
-[logging.profiling.profiles."LSTMPolicy.forward"]
-enabled = false
-timer = true
-cuda_timer = true
-cpu = false
-ram = false
-cuda = false
-aggregate = true
-flush = false
-
-[logging.profiling.profiles."PolicyLoss.forward"]
-enabled = false
-timer = true
-cuda_timer = true
-cpu = false
-ram = false
-cuda = false
-aggregate = true
-flush = false
-
-[logging.profiling.profiles."Vision.forward"]
-enabled = false
-timer = false
-cuda_timer = true
-cpu = false
-ram = false
-cuda = false
-aggregate = true
-flush = false
-
-[logging.profiling.profiles."Temporal.forward"]
-enabled = false
-timer = false
-cuda_timer = true
-cpu = false
-ram = false
-cuda = false
-aggregate = true
-flush = false
-
-[logging.profiling.profiles."GameState.forward"]
-enabled = false
-timer = false
-cuda_timer = true
-cpu = false
-ram = false
-cuda = false
-aggregate = true
-flush = false
-
-[logging.profiling.profiles."Fusion.forward"]
-enabled = false
-timer = false
-cuda_timer = true
-cpu = false
-ram = false
-cuda = false
-aggregate = true
-flush = false
-
-[logging.profiling.profiles."Controller.forward"]
-enabled = false
+[logging.profiling.profiles."ResNet18.forward"]
+enabled = true
 timer = false
 cuda_timer = true
 cpu = false

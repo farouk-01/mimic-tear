@@ -1,6 +1,8 @@
-from data.process.transforms.tensor import Delta, Lag, Ratio, TensorTransform
+from torch import Tensor
 
-GAME_STATE_TRANSFORMS: tuple[TensorTransform, ...] = (
+from data.process.transforms import Delta, Lag, Ratio, Transform
+
+GAME_STATE_TRANSFORMS: tuple[Transform[Tensor], ...] = (
     Ratio(
         output="player_hp_ratio",
         numerator="player_health",

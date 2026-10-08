@@ -26,6 +26,13 @@ log_file_enable = false
 name = "mimic_tear.performance"
 log_file = "logs/mimic_tear_perf.log"
 
+[logging.grace]
+enabled = true
+level = "DEBUG"
+log_file_enable = false
+name = "mimic_tear.grace"
+log_file = "logs/mimic_tear_output.log"
+
 
 # =============================================================================
 # Function profiles

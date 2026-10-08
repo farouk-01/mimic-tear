@@ -14,8 +14,7 @@ from data.process import ProcessConfig, DatasetSourceConfig
 from data.process.datasets.tensor import TensorDatasetConfig
 from data.process.transforms.tensor import TensorTransform
 from data.write import (
-    ControllerWriterConfig,
-    GameStateWriterConfig,
+    ParquetWriterConfig,
     VideoConfig,
     WriterConfig,
 )
@@ -105,11 +104,11 @@ class DataPipelineConfig(BaseModel):
     ) -> WriterConfig:
         video = VideoConfig.model_validate(raw["recording"]["video"])
 
-        controller = ControllerWriterConfig.model_validate(
+        controller = ParquetWriterConfig.model_validate(
             raw["recording"]["controller"]
         )
 
-        game_state = GameStateWriterConfig.model_validate(
+        game_state = ParquetWriterConfig.model_validate(
             raw["recording"]["game_state"]
         )
 

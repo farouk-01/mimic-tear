@@ -5,7 +5,7 @@ from typing import Literal, Self
 
 from utils.files import load_json
 from data.models.tensor import TensorSchema
-from data.capture.memory import EldenRingMemoryProfile
+from data.capture import EldenRingMemoryProfile
 
 SCHEMA_DIR = Path("configs/schemas")
 

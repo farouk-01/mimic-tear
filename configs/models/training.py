@@ -11,10 +11,12 @@ class TrainingConfig(BaseModel):
 
     hyperparameters: Hyperparameters
     data_loader: DataLoaderConfig
+    save_predictions: bool = True
 
     @classmethod
     def load(cls, raw_training: dict) -> TrainingConfig:
         return cls(
             hyperparameters=raw_training["hyperparameters"],
             data_loader=raw_training["data_loader"],
+            save_predictions=raw_training["save_predictions"],
         )

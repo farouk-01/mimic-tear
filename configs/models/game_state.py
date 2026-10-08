@@ -6,7 +6,7 @@ from torch import Tensor
 
 from data.process.transforms.tensor import TensorTransform
 from configs.transforms.game_state import GAME_STATE_TRANSFORMS
-from data.capture.memory import EldenRingMemoryProfile
+from data.capture import EldenRingMemoryProfile
 from data.models.tensor import TensorSchema
 from data.process.encoders.encoder import EncoderConfig
 from data.process.stores.encoding import EncodingStoreConfig

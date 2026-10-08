@@ -1,7 +1,6 @@
 from typing import Any, Self
 from pathlib import Path
 import copy
-from collections.abc import Mapping
 
 from pydantic import BaseModel, ConfigDict
 
@@ -9,8 +8,8 @@ from utils.files import load_toml
 
 from .models.version import VersionConfig
 from .models.logging import LoggingSettings
-from .models.model import ModelConfig
 from .models.paths import PathsConfig
+from .models.policy import PolicyConfig
 from .models.schema import Schemas
 from .models.pipeline import DataPipelineConfig
 from .models.training import TrainingConfig
@@ -25,13 +24,12 @@ DEFAULT_OVERRIDE_PATH = Path("configs/config.override.toml")
 class MimicTearConfig(BaseModel):
     model_config = ConfigDict(frozen=True, extra="forbid", strict=True)
 
-    raw_cfg: Mapping[str, Any]
-
     logging: LoggingSettings
     paths: PathsConfig
     data: DataPipelineConfig
     training: TrainingConfig
     gstate: GameStateConfig
+    policy: PolicyConfig
 
     @classmethod
     def load(cls) -> Self:
@@ -54,12 +52,13 @@ class MimicTearConfig(BaseModel):
         )
 
         training = TrainingConfig.load(cfg["training"])
+        policy = PolicyConfig.model_validate(cfg["policy"])
 
         frame = FrameConfig.load(
             schema=schemas.tensor.frame(),
             store_cfg=cfg["data"]["stores"]["frames"],
             transform_cfg=cfg["data"]["transforms"]["frames"],
-            weights_name=cfg["model"]["vision"]["weights_name"],
+            weights_name=policy.vision.weights_name,
         )
 
         controller_version = version.controller_tensor_schema
@@ -76,23 +75,12 @@ class MimicTearConfig(BaseModel):
         )
 
         return cls(
-            raw_cfg=cfg,
             logging=logging,
             paths=paths,
             data=data,
             training=training,
             gstate=gstate_cfg,
-        )
-
-    def load_model_config(
-        self,
-        *,
-        encoding_cardinalities: Mapping[str, Mapping[str, int]],
-    ) -> ModelConfig:
-        return ModelConfig.load(
-            self.raw_cfg["model"],
-            gstate_schema=self.gstate.tensor_schema,
-            encoding_cardinalities=encoding_cardinalities,
+            policy=policy,
         )
 
 
