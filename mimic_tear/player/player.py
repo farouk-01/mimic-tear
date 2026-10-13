@@ -43,19 +43,73 @@ class Player:
         self,
         *,
         stop_event: Event | None = None,
+        active: Event | None = None,
     ) -> None:
         self.model.eval()
         state: Any = None
+        was_active = False
 
-        for sample in self.process_stream(stop_event=stop_event):
-            # each dataset is [1, ...] (one frame) -> [B=1, T=1, ...]
-            batch = TensorDict(sample.datasets, batch_size=[1]).unsqueeze(0)
-            batch = batch.to(self.device, non_blocking=True)
+        stream = iter(self.process_stream(stop_event=stop_event))
 
-            inputs = PolicyInputs.from_batch(batch, presence=sample.presence)
-            output, state = self.model(inputs, state)
+        try:
+            sample = next(stream, None)
+            if sample is None:
+                return
 
-            self._write_output(output)
+            self._forward(sample, None)
+            self.logger.info("Mimic Tear ready")
+
+            while True:
+                if active is not None and not active.is_set():
+                    if was_active:
+                        self.gamepad.write(GamepadState())
+                        self.logger.info("Mimic Tear paused")
+                        was_active = False
+
+                    if not self._wait_until_active(active, stop_event):
+                        return
+
+                if not was_active:
+                    state = None
+                    was_active = True
+                    self.logger.info("Mimic Tear active")
+
+                sample = next(stream, None)
+                if sample is None:
+                    return
+
+                output, state = self._forward(sample, state)
+
+                self._write_output(output)
+
+        finally:
+            close = getattr(stream, "close", None)
+            if close is not None:
+                close()
+
+    @staticmethod
+    def _wait_until_active(
+        active: Event,
+        stop_event: Event | None,
+        poll_interval: float = 0.1,
+    ) -> bool:
+        while not active.wait(timeout=poll_interval):
+            if stop_event is not None and stop_event.is_set():
+                return False
+
+        return stop_event is None or not stop_event.is_set()
+
+    def _forward(
+        self,
+        sample: ProcessedSample,
+        state: Any,
+    ) -> tuple[ControllerOutput, Any]:
+        # each dataset is [1, ...] (one frame) -> [B=1, T=1, ...]
+        batch = TensorDict(sample.datasets, batch_size=[1]).unsqueeze(0)
+        batch = batch.to(self.device, non_blocking=True)
+
+        inputs = PolicyInputs.from_batch(batch, presence=sample.presence)
+        return self.model(inputs, state)
 
     def _write_output(self, output: ControllerOutput) -> None:
         raw_analog = output.analog[0, -1]
@@ -69,3 +123,11 @@ class Player:
         )
 
         self.gamepad.write(gamepad_state)
+
+    # def _log_output(self, output: ControllerOutput) -> None:
+    #     raw_analog = output.analog[0, -1]
+    #     buttons = torch.sigmoid(output.button_logits[0, -1])
+
+    #     analog = (raw_analog * self.analog_gain).clamp(-1.0, 1.0)
+
+        
