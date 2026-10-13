@@ -9,6 +9,7 @@ from types import TracebackType
 from typing import Self
 import subprocess
 from time import monotonic, sleep
+import uuid
 
 import numpy as np
 from numpy.typing import NDArray
@@ -274,7 +275,10 @@ class RecordingWriter:
             raise FileExistsError(f"Recording files already exist: {paths}")
 
     def _write_metadata(self) -> None:
+        recording_id = str(uuid.uuid4())
+
         metadata = RecordingMetadata(
+            recording_id=recording_id,
             format_version=self.config.recording.version,
             fps=float(self.config.video.fps),
             width=self.config.video.width,

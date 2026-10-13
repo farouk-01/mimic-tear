@@ -2,6 +2,7 @@ from dataclasses import dataclass
 
 @dataclass(frozen=True, slots=True)
 class RecordingMetadata:
+    recording_id: str
     format_version: int
     fps: float
     width: int
