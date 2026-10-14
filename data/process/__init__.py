@@ -21,6 +21,7 @@ from .stores.encoding import EncodingStore, EncodingStoreConfig
 from .stores.base import FILE_STORES, StoreConfig, TensorColumn, TensorTable
 
 from utils import profile
+from utils.files import load_json
 
 __all__ = [
     "SequenceDataset",
@@ -65,6 +66,7 @@ type EncodingCardinalitiesByDataset = Mapping[
 
 @dataclass(frozen=True, slots=True)
 class ProcessedRecording:
+    id: str
     dataset: SequenceDataset
     presence: PresenceMasks
 
@@ -88,13 +90,17 @@ class Process:
 
         self._validate_recording_integrity(datasets)
 
+        metadata = load_json(recording.metadata)
+        recording_id = metadata["recording_id"]
+
         return ProcessedRecording(
-            SequenceDataset(
+            id=recording_id,
+            dataset=SequenceDataset(
                 datasets=datasets,
                 sequence_length=self.config.sequence_length,
                 drop_incomplete=self.config.drop_incomplete,
             ),
-            presences,
+            presence=presences,
         )
 
     def discover_encodings(self, recording_root: str | Path) -> None:

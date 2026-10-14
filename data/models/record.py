@@ -26,7 +26,7 @@ class Recording:
     video: Path
     controller: Path
     game_state: Path | None
-    metadata: Path | None
+    metadata: Path
 
     @classmethod
     def from_directory(
@@ -65,11 +65,7 @@ class Recording:
                 if game_state.is_file()
                 else None
             ),
-            metadata=(
-                metadata
-                if metadata.is_file()
-                else None
-            ),
+            metadata=metadata,
         )
 
     @property
