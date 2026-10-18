@@ -1,8 +1,7 @@
 from __future__ import annotations
-from time import sleep
 import torch
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 from threading import Event
 import datetime
 
@@ -14,12 +13,11 @@ from mimic_tear.model.components import GamepadLoss
 from mimic_tear.player.player import Player
 from utils.logging.logger import Logger
 from mimic_tear.training import Trainer
-from mimic_tear.training.checkpoint import (
-    load_checkpoint,
-    save_checkpoint,
-    save_predictions,
-)
+from mimic_tear.training.checkpoint import load_checkpoint, save_checkpoint
+from mimic_tear.analysis.recorder import PredictionRecorder
 from utils.logging.profiling import Profiler
+from utils.hotkeys import VK_F10, register_hotkey, unregister_hotkey
+from utils.files import dump_json
 
 if TYPE_CHECKING:
     from configs.config import MimicTearConfig
@@ -58,6 +56,8 @@ class MimicTear:
             writer_config=config.data.writer,
         )
 
+        self.recorder: PredictionRecorder | None = None
+
     def mimic(self, *, discover_encodings: bool = False) -> None:
         self.logger.info("Starting training...")
 
@@ -65,6 +65,9 @@ class MimicTear:
             self.config.paths.artifacts
             / f"{datetime.datetime.now().strftime('%Y-%m-%d_%H-%M')}"
         )
+
+        if self.config.training.save_predictions:
+            self.recorder = PredictionRecorder(artififact_path / "predictions")
 
         if discover_encodings:
             self.logger.info("Discovering encodings...")
@@ -76,8 +79,6 @@ class MimicTear:
         train_path = self.config.paths.training_recordings
         val_path = self.config.paths.validation_recordings
 
-        cardinalities = self.data_pipeline.encoding_cardinalities
-
         policy, policy_cfg = self._build_policy()
 
         optimizer = torch.optim.AdamW(
@@ -85,9 +86,6 @@ class MimicTear:
             lr=self.hyperparams.learning_rate,
             weight_decay=self.hyperparams.weight_decay,
         )
-
-        # self.logger.info("Training recordings: %d", len(train_dataset))
-        # self.logger.info("Validation recordings: %d", len(val_dataset))
 
         loss = GamepadLoss(
             button_weight=self.hyperparams.controller_weights.button_weights,
@@ -110,6 +108,8 @@ class MimicTear:
         epochs_without_improvement = 0
         early_stopping = self.hyperparams.early_stopping
 
+        self._write_config_metadata(artififact_path)
+
         for epoch in range(1, self.hyperparams.epochs + 1):
             train_datasets = self.data_pipeline.prepare_recordings(root=train_path)
             val_datasets = self.data_pipeline.prepare_recordings(root=val_path)
@@ -121,34 +121,17 @@ class MimicTear:
                 "Validating epoch %d/%d...", epoch, self.hyperparams.epochs
             )
 
-            predictions = None
-            if self.config.training.return_predictions:
-                val_metrics, predictions = trainer.validate(
-                    val_datasets,
-                    return_predictions=True,
-                )
-            else:
-                val_metrics = trainer.validate(val_datasets)
-
-            metadata = {
-                "validation_loss": val_metrics.total_loss,
-                "network_hyperparameters": self.hyperparams.model_dump(),
-                "policy_config": policy_cfg.model_dump(),
-                "sequence_length": self.hyperparams.sequence_length,
-                "encoders": [
-                    encoders.model_dump() for encoders in self.config.gstate.encoders
-                ],
-                "encoding_cardinalities": dict(cardinalities),
-                "game_state_schema": self.config.gstate.tensor_schema.model_dump(),
-            }
+            val_metrics = trainer.validate(val_datasets, observer=self.recorder)
 
             save_checkpoint(
                 artififact_path / "latest.pt",
                 model=policy,
                 optimizer=optimizer,
                 epoch=epoch,
-                metadata=metadata,
             )
+
+            if self.recorder is not None:
+                self.recorder.save(epoch=epoch)
 
             if val_metrics.total_loss < best_val_loss:
                 best_val_loss = val_metrics.total_loss
@@ -157,14 +140,7 @@ class MimicTear:
                     model=policy,
                     optimizer=optimizer,
                     epoch=epoch,
-                    metadata=metadata,
                 )
-
-                if predictions is not None:
-                    save_predictions(
-                        artififact_path / "predictions.parquet",
-                        predictions=predictions,
-                    )
 
             self.logger.info(
                 "Epoch %d/%d : Train Loss: %.4f, Validation Loss: %.4f",
@@ -199,10 +175,7 @@ class MimicTear:
                 break
 
     def summon(self, *, stop_event: Event | None = None) -> None:
-        input("Press Enter to summon (Ctrl+C to dismiss)")
-
         self.logger.info("Summoning Mimic Tear...")
-        sleep(3.0)
 
         policy, _ = self._build_policy()
 
@@ -212,6 +185,17 @@ class MimicTear:
 
         if self.grace_logger is None:
             self.grace_logger = Logger(**self.config.logging.grace.model_dump())
+
+        active = Event()
+
+        def toggle_active() -> None:
+            if active.is_set():
+                active.clear()
+            else:
+                active.set()
+
+        hotkey = register_hotkey(VK_F10, toggle_active)
+        self.logger.info("Press F10 to start/pause the Mimic Tear (Ctrl+C to dismiss)")
 
         try:
             with self.data_pipeline.writer.gamepad() as gamepad:
@@ -225,10 +209,27 @@ class MimicTear:
                     logger=self.grace_logger,
                 )
 
-                player.run(stop_event=stop_event)
+                player.run(stop_event=stop_event, active=active)
 
         except KeyboardInterrupt:
             self.logger.info("Mimic Tear dismissed.")
+
+        finally:
+            unregister_hotkey(hotkey)
+
+    def start_virtual_gamepad(self) -> bool:
+        self.logger.info("Connecting gamepad bridge...")
+
+        started = self.data_pipeline.writer.start_gamepad_bridge()
+
+        return started
+
+    def stop_virtual_gamepad(self) -> bool:
+        self.logger.info("Disconnecting gamepad bridge...")
+
+        stopped = self.data_pipeline.writer.stop_gamepad_bridge()
+
+        return stopped
 
     def train(self, *, discover_encodings: bool = False) -> None:
         self.mimic(discover_encodings=discover_encodings)
@@ -237,6 +238,11 @@ class MimicTear:
         self.summon(stop_event=stop_event)
 
     def _latest_checkpoint(self) -> Path:
+        checkpoint = self.config.paths.artifacts / "best.pt"
+
+        if checkpoint.exists():
+            return checkpoint
+
         checkpoints = list(self.config.paths.artifacts.glob("*/best.pt"))
 
         if not checkpoints:
@@ -257,6 +263,20 @@ class MimicTear:
         )
 
         return policy.to(self.device), policy_cfg
+
+    def _write_config_metadata(self, path: Path) -> None:
+        metadata = {
+            "hyperparameters": self.hyperparams.model_dump(),
+            "encoders": [
+                encoders.model_dump() for encoders in self.config.gstate.encoders
+            ],
+            "encoding_cardinalities": self.data_pipeline.encoding_cardinalities,
+        }
+
+        path.mkdir(parents=True, exist_ok=True)
+
+        dump_json(metadata, path=path / "metadata.json", indent=4, sort_keys=True)
+
 
     def record(
         self,

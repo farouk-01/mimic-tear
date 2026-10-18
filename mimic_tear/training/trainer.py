@@ -2,7 +2,8 @@ from __future__ import annotations
 
 from collections.abc import Iterable
 from dataclasses import dataclass
-from typing import Literal, overload
+from pathlib import Path
+from typing import Protocol
 
 from pydantic import BaseModel, ConfigDict
 import torch
@@ -14,8 +15,7 @@ from torch.utils.data import DataLoader
 from data.process import ProcessedRecording, SequenceDataset
 from data.models.gamepad import get_inputs_names_classified
 from mimic_tear.model import Policy, PolicyInputs
-from mimic_tear.model.components.loss import GamepadLoss
-from mimic_tear.model.components import ControllerOutput
+from mimic_tear.model.components import ControllerOutput, GamepadLoss
 
 from utils import profile
 
@@ -60,15 +60,25 @@ class EpochMetrics:
         )
 
 
+
+class ValidationObserver(Protocol):
+    def begin_recording(self, recording_id: str) -> None: ...
+
+    def update(
+        self,
+        *,
+        output: ControllerOutput,
+        target_analog: Tensor,
+        target_buttons: Tensor,
+    ) -> None: ...
+
+
 class Sampler:
     @profile
     @staticmethod
     def prepare(sample: TensorDict) -> TensorDict:
         # [T, ...] -> [1, T, ...]
         return sample.unsqueeze(0)
-
-
-type GamepadPredictions = tuple[ControllerOutput, torch.Tensor, torch.Tensor]
 
 
 class Trainer:
@@ -170,34 +180,15 @@ class Trainer:
 
         return metrics.average()
 
-    @overload
-    def validate(
-        self,
-        recordings: Iterable[ProcessedRecording],
-        *,
-        return_predictions: Literal[False] = False,
-    ) -> EpochMetrics: ...
-
-    @overload
-    def validate(
-        self,
-        recordings: Iterable[ProcessedRecording],
-        *,
-        return_predictions: Literal[True],
-    ) -> tuple[EpochMetrics, list[GamepadPredictions]]: ...
-
     @profile
     def validate(
         self,
         recordings: Iterable[ProcessedRecording],
         *,
-        return_predictions: bool = False,
-    ) -> EpochMetrics | tuple[EpochMetrics, list[GamepadPredictions]]:
+        observer: ValidationObserver | None = None,
+    ) -> EpochMetrics:
         self.policy.eval()
         metrics = EpochMetrics()
-
-        if return_predictions:
-            self.predictions: list[GamepadPredictions] = []
 
         with torch.no_grad():
             for recording in recordings:
@@ -205,6 +196,9 @@ class Trainer:
 
                 dataset = recording.dataset
                 presence_mask = recording.presence
+
+                if observer is not None:
+                    observer.begin_recording(recording.id)
 
                 for sample in self._loader(dataset):
                     batch = Sampler.prepare(sample).to(self.device, non_blocking=True)
@@ -233,11 +227,12 @@ class Trainer:
                         buttons=losses.buttons.item(),
                     )
 
-                    if return_predictions:
-                        self.predictions.append((output, analog_targets, buttons_target))
-
-        if return_predictions:
-            return metrics.average(), self.predictions
+                    if observer is not None:
+                        observer.update(
+                            output=output,
+                            target_analog=analog_targets,
+                            target_buttons=buttons_target,
+                        )
 
         return metrics.average()
 
