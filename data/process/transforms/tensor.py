@@ -5,7 +5,7 @@ from typing import ClassVar, Literal
 import torch
 from torch import Tensor
 from torchvision.transforms import v2
-from pydantic import ConfigDict, PositiveInt
+from pydantic import ConfigDict, PositiveInt, model_validator
 
 from data.process.transforms.base import Transform, TemporalTransform, Lookback
 
@@ -141,6 +141,20 @@ class Delta(TensorTransform):
         return lhs - rhs
 
 
+class Add(TensorTransform):
+    name: ClassVar[str] = "add"
+
+    lhs: str
+    rhs: str
+
+    @property
+    def inputs(self) -> tuple[str, str]:
+        return self.lhs, self.rhs
+
+    def __call__(self, lhs: Tensor, rhs: Tensor) -> Tensor:
+        return lhs + rhs
+
+
 class Lag(TemporalTensorTransform):
     name: ClassVar[str] = "lag"
 
@@ -162,7 +176,7 @@ class Lag(TemporalTensorTransform):
         if missing > 0:
             if self.fill == "first":
                 first_value = self.lookback[0] if self.lookback else input[0]
-                self.lookback.extendleft([first_value] * missing)    
+                self.lookback.extendleft([first_value] * missing)
 
             elif self.fill == "zero":
                 value = torch.zeros_like(input[0])
@@ -174,8 +188,69 @@ class Lag(TemporalTensorTransform):
         result[:required_fill_size] = torch.stack(fill)
 
         if self.periods < input.size(0):
-            result[self.periods:] = input[:-self.periods]
-        
+            result[self.periods :] = input[: -self.periods]
+
         self.lookback.extend(input)
 
         return result
+
+
+class ConsecutiveCount(TemporalTensorTransform):
+    name: ClassVar[str] = "consecutive_count"
+
+    input: str
+    max_count: PositiveInt | None = None
+    periods: Literal[1] = 1 # type: ignore[reportIncompatibleVariableOverride]
+    shift: Literal[None, 1] = None # maybe later make flexible but need modify periods too
+
+    @property
+    def inputs(self) -> tuple[str]:
+        return (self.input,)
+
+    def __call__(self, input: Tensor) -> Tensor:
+        if input.ndim == 0:
+            raise ValueError("ConsecutiveCount requires a tensor with a time dimension")
+
+        if self.lookback:
+            carry = self.lookback[-1]
+        else:
+            carry = torch.zeros(1, device=input.device, dtype=torch.int64)
+
+        pressed = input.bool()
+
+        # [1, 1, 0, 1, 0] -> [1, 2, 2, 3, 3]
+        cumsum = torch.cumsum(pressed, dim=0)
+
+        # keep only the cumsum value of zeros
+        # [1, 2, 2, 3, 3] -> [0, 0, 2, 0, 3]
+        zeros = cumsum * pressed.logical_not()
+
+        # propagate the zeros cumsum values until the next zero value
+        # [0, 0, 2, 0, 3] -> [0, 0, 2, 2, 3]
+        offsets = torch.cummax(zeros, dim=0).values
+
+        # [1, 2, 2, 3, 3] - [0, 0, 2, 2, 3] -> [1, 2, 0, 1, 0]
+        consecutive_count = cumsum - offsets
+
+        if carry > 0:
+            first_zero_index = torch.where(consecutive_count.logical_not())[0]
+
+            if len(first_zero_index) > 0:
+                first_zero_index = first_zero_index[0]
+                consecutive_count[:first_zero_index] += carry
+            else:
+                consecutive_count += carry
+
+        self.lookback.push(consecutive_count[-1])
+
+        if self.shift is not None:
+            held_count = torch.empty_like(consecutive_count)
+            held_count[0] = carry
+            held_count[1:] = consecutive_count[:-1]
+
+            consecutive_count = held_count
+            
+        if self.max_count is not None:
+            consecutive_count = torch.clamp(consecutive_count, max=self.max_count)
+
+        return consecutive_count
