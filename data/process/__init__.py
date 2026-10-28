@@ -2,7 +2,6 @@ from collections.abc import Mapping, Collection
 from pathlib import Path
 from dataclasses import dataclass
 from functools import cached_property
-from typing import overload
 
 from pydantic import BaseModel, ConfigDict
 import torch
@@ -52,6 +51,10 @@ class ProcessConfig(BaseModel):
 
     sequence_length: int
     drop_incomplete: bool = True
+
+    @property
+    def schemas(self) -> dict[RecordingName, TensorSchema]:
+        return {cfg.name: cfg.dataset_cfg.tensor_schema for cfg in self.datasets}
 
 
 type PresenceMask = dict[str, torch.Tensor]
@@ -148,43 +151,19 @@ class Process:
     def dataset_configs(self) -> dict[RecordingName, DatasetSourceConfig]:
         return {cfg.name: cfg for cfg in self.config.datasets}
 
-    @overload
-    def process_sample(
-        self,
-        sample: CaptureSample,
-    ) -> ProcessedSample: ...
-
-    @overload
-    def process_sample(
-        self,
-        sample: Mapping[RecordingName, TensorTable | None],
-    ) -> ProcessedSample: ...
-
-    def process_sample(
-        self,
-        sample: CaptureSample | Mapping[RecordingName, TensorTable | None],
-    ) -> ProcessedSample:
-        if isinstance(sample, CaptureSample):
-            sources = self._capture_sample_sources(sample)
-        else:
-            sources = sample
+    def process_sample(self, sample: CaptureSample) -> ProcessedSample:
+        sources = self._capture_sample_sources(sample)
 
         datasets: dict[RecordingName, TensorDict] = {}
         presences: PresenceMasks = {}
 
         for name, table in sources.items():
-            if name not in self.dataset_configs:
-                raise KeyError(f"Unknown dataset: {name}")
-
             cfg = self.dataset_configs[name]
             dataset = self.live_datasets[name]
 
             datasets[name] = dataset.process_table(table, batch_size=[1])
 
-            available_features = self._available_table_features(
-                table=table,
-                transforms=cfg.dataset_cfg.transforms,
-            )
+            available_features = dataset.available_features_for(table or ())
 
             presences[name] = self._make_presence_mask(
                 schema=dataset.schema,

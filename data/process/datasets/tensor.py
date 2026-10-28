@@ -1,3 +1,5 @@
+from collections.abc import Collection
+
 from torch import Tensor
 import torch
 from torch.utils.data import Dataset
@@ -109,10 +111,16 @@ class TensorDataset(Dataset[TensorDict]):
         # base fields that the store can provide
         store_available = set(self.store.feature_names)
 
-        # everything the graph can produce from those fields
-        available = self.transforms.resolve_available(store_available)
+        # only return features that are model inputs and that the store can produce
+        return self.available_features_for(store_available)
 
-        # only return features that are model inputs
+    def available_features_for(self, names: Collection[str]) -> set[str]:
+        if self.store is None:
+            return set()
+
+        # everything the graph can produce from those fields
+        available = self.transforms.resolve_available(names)
+
         return set(available) & set(self.schema.model_input_names)
 
     @profile
@@ -153,7 +161,9 @@ class TensorDataset(Dataset[TensorDict]):
                 )
                 
         tensors = self._apply_schema(tensors)
-        self._validate_tensors(tensors)
+
+        expected = self.available_features_for(table.keys() if table is not None else ())
+        self._validate_tensors(tensors, expected)
 
         return TensorDict(
             {
@@ -201,9 +211,8 @@ class TensorDataset(Dataset[TensorDict]):
 
         return torch.zeros(batch_size, dtype=field.torch_dtype)
 
-    def _validate_tensors(self, tensors: TensorDict) -> None:
+    def _validate_tensors(self, tensors: TensorDict, expected: set[str]) -> None:
         actual = set(tensors.keys())
-        expected = self.available_features
 
         missing = expected - actual
         if missing:
