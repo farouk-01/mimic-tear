@@ -2,6 +2,7 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from typing import Any
 
+import torch
 from torch import Tensor, nn
 
 from mimic_tear.model.components.controller import ControllerOutput
@@ -29,17 +30,20 @@ class GamepadLossOutput(LossOutput):
 class GamepadLoss(Loss):
     analog_weight: Tensor
     button_weight: Tensor
+    button_transition_weight: Tensor
 
     def __init__(
         self,
         *,
         button_weight: Tensor,
         analog_weight: Tensor,
+        button_transition_weight: Tensor,
     ) -> None:
         super().__init__()
 
         self.register_buffer("analog_weight", analog_weight)
         self.register_buffer("button_weight", button_weight)
+        self.register_buffer("button_transition_weight", button_transition_weight)
 
         self.analog_criterion = nn.SmoothL1Loss(reduction="none")
         self.button_criterion = nn.BCEWithLogitsLoss(
@@ -63,8 +67,17 @@ class GamepadLoss(Loss):
         ) / self.analog_weight.sum()
 
         analog_loss = analog_loss.mean()
-        button_loss = button_loss.mean()
+        transition_weights = self._transition_weights(button_target)
+        button_loss = (button_loss * transition_weights).sum() / transition_weights.sum()
 
         total = analog_loss + button_loss
 
         return GamepadLossOutput(total=total, analog=analog_loss, buttons=button_loss)
+
+    def _transition_weights(self, button_target: Tensor) -> Tensor:
+        first_frame = button_target[:, :1]
+        previous = torch.cat([first_frame, button_target[:, :-1]], dim=1)
+
+        is_transitioning = button_target != previous
+
+        return torch.where(is_transitioning, self.button_transition_weight, 1.0)

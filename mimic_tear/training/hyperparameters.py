@@ -79,6 +79,34 @@ class ControllerInputsWeights(BaseModel):
             [getattr(self, name) for name in ANALOG_INPUTS], dtype=torch.float32
         )
 
+
+class ButtonTransitionWeights(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True, strict=True)
+
+    # buttons
+    south: float = 1.0
+    east: float = 1.0
+    west: float = 1.0
+    north: float = 1.0
+    left_bumper: float = 1.0
+    right_bumper: float = 1.0
+    left_stick: float = 1.0
+    right_stick: float = 1.0
+    dpad_up: float = 1.0
+    dpad_down: float = 1.0
+    dpad_left: float = 1.0
+    dpad_right: float = 1.0
+    start: float = 1.0
+    back: float = 1.0
+
+    @property
+    def weights(self) -> torch.Tensor:
+        from data.models.gamepad import BUTTON_INPUTS
+
+        return torch.tensor(
+            [getattr(self, name) for name in BUTTON_INPUTS], dtype=torch.float32
+        )
+
 class EarlyStoppingConfig(BaseModel):
     model_config = ConfigDict(frozen=True, extra="forbid", strict=True)
 
@@ -99,6 +127,10 @@ class Hyperparameters(BaseModel):
 
     controller_weights: ControllerInputsWeights = Field(
         default_factory=ControllerInputsWeights
+    )
+
+    button_transition_weights: ButtonTransitionWeights = Field(
+        default_factory=ButtonTransitionWeights
     )
 
     sequence_length: PositiveInt
