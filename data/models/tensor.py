@@ -56,6 +56,7 @@ class TensorField(Field[TensorType]):
 
     is_derived: bool = False
     is_model_input: bool = True
+    is_model_target: bool = False
     is_metadata: bool = False
 
     @model_validator(mode="after")
@@ -75,6 +76,12 @@ class TensorField(Field[TensorType]):
 
         return self
 
+    @model_validator(mode="after")
+    def validate_input_target(self) -> Self:
+        if self.is_model_input and self.is_model_target:
+            raise ValueError(f"Field '{self.name}' cannot be both a model input and a target")
+        return self
+
     @property
     def torch_dtype(self) -> torch.dtype:
         return TORCH_DTYPES[self.dtype]
@@ -92,3 +99,14 @@ class TensorSchema(Schema[TensorField]):
                 model_input_names.append(name)
 
         return tuple(model_input_names)
+
+    @property
+    def model_target_names(self) -> tuple[str, ...]:
+        fields = self.fields_by_name
+        model_target_names: list[str] = []
+
+        for name, field in fields.items():
+            if field.is_model_target:
+                model_target_names.append(name)
+
+        return tuple(model_target_names)

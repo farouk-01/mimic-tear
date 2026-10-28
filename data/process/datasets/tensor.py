@@ -139,7 +139,10 @@ class TensorDataset(Dataset[TensorDict]):
             tensors = self.transforms(tensors)
 
             for name in tuple(tensors.keys()):
-                if name not in self.schema.model_input_names:
+                is_model_input = name in self.schema.model_input_names
+                is_model_target = name in self.schema.model_target_names
+
+                if not is_model_input and not is_model_target:
                     del tensors[name]
 
         for field in self.schema.fields:
@@ -151,7 +154,14 @@ class TensorDataset(Dataset[TensorDict]):
                 
         tensors = self._apply_schema(tensors)
         self._validate_tensors(tensors)
-        return tensors
+
+        return TensorDict(
+            {
+                "inputs": tensors.select(*self.schema.model_input_names),
+                "targets": tensors.select(*self.schema.model_target_names),
+            },
+            batch_size=batch_size,
+        )
 
     def _materialize_column(self, name: str, column: TensorColumn) -> Tensor:
         field = self.schema.get_field(name)
@@ -202,6 +212,10 @@ class TensorDataset(Dataset[TensorDict]):
         unexpected = actual - set(self.schema.feature_names)
         if unexpected:
             raise ValueError(f"Unexpected features: {sorted(unexpected)}")
+
+        missing_targets = set(self.schema.model_target_names) - actual
+        if missing_targets:
+            raise ValueError(f"Missing targets: {sorted(missing_targets)}")
 
         fields = self.schema.fields_by_name
 
