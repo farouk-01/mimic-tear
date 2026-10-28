@@ -24,7 +24,7 @@ class Player:
         process_stream: ProcessStream,
         gamepad: GamepadWriter,
         device: torch.device | str,
-        button_threshold: float = 0.5,
+        button_thresholds: torch.Tensor,
         analog_gain: float = 1.0,
         logger: Logger,
         log_interval: int = 30,
@@ -33,7 +33,7 @@ class Player:
         self.process_stream = process_stream
         self.gamepad = gamepad
         self.device = torch.device(device)
-        self.button_threshold = button_threshold
+        self.button_thresholds = button_thresholds.to(self.device)
         self.analog_gain = analog_gain
         self.logger = logger
         self.log_interval = log_interval
@@ -113,13 +113,14 @@ class Player:
 
     def _write_output(self, output: ControllerOutput) -> None:
         raw_analog = output.analog[0, -1]
-        buttons = torch.sigmoid(output.button_logits[0, -1])
-
         analog = (raw_analog * self.analog_gain).clamp(-1.0, 1.0)
+
+        buttons = torch.sigmoid(output.button_logits[0, -1])
+        pressed = buttons >= self.button_thresholds
 
         gamepad_state = GamepadState.from_values(
             analog=analog.tolist(),
-            buttons=(buttons >= self.button_threshold).tolist(),
+            buttons=pressed.tolist(),
         )
 
         self.gamepad.write(gamepad_state)
@@ -129,5 +130,3 @@ class Player:
     #     buttons = torch.sigmoid(output.button_logits[0, -1])
 
     #     analog = (raw_analog * self.analog_gain).clamp(-1.0, 1.0)
-
-        

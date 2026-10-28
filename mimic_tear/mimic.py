@@ -90,6 +90,7 @@ class MimicTear:
         loss = GamepadLoss(
             button_weight=self.hyperparams.controller_weights.button_weights,
             analog_weight=self.hyperparams.controller_weights.analog_weights,
+            button_transition_weight=self.hyperparams.button_transition_weights.weights,
         ).to(self.device)
 
         self.logger.info("Initializing trainer on %s...", self.device)
@@ -108,7 +109,7 @@ class MimicTear:
         epochs_without_improvement = 0
         early_stopping = self.hyperparams.early_stopping
 
-        self._write_config_metadata(artififact_path)
+        self._write_config_metadata(artififact_path, policy_cfg)
 
         for epoch in range(1, self.hyperparams.epochs + 1):
             train_datasets = self.data_pipeline.prepare_recordings(root=train_path)
@@ -170,7 +171,7 @@ class MimicTear:
                 self.logger.info(
                     "Best validation loss: %.4f at epoch %d",
                     early_stopping_best,
-                    epoch - epochs_without_improvement,
+                    epoch - epochs_without_improvement,  # TODO i think off by one
                 )
                 break
 
@@ -204,7 +205,7 @@ class MimicTear:
                     process_stream=self.data_pipeline.process_stream,
                     gamepad=gamepad,
                     device=self.device,
-                    button_threshold=self.hyperparams.button_threshold,
+                    button_thresholds=self.hyperparams.button_thresholds.thresholds,
                     analog_gain=self.hyperparams.analog_gain,
                     logger=self.grace_logger,
                 )
@@ -258,25 +259,25 @@ class MimicTear:
 
         policy = get_policy(
             policy_cfg,
-            gstate_schema=self.config.gstate.tensor_schema,
-            cardinalities=cardinalities.get("game_state", {}),
+            schemas=self.config.data.process.schemas,  # type: ignore
+            cardinalities=cardinalities,
         )
 
         return policy.to(self.device), policy_cfg
 
-    def _write_config_metadata(self, path: Path) -> None:
+    def _write_config_metadata(self, path: Path, policy_cfg: PolicyConfig) -> None:
         metadata = {
             "hyperparameters": self.hyperparams.model_dump(),
             "encoders": [
                 encoders.model_dump() for encoders in self.config.gstate.encoders
             ],
             "encoding_cardinalities": self.data_pipeline.encoding_cardinalities,
+            "game_state_schema": self.config.gstate.tensor_schema.model_dump(),
         }
 
         path.mkdir(parents=True, exist_ok=True)
 
         dump_json(metadata, path=path / "metadata.json", indent=4, sort_keys=True)
-
 
     def record(
         self,

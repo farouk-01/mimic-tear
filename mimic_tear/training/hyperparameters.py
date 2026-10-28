@@ -107,6 +107,37 @@ class ButtonTransitionWeights(BaseModel):
             [getattr(self, name) for name in BUTTON_INPUTS], dtype=torch.float32
         )
 
+
+class ButtonThresholds(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True, strict=True)
+
+    south: float = Field(default=0.5, ge=0.0, le=1.0)
+    east: float = Field(default=0.5, ge=0.0, le=1.0)
+    west: float = Field(default=0.5, ge=0.0, le=1.0)
+    north: float = Field(default=0.5, ge=0.0, le=1.0)
+
+    left_bumper: float = Field(default=0.5, ge=0.0, le=1.0)
+    right_bumper: float = Field(default=0.5, ge=0.0, le=1.0)
+
+    left_stick: float = Field(default=0.5, ge=0.0, le=1.0)
+    right_stick: float = Field(default=0.5, ge=0.0, le=1.0)
+
+    dpad_up: float = Field(default=0.5, ge=0.0, le=1.0)
+    dpad_down: float = Field(default=0.5, ge=0.0, le=1.0)
+    dpad_left: float = Field(default=0.5, ge=0.0, le=1.0)
+    dpad_right: float = Field(default=0.5, ge=0.0, le=1.0)
+
+    start: float = Field(default=0.5, ge=0.0, le=1.0)
+    back: float = Field(default=0.5, ge=0.0, le=1.0)
+
+    @property
+    def thresholds(self) -> torch.Tensor:
+        from data.models.gamepad import BUTTON_INPUTS
+
+        return torch.tensor(
+            [getattr(self, name) for name in BUTTON_INPUTS], dtype=torch.float32
+        )
+
 class EarlyStoppingConfig(BaseModel):
     model_config = ConfigDict(frozen=True, extra="forbid", strict=True)
 
@@ -135,7 +166,7 @@ class Hyperparameters(BaseModel):
 
     sequence_length: PositiveInt
 
-    button_threshold: PositiveFloat = Field(default=0.5, ge=0.0, le=1.0)
+    button_thresholds: ButtonThresholds = Field(default_factory=ButtonThresholds)
     analog_gain: PositiveFloat = 1.0
 
     @classmethod
