@@ -1,6 +1,7 @@
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from typing import Self
+from collections.abc import Mapping
 
 from tensordict import TensorDict
 import torch
@@ -19,10 +20,12 @@ from mimic_tear.model.components import (
 
 from utils import profile
 
+
 @dataclass(frozen=True, slots=True)
 class PolicyInputs:
     images: Tensor
     game_state: TensorDict | None
+    controller_state: TensorDict | None
     presence_mask: PresenceMasks | None
 
     @classmethod
@@ -31,10 +34,16 @@ class PolicyInputs:
         batch: TensorDict,
         presence: PresenceMasks | None,
     ) -> Self:
-        images = batch["video", "frames"]
-        gstate = batch.get("game_state")
+        images = batch["video", "inputs", "frames"]
+        gstate = batch.get(("game_state", "inputs"))
+        cstate = batch.get(("controller", "inputs"))
 
-        return cls(images=images, game_state=gstate, presence_mask=presence)
+        return cls(
+            images=images,
+            game_state=gstate,
+            controller_state=cstate,
+            presence_mask=presence,
+        )
 
 
 class BasePolicy[State](nn.Module, ABC):
@@ -93,21 +102,29 @@ class Policy[State](BasePolicy[State]):
         images = inputs.images
         b, t = inputs.images.shape[:2]
 
-        game_state = inputs.game_state
-
         vision_features = self._apply_vision(images, b, t)
         features.append(vision_features)
 
-        masks = (inputs.presence_mask or {}).get("game_state")
+        presence = inputs.presence_mask or {}
+        values: dict[str, Tensor] = {}
+        masks: dict[str, Tensor] = {}
+
+        for (data, mask) in (
+            (inputs.game_state, presence.get("game_state")),
+            (inputs.controller_state, presence.get("controller")),
+        ):
+            if data is not None:
+                values.update(data.items())
+            if mask is not None:
+                masks.update(mask)
 
         if self.encoders is not None:
-            features.append(self._encode_game_state(game_state, masks, b, t))
+            features.append(self._encode_features(values, masks, b, t))
 
-        x = (
-            self.fusion(*features)
-            if self.fusion is not None
-            else torch.cat(features, dim=-1)
-        )
+        if self.fusion is not None:
+            x = self.fusion(*features)
+        else:
+            x = torch.cat(features, dim=-1)
 
         if self.temporal is not None:
             x, state = self.temporal(x, state)
@@ -125,9 +142,9 @@ class Policy[State](BasePolicy[State]):
 
         return vision_features
 
-    def _encode_game_state(
+    def _encode_features(
         self,
-        game_state: TensorDict | None,
+        features: Mapping[str, Tensor] | None,
         masks: dict[str, Tensor] | None,
         b: int,
         t: int,
@@ -142,11 +159,11 @@ class Policy[State](BasePolicy[State]):
 
         for name, encoder in self.encoders.items():
             if (
-                game_state is not None
+                features is not None
                 and masks is not None
                 and bool(masks.get(name, False))
             ):
-                tokens.append(encoder(game_state[name]))
+                tokens.append(encoder(features[name]))
             else:
                 tokens.append(self.missing[name].expand(b, t, -1))
 

@@ -17,8 +17,8 @@ __all__ = ["Policy", "PolicyInputs", "get_policy"]
 def get_policy(
     config: PolicyConfig,
     *,
-    gstate_schema: TensorSchema,
-    cardinalities: Mapping[str, int],
+    schemas: Mapping[str, TensorSchema],
+    cardinalities: Mapping[str, Mapping[str, int]],
 ) -> Policy:
     build = PRESETS[config.preset]
-    return build(config, gstate_schema=gstate_schema, cardinalities=cardinalities)
+    return build(config, schemas=schemas, cardinalities=cardinalities)

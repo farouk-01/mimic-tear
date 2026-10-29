@@ -20,7 +20,7 @@ from mimic_tear.model.components.aggregator import Flatten
 from .base import Policy
 
 if TYPE_CHECKING:
-    from configs.models.policy import AggregatorConfig, GameStateConfig, PolicyConfig
+    from configs.models.policy import AggregatorConfig, FeaturesConfig, PolicyConfig
 
 CATEGORICAL_KINDS = frozenset({"categorical", "nominal"})
 
@@ -28,8 +28,8 @@ CATEGORICAL_KINDS = frozenset({"categorical", "nominal"})
 def resnet_lstm(
     config: PolicyConfig,
     *,
-    gstate_schema: TensorSchema,
-    cardinalities: Mapping[str, int],
+    schemas: Mapping[str, TensorSchema],
+    cardinalities: Mapping[str, Mapping[str, int]],
 ) -> Policy:
     if config.temporal is None:
         raise ValueError("resnet_lstm requires a temporal config")
@@ -40,13 +40,28 @@ def resnet_lstm(
     encoders = None
     aggregator = None
 
-    if config.game_state is not None:
-        encoders = _build_encoders(config.game_state, gstate_schema, cardinalities)
+    if config.features is not None:
+        gstate_schema = schemas["game_state"]
+        cstate_schema = schemas["controller"]
+
+        gstate_cardinalities = cardinalities.get("game_state", {})
+        cstate_cardinalities = cardinalities.get("controller", {})
+
+        gstate_encoders = _build_encoders(config.features, gstate_schema, gstate_cardinalities)
+        cstate_encoders = _build_encoders(config.features, cstate_schema, cstate_cardinalities)
+
+        duplicates = gstate_encoders.keys() & cstate_encoders.keys()
+        if duplicates:
+            raise ValueError(f"Duplicate encoder keys found: {duplicates}")
+
+        encoders = gstate_encoders | cstate_encoders
+        
         aggregator = _build_aggregator(
-            config.game_state.aggregator,
-            d_model=config.game_state.d_model,
+            config.features.aggregator,
+            d_model=config.features.d_model,
             num_tokens=len(encoders),
         )
+
         streams.append(aggregator.output_size)
 
     fusion = None
@@ -76,7 +91,7 @@ def resnet_lstm(
 
 
 def _build_encoders(
-    config: GameStateConfig,
+    config: FeaturesConfig,
     schema: TensorSchema,
     cardinalities: Mapping[str, int],
 ) -> dict[str, Encoder]:
