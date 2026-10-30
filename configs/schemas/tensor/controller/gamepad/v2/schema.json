@@ -3,102 +3,142 @@
         {
             "name": "left_x",
             "dtype": "float32",
-            "kind": "continuous"
+            "kind": "continuous",
+            "is_model_input": false,
+            "is_model_target": true
         },
         {
             "name": "left_y",
             "dtype": "float32",
-            "kind": "continuous"
+            "kind": "continuous",
+            "is_model_input": false,
+            "is_model_target": true
         },
         {
             "name": "right_x",
             "dtype": "float32",
-            "kind": "continuous"
+            "kind": "continuous",
+            "is_model_input": false,
+            "is_model_target": true
         },
         {
             "name": "right_y",
             "dtype": "float32",
-            "kind": "continuous"
+            "kind": "continuous",
+            "is_model_input": false,
+            "is_model_target": true
         },
         {
             "name": "left_trigger",
             "dtype": "float32",
-            "kind": "continuous"
+            "kind": "continuous",
+            "is_model_input": false,
+            "is_model_target": true
         },
         {
             "name": "right_trigger",
             "dtype": "float32",
-            "kind": "continuous"
+            "kind": "continuous",
+            "is_model_input": false,
+            "is_model_target": true
         },
         {
             "name": "south",
             "dtype": "float32",
-            "kind": "binary"
+            "kind": "binary",
+            "is_model_input": false,
+            "is_model_target": true
         },
         {
             "name": "east",
             "dtype": "float32",
-            "kind": "binary"
+            "kind": "binary",
+            "is_model_input": false,
+            "is_model_target": true
         },
         {
             "name": "west",
             "dtype": "float32",
-            "kind": "binary"
+            "kind": "binary",
+            "is_model_input": false,
+            "is_model_target": true
         },
         {
             "name": "north",
             "dtype": "float32",
-            "kind": "binary"
+            "kind": "binary",
+            "is_model_input": false,
+            "is_model_target": true
         },
         {
             "name": "left_bumper",
             "dtype": "float32",
-            "kind": "binary"
+            "kind": "binary",
+            "is_model_input": false,
+            "is_model_target": true
         },
         {
             "name": "right_bumper",
             "dtype": "float32",
-            "kind": "binary"
+            "kind": "binary",
+            "is_model_input": false,
+            "is_model_target": true
         },
         {
             "name": "left_stick",
             "dtype": "float32",
-            "kind": "binary"
+            "kind": "binary",
+            "is_model_input": false,
+            "is_model_target": true
         },
         {
             "name": "right_stick",
             "dtype": "float32",
-            "kind": "binary"
+            "kind": "binary",
+            "is_model_input": false,
+            "is_model_target": true
         },
         {
             "name": "dpad_up",
             "dtype": "float32",
-            "kind": "binary"
+            "kind": "binary",
+            "is_model_input": false,
+            "is_model_target": true
         },
         {
             "name": "dpad_down",
             "dtype": "float32",
-            "kind": "binary"
+            "kind": "binary",
+            "is_model_input": false,
+            "is_model_target": true
         },
         {
             "name": "dpad_left",
             "dtype": "float32",
-            "kind": "binary"
+            "kind": "binary",
+            "is_model_input": false,
+            "is_model_target": true
         },
         {
             "name": "dpad_right",
             "dtype": "float32",
-            "kind": "binary"
+            "kind": "binary",
+            "is_model_input": false,
+            "is_model_target": true
         },
         {
             "name": "start",
             "dtype": "float32",
-            "kind": "binary"
+            "kind": "binary",
+            "is_model_input": false,
+            "is_model_target": true
         },
         {
             "name": "back",
             "dtype": "float32",
-            "kind": "binary"
+            "kind": "binary",
+            "is_model_input": false,
+            "is_model_target": true
         }
     ]
 }

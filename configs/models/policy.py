@@ -19,7 +19,7 @@ class ResNet18Config(_SlotConfig):
 type VisionConfig = Annotated[ResNet18Config, Field(discriminator="type")]
 
 
-# ---------------------------------------------------------------- game state
+# ---------------------------------------------------------------- features
 
 
 class MeanConfig(_SlotConfig):
@@ -35,7 +35,7 @@ type AggregatorConfig = Annotated[
 ]
 
 
-class GameStateConfig(_SlotConfig):
+class FeaturesConfig(_SlotConfig):
     d_model: int = Field(gt=0)
     aggregator: AggregatorConfig
 
@@ -84,6 +84,6 @@ class PolicyConfig(_SlotConfig):
     vision: VisionConfig
     controller: ControllerConfig
 
-    game_state: GameStateConfig | None = None
+    features: FeaturesConfig | None = None
     fusion: FusionConfig | None = None
     temporal: TemporalConfig | None = None

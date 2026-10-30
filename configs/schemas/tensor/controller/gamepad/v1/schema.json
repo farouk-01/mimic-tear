@@ -3,102 +3,142 @@
         {
             "name": "left_x",
             "dtype": "float32",
-            "kind": "continuous"
+            "kind": "continuous",
+            "is_model_input": false,
+            "is_model_target": true
         },
         {
             "name": "left_y",
             "dtype": "float32",
-            "kind": "continuous"
+            "kind": "continuous",
+            "is_model_input": false,
+            "is_model_target": true
         },
         {
             "name": "right_x",
             "dtype": "float32",
-            "kind": "continuous"
+            "kind": "continuous",
+            "is_model_input": false,
+            "is_model_target": true
         },
         {
             "name": "right_y",
             "dtype": "float32",
-            "kind": "continuous"
+            "kind": "continuous",
+            "is_model_input": false,
+            "is_model_target": true
         },
         {
             "name": "left_trigger",
             "dtype": "float32",
-            "kind": "continuous"
+            "kind": "continuous",
+            "is_model_input": false,
+            "is_model_target": true
         },
         {
             "name": "right_trigger",
             "dtype": "float32",
-            "kind": "continuous"
+            "kind": "continuous",
+            "is_model_input": false,
+            "is_model_target": true
         },
         {
             "name": "south",
             "dtype": "bool",
-            "kind": "binary"
+            "kind": "binary",
+            "is_model_input": false,
+            "is_model_target": true
         },
         {
             "name": "east",
             "dtype": "bool",
-            "kind": "binary"
+            "kind": "binary",
+            "is_model_input": false,
+            "is_model_target": true
         },
         {
             "name": "west",
             "dtype": "bool",
-            "kind": "binary"
+            "kind": "binary",
+            "is_model_input": false,
+            "is_model_target": true
         },
         {
             "name": "north",
             "dtype": "bool",
-            "kind": "binary"
+            "kind": "binary",
+            "is_model_input": false,
+            "is_model_target": true
         },
         {
             "name": "left_bumper",
             "dtype": "bool",
-            "kind": "binary"
+            "kind": "binary",
+            "is_model_input": false,
+            "is_model_target": true
         },
         {
             "name": "right_bumper",
             "dtype": "bool",
-            "kind": "binary"
+            "kind": "binary",
+            "is_model_input": false,
+            "is_model_target": true
         },
         {
             "name": "left_stick",
             "dtype": "bool",
-            "kind": "binary"
+            "kind": "binary",
+            "is_model_input": false,
+            "is_model_target": true
         },
         {
             "name": "right_stick",
             "dtype": "bool",
-            "kind": "binary"
+            "kind": "binary",
+            "is_model_input": false,
+            "is_model_target": true
         },
         {
             "name": "dpad_up",
             "dtype": "bool",
-            "kind": "binary"
+            "kind": "binary",
+            "is_model_input": false,
+            "is_model_target": true
         },
         {
             "name": "dpad_down",
             "dtype": "bool",
-            "kind": "binary"
+            "kind": "binary",
+            "is_model_input": false,
+            "is_model_target": true
         },
         {
             "name": "dpad_left",
             "dtype": "bool",
-            "kind": "binary"
+            "kind": "binary",
+            "is_model_input": false,
+            "is_model_target": true
         },
         {
             "name": "dpad_right",
             "dtype": "bool",
-            "kind": "binary"
+            "kind": "binary",
+            "is_model_input": false,
+            "is_model_target": true
         },
         {
             "name": "start",
             "dtype": "bool",
-            "kind": "binary"
+            "kind": "binary",
+            "is_model_input": false,
+            "is_model_target": true
         },
         {
             "name": "back",
             "dtype": "bool",
-            "kind": "binary"
+            "kind": "binary",
+            "is_model_input": false,
+            "is_model_target": true
         }
     ]
 }

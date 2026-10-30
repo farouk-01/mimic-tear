@@ -1,0 +1,228 @@
+{
+    "fields": [
+        {
+            "name": "left_x",
+            "dtype": "float32",
+            "kind": "continuous",
+            "is_model_input": false,
+            "is_model_target": true
+        },
+        {
+            "name": "left_y",
+            "dtype": "float32",
+            "kind": "continuous",
+            "is_model_input": false,
+            "is_model_target": true
+        },
+        {
+            "name": "right_x",
+            "dtype": "float32",
+            "kind": "continuous",
+            "is_model_input": false,
+            "is_model_target": true
+        },
+        {
+            "name": "right_y",
+            "dtype": "float32",
+            "kind": "continuous",
+            "is_model_input": false,
+            "is_model_target": true
+        },
+        {
+            "name": "left_trigger",
+            "dtype": "float32",
+            "kind": "continuous",
+            "is_model_input": false,
+            "is_model_target": true
+        },
+        {
+            "name": "right_trigger",
+            "dtype": "float32",
+            "kind": "continuous",
+            "is_model_input": false,
+            "is_model_target": true
+        },
+        {
+            "name": "south",
+            "dtype": "float32",
+            "kind": "binary",
+            "is_model_input": false,
+            "is_model_target": true
+        },
+        {
+            "name": "east",
+            "dtype": "float32",
+            "kind": "binary",
+            "is_model_input": false,
+            "is_model_target": true
+        },
+        {
+            "name": "west",
+            "dtype": "float32",
+            "kind": "binary",
+            "is_model_input": false,
+            "is_model_target": true
+        },
+        {
+            "name": "north",
+            "dtype": "float32",
+            "kind": "binary",
+            "is_model_input": false,
+            "is_model_target": true
+        },
+        {
+            "name": "left_bumper",
+            "dtype": "float32",
+            "kind": "binary",
+            "is_model_input": false,
+            "is_model_target": true
+        },
+        {
+            "name": "right_bumper",
+            "dtype": "float32",
+            "kind": "binary",
+            "is_model_input": false,
+            "is_model_target": true
+        },
+        {
+            "name": "left_stick",
+            "dtype": "float32",
+            "kind": "binary",
+            "is_model_input": false,
+            "is_model_target": true
+        },
+        {
+            "name": "right_stick",
+            "dtype": "float32",
+            "kind": "binary",
+            "is_model_input": false,
+            "is_model_target": true
+        },
+        {
+            "name": "dpad_up",
+            "dtype": "float32",
+            "kind": "binary",
+            "is_model_input": false,
+            "is_model_target": true
+        },
+        {
+            "name": "dpad_down",
+            "dtype": "float32",
+            "kind": "binary",
+            "is_model_input": false,
+            "is_model_target": true
+        },
+        {
+            "name": "dpad_left",
+            "dtype": "float32",
+            "kind": "binary",
+            "is_model_input": false,
+            "is_model_target": true
+        },
+        {
+            "name": "dpad_right",
+            "dtype": "float32",
+            "kind": "binary",
+            "is_model_input": false,
+            "is_model_target": true
+        },
+        {
+            "name": "start",
+            "dtype": "float32",
+            "kind": "binary",
+            "is_model_input": false,
+            "is_model_target": true
+        },
+        {
+            "name": "back",
+            "dtype": "float32",
+            "kind": "binary",
+            "is_model_input": false,
+            "is_model_target": true
+        },
+        {
+            "name": "south_held",
+            "dtype": "float32",
+            "kind": "ordinal",
+            "is_derived": true
+        },
+        {
+            "name": "east_held",
+            "dtype": "float32",
+            "kind": "ordinal",
+            "is_derived": true
+        },
+        {
+            "name": "west_held",
+            "dtype": "float32",
+            "kind": "ordinal",
+            "is_derived": true
+        },
+        {
+            "name": "north_held",
+            "dtype": "float32",
+            "kind": "ordinal",
+            "is_derived": true
+        },
+        {
+            "name": "left_bumper_held",
+            "dtype": "float32",
+            "kind": "ordinal",
+            "is_derived": true
+        },
+        {
+            "name": "right_bumper_held",
+            "dtype": "float32",
+            "kind": "ordinal",
+            "is_derived": true
+        },
+        {
+            "name": "left_stick_held",
+            "dtype": "float32",
+            "kind": "ordinal",
+            "is_derived": true
+        },
+        {
+            "name": "right_stick_held",
+            "dtype": "float32",
+            "kind": "ordinal",
+            "is_derived": true
+        },
+        {
+            "name": "dpad_up_held",
+            "dtype": "float32",
+            "kind": "ordinal",
+            "is_derived": true
+        },
+        {
+            "name": "dpad_down_held",
+            "dtype": "float32",
+            "kind": "ordinal",
+            "is_derived": true
+        },
+        {
+            "name": "dpad_left_held",
+            "dtype": "float32",
+            "kind": "ordinal",
+            "is_derived": true
+        },
+        {
+            "name": "dpad_right_held",
+            "dtype": "float32",
+            "kind": "ordinal",
+            "is_derived": true
+        },
+        {
+            "name": "start_held",
+            "dtype": "float32",
+            "kind": "ordinal",
+            "is_derived": true
+        },
+        {
+            "name": "back_held",
+            "dtype": "float32",
+            "kind": "ordinal",
+            "is_derived": true
+        }
+    ]
+}
