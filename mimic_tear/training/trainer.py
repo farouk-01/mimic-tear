@@ -60,7 +60,6 @@ class EpochMetrics:
         )
 
 
-
 class ValidationObserver(Protocol):
     def begin_recording(self, recording_id: str) -> None: ...
 
@@ -141,7 +140,9 @@ class Trainer:
             for sample in self._loader(dataset):
                 batch = Sampler.prepare(sample).to(self.device, non_blocking=True)
 
-                analog_targets, buttons_target = self._targets(batch)
+                analog_targets, buttons_target = self._targets(
+                    batch["controller", "targets"]
+                )
 
                 self.optimizer.zero_grad(set_to_none=True)
 
@@ -203,7 +204,9 @@ class Trainer:
                 for sample in self._loader(dataset):
                     batch = Sampler.prepare(sample).to(self.device, non_blocking=True)
 
-                    analog_targets, buttons_target = self._targets(batch)
+                    analog_targets, buttons_target = self._targets(
+                        batch["controller", "targets"]
+                    )
 
                     with torch.autocast(
                         device_type=self.device.type,
@@ -241,11 +244,11 @@ class Trainer:
         analog_targets, buttons_target = get_inputs_names_classified()
 
         analog_targets = torch.stack(
-            [batch["controller", name] for name in analog_targets],
+            [batch[name] for name in analog_targets],
             dim=-1,
         )
         buttons_target = torch.stack(
-            [batch["controller", name] for name in buttons_target],
+            [batch[name] for name in buttons_target],
             dim=-1,
         )
 
