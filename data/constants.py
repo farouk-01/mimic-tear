@@ -2,7 +2,7 @@ from dataclasses import dataclass
 
 
 FRAME_FIELD = "frame"
-
+MAX_HELD = 30
 
 @dataclass(frozen=True, slots=True)
 class RecordColumns:

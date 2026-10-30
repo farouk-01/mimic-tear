@@ -115,9 +115,6 @@ class TensorDataset(Dataset[TensorDict]):
         return self.available_features_for(store_available)
 
     def available_features_for(self, names: Collection[str]) -> set[str]:
-        if self.store is None:
-            return set()
-
         # everything the graph can produce from those fields
         available = self.transforms.resolve_available(names)
 
@@ -161,7 +158,6 @@ class TensorDataset(Dataset[TensorDict]):
                 )
                 
         tensors = self._apply_schema(tensors)
-
         expected = self.available_features_for(table.keys() if table is not None else ())
         self._validate_tensors(tensors, expected)
 

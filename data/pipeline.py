@@ -165,7 +165,7 @@ class DataPipeline:
         with Capture(config=self.capture_config) as capture:
             for sample in capture.capture_stream(
                 stop_event=stop_event,
-                include_gamepad=False,
+                include_gamepad=True,
             ):
                 yield self.processor.process_sample(sample)
 

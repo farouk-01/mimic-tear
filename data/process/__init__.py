@@ -182,7 +182,6 @@ class Process:
         video_table: TensorTable = {"frames": TensorColumn(values=frame)}
 
         game_state_table: TensorTable | None = None
-
         if sample.game_state is not None:
             game_state_table = {}
 
@@ -190,7 +189,12 @@ class Process:
             schema = config.dataset_cfg.tensor_schema
 
             for name, value in sample.game_state.to_dict().items():
-                if name not in schema.fields_by_name or value is None:
+                if name not in schema.fields_by_name:
+                    continue
+                if value is None:
+                    print(
+                        f"Warning: game state field '{name}' is None. Might be the bug of live vs training"
+                    )
                     continue
 
                 field = schema.get_field(name)
@@ -202,7 +206,28 @@ class Process:
                     ),
                 )
 
-        return {"video": video_table, "game_state": game_state_table}
+        cstate_table: TensorTable | None = None
+        if sample.controller is not None:
+            cstate_table = {}
+
+            config = self.dataset_configs["controller"]
+            schema = config.dataset_cfg.tensor_schema
+
+            for name, value in sample.controller.to_dict().items():
+                field = schema.get_field(name)
+
+                cstate_table[name] = TensorColumn(
+                    values=torch.as_tensor(
+                        [value],
+                        dtype=field.torch_dtype,
+                    ),
+                )
+
+        return {
+            "video": video_table,
+            "game_state": game_state_table,
+            "controller": cstate_table,
+        }
 
     def _build_encoders(
         self,

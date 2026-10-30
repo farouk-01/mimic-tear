@@ -26,11 +26,11 @@ class GamepadReaderConfig(BaseModel):
 
 
 class GamepadReader(Reader):
-    def __init__(self, stick_deadzone: float) -> None:
+    def __init__(self, stick_deadzone: float, name_contains: str = "") -> None:
         super().__init__()
 
         native = import_module("ai_controller")
-        self._gamepad = native.Controller(stick_deadzone)
+        self._gamepad = native.Controller(stick_deadzone, name_contains)
 
     @property
     def schema(self) -> Schema[GamepadField]:
