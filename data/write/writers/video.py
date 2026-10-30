@@ -44,10 +44,11 @@ class VideoFrameWriter:
             exist_ok=True,
         )
 
-        fourcc = cv2.VideoWriter.fourcc(*"mp4v")
+        fourcc = cv2.VideoWriter.fourcc(*"avc1")
 
         self._writer = cv2.VideoWriter(
             str(self.path),
+            cv2.CAP_MSMF,
             fourcc,
             fps,
             (width, height),
