@@ -10,7 +10,10 @@
 
 namespace mimic_tear::controller {
 
-Controller::Controller(const float stick_deadzone)
+Controller::Controller(
+    const float stick_deadzone,
+    const std::string& name_contains
+)
     : stick_deadzone_(stick_deadzone) {
     if (stick_deadzone < 0.0f || stick_deadzone >= 1.0f) {
         throw std::invalid_argument(
@@ -39,8 +42,40 @@ Controller::Controller(const float stick_deadzone)
         );
     }
 
-    gamepad_ = SDL_OpenGamepad(gamepad_ids[0]);
+    /*
+     * Select the first gamepad whose name contains name_contains.
+     * An empty name_contains matches the first gamepad.
+     */
+    SDL_JoystickID selected_id = 0;
+    std::string available_names;
+
+    for (int i = 0; i < gamepad_count; ++i) {
+        const char* gamepad_name =
+            SDL_GetGamepadNameForID(gamepad_ids[i]);
+        const std::string name =
+            gamepad_name == nullptr ? "" : gamepad_name;
+
+        if (name.find(name_contains) != std::string::npos) {
+            selected_id = gamepad_ids[i];
+            break;
+        }
+
+        available_names += (available_names.empty() ? "" : ", ") +
+                           ("'" + name + "'");
+    }
+
     SDL_free(gamepad_ids);
+
+    if (selected_id == 0) {
+        SDL_QuitSubSystem(SDL_INIT_GAMEPAD);
+
+        throw std::runtime_error(
+            "No gamepad name contains '" + name_contains +
+            "'. Available gamepads: " + available_names
+        );
+    }
+
+    gamepad_ = SDL_OpenGamepad(selected_id);
 
     if (gamepad_ == nullptr) {
         const std::string error = SDL_GetError();

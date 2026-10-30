@@ -68,8 +68,9 @@ PYBIND11_MODULE(ai_controller, module) {
 
     py::class_<Controller>(module, "Controller")
         .def(
-            py::init<float>(),
-            py::arg("stick_deadzone") = 0.12f
+            py::init<float, const std::string&>(),
+            py::arg("stick_deadzone") = 0.12f,
+            py::arg("name_contains") = ""
         )
         .def("poll", &Controller::poll)
         .def_property_readonly("name", &Controller::name)

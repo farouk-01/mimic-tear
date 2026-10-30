@@ -10,7 +10,10 @@ namespace mimic_tear::controller {
 
 class Controller {
 public:
-    explicit Controller(float stick_deadzone = 0.12f);
+    explicit Controller(
+        float stick_deadzone = 0.12f,
+        const std::string& name_contains = ""
+    );
     ~Controller();
 
     Controller(const Controller&) = delete;
