@@ -59,6 +59,20 @@ class TemporalTransform[T](Transform[T]):
         default_factory=lambda data: Lookback(data["periods"])
     )
 
+
+class Rename(Transform):
+    name: ClassVar[str] = "rename"
+
+    input: str
+    output: str
+
+    @property
+    def inputs(self) -> tuple[str]:
+        return (self.input,)
+
+    def __call__(self, value: object) -> object:
+        return value
+
 class Graph[T]:
     def __init__(self, transforms: Sequence[Transform[T]]) -> None:
         self.transforms = transforms

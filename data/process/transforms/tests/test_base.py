@@ -61,3 +61,18 @@ class TestGraph:
             "enemy_health",
             "enemy_max_health",
         }
+
+    def test_rename_runs_after_consumers(self):
+        from data.process.transforms.base import Rename
+
+        transforms = (
+            AddOne(input="button", output="button_held"),
+            Rename(input="button_widened", output="button"),
+            AddOne(input="button", output="button_after"),
+        )
+
+        result = Graph[int](transforms)({"button": 1, "button_widened": 10})
+
+        assert result["button_held"] == 2
+        assert result["button"] == 10
+        assert result["button_after"] == 11
