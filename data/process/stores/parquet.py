@@ -1,5 +1,5 @@
 from pathlib import Path
-from collections.abc import Sequence, Collection
+from collections.abc import Callable, Sequence, Collection
 
 import pyarrow.parquet as pq
 import pyarrow as pa
@@ -22,6 +22,7 @@ from utils import profile
 
 class ParquetStoreConfig(StoreConfig):
     columns: Sequence[str]
+    transforms: Callable[[pa.Table], pa.Table] | None = None
 
 
 @FILE_STORES.register(".parquet")
@@ -32,34 +33,39 @@ class ParquetStore(Store[pa.Table]):
         *,
         columns: Sequence[str],
         metadata_columns: RecordColumns = DEFAULT_COLUMNS,
+        transforms: Callable[[pa.Table], pa.Table] | None = None,
     ) -> None:
         super().__init__(source=source)
 
         if not self.source.is_file():
             raise FileNotFoundError(f"Parquet file does not exist: {self.source}")
 
-        available_columns = pq.read_schema(self.source).names
-        self._columns = [col for col in columns if col in available_columns]
-
         frame_index = metadata_columns.frame_index
         capture_timestamp_ns = metadata_columns.capture_timestamp_ns
+        metadata = (frame_index, capture_timestamp_ns)
 
-        if frame_index in self._columns or capture_timestamp_ns in self._columns:
+        if any(col in columns for col in metadata):
             raise ValueError("Sample columns cannot also be payload columns")
 
-        table = pq.read_table(
-            self.source,
-            columns=[frame_index, capture_timestamp_ns, *self._columns],
-        )
+        table = pq.read_table(self.source)
 
-        if table.num_rows <= 0:
-            raise ValueError("Parquet file cannot be empty")
+        nums_rows = table.num_rows
+
+        if nums_rows <= 0:
+            raise ValueError(f"Parquet file is empty: {self.source}")
 
         self._frame_indices = table[frame_index].to_numpy(zero_copy_only=False)
         self._capture_timestamps_ns = table[capture_timestamp_ns].to_numpy(
             zero_copy_only=False
         )
 
+        if transforms is not None:
+            table = transforms(table)
+
+            if table.num_rows != nums_rows:
+                raise ValueError("Table transforms changed the row count")
+
+        self._columns = [col for col in columns if col in table.column_names]
         self._length = table.num_rows
         self._table = table.select(self._columns)
 
