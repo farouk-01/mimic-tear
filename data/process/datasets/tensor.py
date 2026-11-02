@@ -170,11 +170,11 @@ class TensorDataset(Dataset[TensorDict]):
         )
 
     def _materialize_column(self, name: str, column: TensorColumn) -> Tensor:
-        field = self.schema.get_field(name)
-
         values = column.values
         if column.validity is None:
             return values
+
+        field = self.schema.get_field(name)
 
         if not field.nullable:
             raise ValueError(f"Non-nullable feature '{name}' contains null values")
